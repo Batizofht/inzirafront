@@ -1,0 +1,15 @@
+export {
+  PageHead as PageMeta,
+  HomeSEO,
+  ExploreSEO,
+  SellSEO,
+  ServicesSEO,
+  AboutSEO,
+  ContactSEO,
+  SupportSEO,
+  SearchSEO,
+  LoginSEO,
+  RegisterSEO,
+  VehicleSEO,
+  CategorySEO,
+} from './page-head';

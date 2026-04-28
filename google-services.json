@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "498637796810",
+    "project_id": "inzira",
+    "storage_bucket": "inzira.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:498637796810:android:0d2cf5446bd31c960c0b33",
+        "android_client_info": {
+          "package_name": "com.inzira.inzira"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0hdbGrfERxxHpsigJ9sJjb0oh3vByD9E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
