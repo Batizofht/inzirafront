@@ -189,7 +189,7 @@ export default function FavoritesScreen() {
                     <ThemedText style={[styles.metaText, { color: colors.icon }]}>{vehicle.fuelType}</ThemedText>
                     <View style={[styles.metaDot, { backgroundColor: colors.icon }]} />
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <IconSymbol name="house.fill" size={12} color={colors.icon} style={{ marginRight: 4 }} />
+                      <IconSymbol name="location.fill" size={12} color={colors.icon} style={{ marginRight: 4 }} />
                       <ThemedText style={[styles.metaText, { color: colors.icon }]} numberOfLines={1}>{vehicle.location}</ThemedText>
                     </View>
                   </View>
@@ -274,50 +274,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   info: {
-    padding: 16,
+    padding: 10,
+    gap: 3,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 2,
   },
   vehicleTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginRight: 16,
-    lineHeight: 22,
+    marginRight: 8,
+    lineHeight: 19,
   },
   vehiclePrice: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
   },
   usageStatus: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 8,
   },
   vehicleMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginTop: 2,
   },
   metaText: {
-    fontSize: 13,
+    fontSize: 11,
   },
   metaDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 8,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    marginHorizontal: 6,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
+    paddingTop: 10,
+    marginTop: 4,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   dateSaved: {

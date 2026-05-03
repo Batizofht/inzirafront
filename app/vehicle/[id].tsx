@@ -22,7 +22,7 @@ import { displayPrice } from '@/lib/currencyConverter';
 import { PageHead, VehicleSEO } from '@/components/page-head';
 import { VehicleStructuredData } from '@/components/seo-head';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
 
 // Car brand logos with transparent backgrounds
 const BRAND_LOGOS: Record<string, string> = {
@@ -498,7 +498,7 @@ export default function VehicleDetailsScreen() {
       <ThemedText style={[styles.price, { color: colors.primary }]}>{displayPrice(Number(vehicle.price) || 0)}</ThemedText>
 
       <View style={styles.locationRow}>
-        <IconSymbol name="house.fill" size={14} color={colors.icon} style={{ marginRight: 6 }} />
+        <IconSymbol name="location.fill" size={14} color={colors.icon} style={{ marginRight: 6 }} />
         <ThemedText style={{ color: colors.icon }}>{vehicle.location}</ThemedText>
         <ThemedText style={{ color: colors.icon }}> • {vehicle.createdAt ? new Date(vehicle.createdAt).toLocaleDateString() : ''}</ThemedText>
       </View>
@@ -671,7 +671,7 @@ export default function VehicleDetailsScreen() {
                 </View>
                 <ThemedText style={[styles.price, { color: colors.primary }]}>{displayPrice(Number(vehicle.price) || 0)}</ThemedText>
                 <View style={styles.locationRow}>
-                  <IconSymbol name="house.fill" size={14} color={colors.icon} style={{ marginRight: 6 }} />
+                  <IconSymbol name="location.fill" size={14} color={colors.icon} style={{ marginRight: 6 }} />
                   <ThemedText style={{ color: colors.icon }}>{vehicle.location}</ThemedText>
                   <ThemedText style={{ color: colors.icon }}> • {vehicle.createdAt ? new Date(vehicle.createdAt).toLocaleDateString() : ''}</ThemedText>
                 </View>
@@ -882,6 +882,7 @@ export default function VehicleDetailsScreen() {
               ))}
             </ScrollView>
           </View>
+          <View style={{marginBottom:insets.botttom+20}} />
         </Pressable>
       </Modal>
 

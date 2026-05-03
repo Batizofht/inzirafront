@@ -13,6 +13,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
@@ -92,6 +93,7 @@ export default function SellScreen() {
   const colors = Colors[theme];
   const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   const isWebMd = isWeb && width >= 768 && width < 1024;
   const isWebLg = isWeb && width >= 1024 && width < 1440;
@@ -1538,7 +1540,7 @@ export default function SellScreen() {
 
             <View style={styles.inputGroup}>
               <ThemedText style={styles.inputLabel}>
-                {t("sell.price")}
+               Price(FRW)
               </ThemedText>
               <TextInput
                 style={[
@@ -1704,20 +1706,23 @@ export default function SellScreen() {
       </ScrollView>
 
       {/* Mobile Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showColorSelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showColorSelector}
           onRequestClose={() => setShowColorSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowColorSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowColorSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -1756,7 +1761,12 @@ export default function SellScreen() {
 
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 300 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredColorOptions.length === 0 ? (
                 <ThemedText
@@ -1801,7 +1811,8 @@ export default function SellScreen() {
               )}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Dropdown */}
@@ -1886,20 +1897,23 @@ export default function SellScreen() {
       )}
 
       {/* Mobile Category Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showCategorySelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showCategorySelector}
           onRequestClose={() => setShowCategorySelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowCategorySelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowCategorySelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -1938,7 +1952,12 @@ export default function SellScreen() {
 
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 350 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredCategories.length === 0 ? (
                 <ThemedText
@@ -1999,7 +2018,8 @@ export default function SellScreen() {
               )}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Category Dropdown */}
@@ -2050,6 +2070,10 @@ export default function SellScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 240 }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredCategories.map((cat) => (
                 <TouchableOpacity
@@ -2102,20 +2126,23 @@ export default function SellScreen() {
       )}
 
       {/* Mobile Brand Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showBrandSelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showBrandSelector}
           onRequestClose={() => setShowBrandSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowBrandSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowBrandSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -2154,7 +2181,12 @@ export default function SellScreen() {
 
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 350 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredBrands.length === 0 ? (
                 <ThemedText
@@ -2199,7 +2231,8 @@ export default function SellScreen() {
               )}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Brand Dropdown */}
@@ -2250,6 +2283,10 @@ export default function SellScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 240 }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredBrands.map((opt) => (
                 <TouchableOpacity
@@ -2284,20 +2321,23 @@ export default function SellScreen() {
       )}
 
       {/* Mobile Fuel Type Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showFuelTypeSelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showFuelTypeSelector}
           onRequestClose={() => setShowFuelTypeSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowFuelTypeSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowFuelTypeSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -2315,7 +2355,12 @@ export default function SellScreen() {
             </ThemedText>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 300 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredFuelTypes.map((opt) => (
                 <TouchableOpacity
@@ -2350,7 +2395,8 @@ export default function SellScreen() {
               ))}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Fuel Type Dropdown */}
@@ -2420,20 +2466,23 @@ export default function SellScreen() {
       )}
 
       {/* Mobile Transmission Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showTransmissionSelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showTransmissionSelector}
           onRequestClose={() => setShowTransmissionSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowTransmissionSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowTransmissionSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -2451,7 +2500,12 @@ export default function SellScreen() {
             </ThemedText>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 300 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {TRANSMISSION_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -2487,7 +2541,8 @@ export default function SellScreen() {
               ))}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Transmission Dropdown */}
@@ -2558,20 +2613,23 @@ export default function SellScreen() {
       )}
 
       {/* Mobile Drive Type Bottom Sheet */}
-      {!isDesktopWeb && (
+      {!isDesktopWeb && showDriveTypeSelector && (
         <Modal
           transparent
           animationType="slide"
           visible={showDriveTypeSelector}
           onRequestClose={() => setShowDriveTypeSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowDriveTypeSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowDriveTypeSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -2589,7 +2647,12 @@ export default function SellScreen() {
             </ThemedText>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 300 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {DRIVE_TYPE_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -2624,7 +2687,8 @@ export default function SellScreen() {
               ))}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Drive Type Dropdown */}
@@ -2656,6 +2720,10 @@ export default function SellScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 200 }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {DRIVE_TYPE_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -2701,13 +2769,16 @@ export default function SellScreen() {
           visible={showBodyTypeSelector}
           onRequestClose={() => setShowBodyTypeSelector(false)}
         >
-          <Pressable
+          <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
-            onPress={() => setShowBodyTypeSelector(false)}
-          />
+          >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowBodyTypeSelector(false)}
+            />
           <View
             style={[
               styles.bottomSheetContainer,
@@ -2723,7 +2794,7 @@ export default function SellScreen() {
             <ThemedText type="defaultSemiBold" style={styles.bottomSheetTitle}>
               Select Body Type
             </ThemedText>
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+            <View style={{ marginBottom: 8 }}>
               <TextInput
                 style={[
                   styles.input,
@@ -2742,7 +2813,12 @@ export default function SellScreen() {
             </View>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              style={{ maxHeight: 300 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredBodyTypes.map((opt) => (
                 <TouchableOpacity
@@ -2777,7 +2853,8 @@ export default function SellScreen() {
               ))}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Body Type Dropdown */}
@@ -3165,6 +3242,8 @@ const styles = StyleSheet.create({
   },
   colorOptionText: {
     fontSize: 14,
+    flex: 1,
+    textAlign: "left",
   },
   // Desktop Dropdown
   desktopDropdown: {

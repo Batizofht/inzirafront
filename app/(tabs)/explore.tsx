@@ -45,6 +45,7 @@ import {
   type CurrencyCode,
   convertCurrency,
 } from "@/lib/currencyConverter";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const USAGE_STATUS_FILTERS = [
   "Brand New",
@@ -221,12 +222,14 @@ export default function ExploreScreen() {
     min: number;
     max: number;
   } | null>(null);
+  const [selectedBodyTypes, setSelectedBodyTypes] = useState<string[]>([]);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [selectedSort, setSelectedSort] = useState<SortOptionId>("newest");
   const [showLoginToast, setShowLoginToast] = useState(false);
   const [hasActiveSub, setHasActiveSub] = useState(false);
-  const loginRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+
+    const loginRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const loginToastHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -243,6 +246,7 @@ export default function ExploreScreen() {
       typeof params.mileage === "string" ? params.mileage : "";
     const qParam = typeof params.q === "string" ? params.q : "";
     const usageParam = typeof params.usage === "string" ? params.usage : "";
+    const typebodiesParam = typeof params.typebodies === "string" ? params.typebodies : "";
 
     // Reset category or set from param
     if (categoryParam) {
@@ -276,14 +280,18 @@ export default function ExploreScreen() {
 
     // Reset mileage or set from param
     if (mileageParam) {
-      // Parse mileage range and apply filter in background
+      // Parse mileage range — strip commas and non-numeric chars before parsing
+      const parseMileageNum = (v: string) => {
+        const cleaned = v.replace(/[^0-9]/g, "");
+        return cleaned ? parseInt(cleaned, 10) : 0;
+      };
       if (mileageParam.includes("-")) {
-        const [min, max] = mileageParam
-          .split("-")
-          .map((v) => parseInt(v.trim()));
+        const [minRaw, maxRaw] = mileageParam.split("-");
+        const min = parseMileageNum(minRaw);
+        const max = parseMileageNum(maxRaw);
         setSelectedMileageRange({ min: min || 0, max: max || 999999999 });
       } else if (mileageParam.includes("+")) {
-        const min = parseInt(mileageParam.replace("+", "").trim());
+        const min = parseMileageNum(mileageParam.replace("+", ""));
         setSelectedMileageRange({ min: min || 0, max: 999999999 });
       }
     } else {
@@ -303,7 +311,18 @@ export default function ExploreScreen() {
     } else {
       setSelectedUsageStatuses([]);
     }
-  }, [params.brand, params.category, params.model, params.mileage, params.q, params.usage]);
+
+    // Reset body types or set from param
+    if (typebodiesParam) {
+      const nextBodyTypes = typebodiesParam
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      setSelectedBodyTypes(nextBodyTypes);
+    } else {
+      setSelectedBodyTypes([]);
+    }
+  }, [params.brand, params.category, params.model, params.mileage, params.q, params.usage, params.typebodies]);
 
   const modelTypeFilters = useMemo(() => {
     const values = new Set<string>();
@@ -505,7 +524,7 @@ export default function ExploreScreen() {
         : [...prev, value],
     );
   };
-
+ const insets = useSafeAreaInsets();
   const clearAdvancedFilters = () => {
     setSelectedUsageStatuses([]);
     setSelectedPriceFilters([]);
@@ -577,6 +596,10 @@ export default function ExploreScreen() {
         (vehicleMileage >= selectedMileageRange.min &&
           vehicleMileage <= selectedMileageRange.max);
 
+      const bodyTypeOk =
+        selectedBodyTypes.length === 0 ||
+        (vehicle.bodyType ? selectedBodyTypes.includes(vehicle.bodyType) : false);
+
       return (
         categoryOk &&
         usageOk &&
@@ -585,7 +608,8 @@ export default function ExploreScreen() {
         queryOk &&
         colorOk &&
         brandOk &&
-        mileageOk
+        mileageOk &&
+        bodyTypeOk
       );
     });
 
@@ -624,6 +648,7 @@ export default function ExploreScreen() {
     vehicles,
     priceFilters,
     selectedMileageRange,
+    selectedBodyTypes,
   ]);
 
   const hasCustomRange = customMinPrice > 0 || customMaxPrice < MAX_PRICE_RWF;
@@ -1073,9 +1098,131 @@ export default function ExploreScreen() {
                   />
                 </View>
                 <View style={styles.webSortRow}>
-                  <ThemedText style={{ color: colors.icon }}>
-                    {filteredVehicles.length} results
-                  </ThemedText>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <ThemedText style={{ color: colors.icon }}>
+                      {filteredVehicles.length} results
+                    </ThemedText>
+                    {selectedCategory !== "All" && (
+                      <View
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {selectedCategory}
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() => setSelectedCategory("All")}
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {selectedBrands.map((brand) => (
+                      <View
+                        key={brand}
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {brand}
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setSelectedBrands((prev) => prev.filter((b) => b !== brand))
+                          }
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {selectedModelTypes.map((model) => (
+                      <View
+                        key={model}
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {model}
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setSelectedModelTypes((prev) => prev.filter((m) => m !== model))
+                          }
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {selectedUsageStatuses.map((usage) => (
+                      <View
+                        key={usage}
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {usage}
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setSelectedUsageStatuses((prev) => prev.filter((u) => u !== usage))
+                          }
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {selectedBodyTypes.map((bodyType) => (
+                      <View
+                        key={bodyType}
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {bodyType}
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setSelectedBodyTypes((prev) => prev.filter((b) => b !== bodyType))
+                          }
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    {selectedMileageRange && (
+                      <View
+                        style={[
+                          styles.filterPill,
+                          { backgroundColor: colors.background, borderColor: colors.border },
+                        ]}
+                      >
+                        <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
+                          {selectedMileageRange.min.toLocaleString()} - {selectedMileageRange.max >= 999999999 ? "∞" : selectedMileageRange.max.toLocaleString()} km
+                        </ThemedText>
+                        <TouchableOpacity
+                          onPress={() => setSelectedMileageRange(null)}
+                          style={styles.filterPillClose}
+                        >
+                          <IconSymbol name="xmark" size={14} color={colors.icon} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
                   <TouchableOpacity
                     style={[styles.webSortBtn, { borderColor: colors.border }]}
                     onPress={() => setShowSortSheet(true)}
@@ -1201,7 +1348,8 @@ export default function ExploreScreen() {
                           <View
                             style={{
                               flexDirection: "row",
-                              alignItems: "center",
+                              alignItems: "flex-start",
+                              gap: 6,
                             }}
                           >
                             <ThemedText
@@ -1215,19 +1363,20 @@ export default function ExploreScreen() {
                               vehicle.sellerTier === "dealer_pro") && (
                               <View
                                 style={{
-                                  marginLeft: 6,
+                                  marginTop: 2,
                                   backgroundColor: "#3B82F6",
-                                  borderRadius: 10,
-                                  width: 16,
-                                  height: 16,
+                                  borderRadius: 8,
+                                  width: 14,
+                                  height: 14,
                                   justifyContent: "center",
                                   alignItems: "center",
                                   overflow: "hidden",
+                                  flexShrink: 0,
                                 }}
                               >
                                 <IconSymbol
                                   name="checkmark"
-                                  size={12}
+                                  size={10}
                                   color="#fff"
                                 />
                               </View>
@@ -1245,7 +1394,7 @@ export default function ExploreScreen() {
                             <ThemedText
                               style={[
                                 styles.webSeller,
-                                { color: colors.icon, marginTop: 4 },
+                                { color: colors.icon },
                               ]}
                               numberOfLines={1}
                             >
@@ -1301,15 +1450,16 @@ export default function ExploreScreen() {
       ) : (
         // Mobile Layout (original)
         <>
+           <ThemedText type="defaultSemiBold" style={[styles.headerTitle,{ paddingHorizontal: 20,}]}>
+                {t("explore.title")}
+              </ThemedText>
           <ScrollView
             showsVerticalScrollIndicator={isDesktopWeb}
             contentContainerStyle={styles.scrollContent}
           >
             {/* Header - Inside ScrollView */}
             <View style={[styles.header, { backgroundColor: colors.background }]}>
-              <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-                {t("explore.title")}
-              </ThemedText>
+           
               <View
                 style={[
                   styles.searchContainer,
@@ -1579,7 +1729,7 @@ export default function ExploreScreen() {
                       </View>
                       <View style={styles.resultInfo}>
                         <View
-                          style={{ flexDirection: "row", alignItems: "center" }}
+                          style={{ flexDirection: "row", alignItems: "flex-start", gap: 4 }}
                         >
                           <ThemedText
                             style={styles.vehicleTitle}
@@ -1592,19 +1742,20 @@ export default function ExploreScreen() {
                             vehicle.sellerTier === "dealer_pro") && (
                             <View
                               style={{
-                                marginLeft: 6,
+                                marginTop: 2,
                                 backgroundColor: "#3B82F6",
-                                borderRadius: 10,
-                                width: 16,
-                                height: 16,
+                                borderRadius: 7,
+                                width: 13,
+                                height: 13,
                                 justifyContent: "center",
                                 alignItems: "center",
                                 overflow: "hidden",
+                                flexShrink: 0,
                               }}
                             >
                               <IconSymbol
                                 name="checkmark"
-                                size={12}
+                                size={9}
                                 color="#fff"
                               />
                             </View>
@@ -1622,7 +1773,7 @@ export default function ExploreScreen() {
                           <ThemedText
                             style={[
                               styles.sellerName,
-                              { color: colors.icon, marginTop: 4 },
+                              { color: colors.icon },
                             ]}
                             numberOfLines={1}
                           >
@@ -1659,7 +1810,7 @@ export default function ExploreScreen() {
                         </View>
                         <View style={styles.locationRow}>
                           <IconSymbol
-                            name="house.fill"
+                            name="location.fill"
                             size={12}
                             color={colors.icon}
                             style={{ marginRight: 4 }}
@@ -1695,16 +1846,18 @@ export default function ExploreScreen() {
         visible={showFilterSheet}
         onRequestClose={() => setShowFilterSheet(false)}
       >
-        <Pressable
+        <View
           style={styles.sheetOverlay}
-          onPress={() => setShowFilterSheet(false)}
         >
           <Pressable
+            style={{ flex: 1 }}
+            onPress={() => setShowFilterSheet(false)}
+          />
+          <View
             style={[
               styles.sheetContainer,
               { backgroundColor: colors.background },
             ]}
-            onPress={() => {}}
           >
             <View
               style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -1768,49 +1921,137 @@ export default function ExploreScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.sheetContent}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
-              <View
-                style={[
-                  styles.sheetSectionCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.sheetSectionHeadingRow}>
+              {/* Category */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="list" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>
+                    Category
+                  </ThemedText>
+                </View>
+                <View style={styles.brandGrid}>
+                  <TouchableOpacity
+                    key="all"
+                    style={[
+                      styles.brandGridItem,
+                      selectedCategory === "All" && [
+                    
+                        {
+                          backgroundColor: `${colors.primary}14`,
+                          borderColor: colors.primary,
+                        },
+                      ],
+                      {
+                        borderColor:
+                          selectedCategory === "All"
+                            ? colors.primary
+                            : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedCategory("All")}
+                  >
+                    <ThemedText
+                      style={{
+                        color:
+                          selectedCategory === "All"
+                            ? colors.primary
+                            : colors.text,
+                        fontSize: 13,
+                        fontWeight: selectedCategory === "All" ? "600" : "500",
+                      }}
+                    >
+                      All
+                    </ThemedText>
+                  </TouchableOpacity>
+                  {categories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.brandGridItem,
+                        selectedCategory === cat.name && [
+                          styles.webChipActive,
+                          {
+                            backgroundColor: `${colors.primary}14`,
+                            borderColor: colors.primary,
+                          },
+                        ],
+                        {
+                          borderColor:
+                            selectedCategory === cat.name
+                              ? colors.primary
+                              : colors.border,
+                        },
+                      ]}
+                      onPress={() => setSelectedCategory(cat.name)}
+                    >
+                      <ThemedText
+                        style={{
+                          color:
+                            selectedCategory === cat.name
+                              ? colors.primary
+                              : colors.text,
+                          fontWeight:
+                            selectedCategory === cat.name ? "600" : "400",
+                          fontSize: 12,
+                          textAlign: "center",
+                        }}
+                        numberOfLines={1}
+                      >
+                        {cat.name}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Usage Status */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
                   <IconSymbol
                     name="checkmark.circle.fill"
                     size={14}
                     color={colors.icon}
                   />
-                  <ThemedText style={styles.sheetSectionTitle}>
+                  <ThemedText style={styles.webFilterLabel}>
                     Usage Status
                   </ThemedText>
                 </View>
-                <View style={styles.sheetChipsWrap}>
+                <View style={styles.brandGrid}>
                   {USAGE_STATUS_FILTERS.map((item) => {
                     const active = selectedUsageStatuses.includes(item);
                     return (
                       <TouchableOpacity
                         key={item}
                         style={[
-                          styles.sheetChip,
+                          styles.brandGridItem,
+                          active && [
+                       
+                            {
+                              backgroundColor: `${colors.primary}14`,
+                              borderColor: colors.primary,
+                            },
+                          ],
                           {
                             borderColor: active
                               ? colors.primary
                               : colors.border,
-                            backgroundColor: active
-                              ? `${colors.primary}1A`
-                              : "transparent",
                           },
-                          active && styles.sheetChipActive,
                         ]}
                         onPress={() => toggleUsageFilter(item)}
                       >
                         <ThemedText
                           style={{
                             color: active ? colors.primary : colors.text,
+                            fontWeight: active ? "600" : "400",
                             fontSize: 12,
-                            fontWeight: "600",
+                            textAlign: "center",
                           }}
+                          numberOfLines={1}
                         >
                           {item}
                         </ThemedText>
@@ -1820,56 +2061,99 @@ export default function ExploreScreen() {
                 </View>
               </View>
 
-              <View
-                style={[
-                  styles.sheetSectionCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.sheetSectionHeadingRow}>
-                  <IconSymbol
-                    name="creditcard.fill"
-                    size={14}
-                    color={colors.icon}
-                  />
-                  <ThemedText style={styles.sheetSectionTitle}>
-                    Pricing
-                  </ThemedText>
+              {/* Brand */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="car.fill" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Brand</ThemedText>
                 </View>
-                <View style={styles.sheetChipsWrap}>
-                  {priceFilters.map((item) => {
-                    const active = selectedPriceFilters.includes(item.id);
+                <View style={styles.brandGrid}>
+                  {brandFilters.map((brand) => {
+                    const active = selectedBrands.includes(brand);
                     return (
                       <TouchableOpacity
-                        key={item.id}
+                        key={brand}
                         style={[
-                          styles.sheetChip,
+                          styles.brandGridItem,
+                          active && [
+                            styles.webChipActive,
+                            {
+                              backgroundColor: `${colors.primary}14`,
+                              borderColor: colors.primary,
+                            },
+                          ],
                           {
                             borderColor: active
                               ? colors.primary
                               : colors.border,
-                            backgroundColor: active
-                              ? `${colors.primary}1A`
-                              : "transparent",
                           },
-                          active && styles.sheetChipActive,
                         ]}
-                        onPress={() => togglePriceFilter(item.id)}
+                        onPress={() => toggleBrandFilter(brand)}
                       >
                         <ThemedText
                           style={{
                             color: active ? colors.primary : colors.text,
+                            fontWeight: active ? "600" : "400",
                             fontSize: 12,
-                            fontWeight: "600",
+                            textAlign: "center",
                           }}
+                          numberOfLines={1}
                         >
-                          {item.label}
+                          {brand}
                         </ThemedText>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
+              </View>
 
+              {/* Color */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="photo" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Color</ThemedText>
+                </View>
+                <View style={styles.colorCirclesWrap}>
+                  {colorFilters.map((color) => {
+                    const active = selectedColors.includes(color);
+                    const colorHex = getColorHex(color);
+                    return (
+                      <TouchableOpacity
+                        key={color}
+                        style={[
+                          styles.colorCircle,
+                          { backgroundColor: colorHex },
+                          active && [
+                            styles.colorCircleActive,
+                            { borderColor: colors.primary },
+                          ],
+                        ]}
+                        onPress={() => toggleColorFilter(color)}
+                        accessibilityLabel={color}
+                      >
+                        {active && (
+                          <IconSymbol
+                            name="checkmark"
+                            size={14}
+                            color={
+                              colorHex === "#FFFFFF" || colorHex === "#F8F8F8"
+                                ? "#000"
+                                : "#fff"
+                            }
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Price Range */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="creditcard.fill" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Price Range</ThemedText>
+                </View>
                 <View
                   style={[
                     styles.priceRangeCard,
@@ -1922,159 +2206,18 @@ export default function ExploreScreen() {
                   />
                 </View>
               </View>
-
-              <View
-                style={[
-                  styles.sheetSectionCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.sheetSectionHeadingRow}>
-                  <IconSymbol name="car.fill" size={14} color={colors.icon} />
-                  <ThemedText style={styles.sheetSectionTitle}>
-                    Car Model / Type
-                  </ThemedText>
-                </View>
-                <View style={styles.sheetChipsWrap}>
-                  {modelTypeFilters.map((item) => {
-                    const active = selectedModelTypes.includes(item);
-                    return (
-                      <TouchableOpacity
-                        key={item}
-                        style={[
-                          styles.sheetChip,
-                          {
-                            borderColor: active
-                              ? colors.primary
-                              : colors.border,
-                            backgroundColor: active
-                              ? `${colors.primary}1A`
-                              : "transparent",
-                          },
-                          active && styles.sheetChipActive,
-                        ]}
-                        onPress={() => toggleModelTypeFilter(item)}
-                      >
-                        <ThemedText
-                          style={{
-                            color: active ? colors.primary : colors.text,
-                            fontSize: 12,
-                            fontWeight: "600",
-                          }}
-                        >
-                          {item}
-                        </ThemedText>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.sheetSectionCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.sheetSectionHeadingRow}>
-                  <IconSymbol name="list" size={14} color={colors.icon} />
-                  <ThemedText style={styles.sheetSectionTitle}>
-                    Brand
-                  </ThemedText>
-                </View>
-                <View style={styles.sheetChipsWrap}>
-                  {brandFilters.map((brand) => {
-                    const active = selectedBrands.includes(brand);
-                    return (
-                      <TouchableOpacity
-                        key={brand}
-                        style={[
-                          styles.sheetChip,
-                          {
-                            borderColor: active
-                              ? colors.primary
-                              : colors.border,
-                            backgroundColor: active
-                              ? `${colors.primary}1A`
-                              : "transparent",
-                          },
-                          active && styles.sheetChipActive,
-                        ]}
-                        onPress={() => toggleBrandFilter(brand)}
-                      >
-                        <ThemedText
-                          style={{
-                            color: active ? colors.primary : colors.text,
-                            fontSize: 12,
-                            fontWeight: "600",
-                          }}
-                        >
-                          {brand}
-                        </ThemedText>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.sheetSectionCard,
-                  { borderColor: colors.border, backgroundColor: colors.card },
-                ]}
-              >
-                <View style={styles.sheetSectionHeadingRow}>
-                  <IconSymbol name="photo" size={14} color={colors.icon} />
-                  <ThemedText style={styles.sheetSectionTitle}>
-                    Color
-                  </ThemedText>
-                </View>
-                <View style={styles.colorCirclesWrap}>
-                  {colorFilters.map((color) => {
-                    const active = selectedColors.includes(color);
-                    const colorHex = getColorHex(color);
-                    return (
-                      <TouchableOpacity
-                        key={color}
-                        style={[
-                          styles.colorCircle,
-                          { backgroundColor: colorHex },
-                          active && [
-                            styles.colorCircleActive,
-                            { borderColor: colors.primary },
-                          ],
-                        ]}
-                        onPress={() => toggleColorFilter(color)}
-                        accessibilityLabel={color}
-                      >
-                        {active && (
-                          <IconSymbol
-                            name="checkmark"
-                            size={14}
-                            color={
-                              colorHex === "#FFFFFF" || colorHex === "#F8F8F8"
-                                ? "#000"
-                                : "#fff"
-                            }
-                          />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
             </ScrollView>
 
             <TouchableOpacity
-              style={[styles.applyBtn, { backgroundColor: colors.primary }]}
+              style={[styles.applyBtn, { backgroundColor: colors.primary,marginBottom:insets.bottom }]}
               onPress={() => setShowFilterSheet(false)}
             >
-              <ThemedText style={styles.applyBtnText}>
+              <ThemedText style={[styles.applyBtnText,{}]}>
                 Show {filteredVehicles.length} vehicles
               </ThemedText>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {isDesktopWeb ? (
@@ -2191,16 +2334,13 @@ export default function ExploreScreen() {
           visible={showSortSheet}
           onRequestClose={() => setShowSortSheet(false)}
         >
-          <Pressable
-            style={styles.sheetOverlay}
-            onPress={() => setShowSortSheet(false)}
-          >
-            <Pressable
+          <View style={styles.sheetOverlay}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShowSortSheet(false)} />
+            <View
               style={[
                 styles.sortSheetContainer,
-                { backgroundColor: colors.background },
+                { backgroundColor: colors.background, marginBottom:insets.bottom },
               ]}
-              onPress={() => {}}
             >
               <View
                 style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -2223,6 +2363,10 @@ export default function ExploreScreen() {
               <ScrollView
                 showsVerticalScrollIndicator={false}
                 style={styles.sortOptionsScroll}
+                nestedScrollEnabled={true}
+                scrollEventThrottle={16}
+                keyboardShouldPersistTaps="handled"
+                alwaysBounceVertical={true}
               >
                 <View style={styles.sortOptionsList}>
                   {SORT_OPTIONS.map((option) => {
@@ -2302,8 +2446,8 @@ export default function ExploreScreen() {
                   })}
                 </View>
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       )}
     </View>
@@ -2351,6 +2495,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     marginBottom: 12,
+    marginTop:6
   },
   searchContainer: {
     flexDirection: "row",
@@ -2439,14 +2584,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   resultsGrid: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 10,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 5,
   },
   resultCard: {
-    width: "47%",
+    width: "48%",
     borderRadius: 8,
     borderWidth: 1,
     overflow: "hidden",
@@ -2472,22 +2617,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resultInfo: {
-    padding: 12,
+    padding: 10,
+    gap: 3,
   },
   vehicleTitle: {
     fontSize: 13,
     fontWeight: "500",
-    marginBottom: 8,
-    lineHeight: 18,
+    lineHeight: 17,
+    flex: 1,
   },
   usageStatus: {
     fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
-    marginBottom: 8,
   },
   sellerName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
   },
   trustChipRow: {
@@ -2507,16 +2652,15 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   priceRow: {
-    marginBottom: 8,
+    marginTop: 2,
   },
   vehiclePrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
   },
   vehicleSpecs: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
   },
   specText: {
     fontSize: 11,
@@ -2558,6 +2702,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
+    maxHeight: "85%",
   },
   sheetHandle: {
     alignSelf: "center",
@@ -2655,7 +2800,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   sortOptionsScroll: {
-    maxHeight: 450,
+    maxHeight: 400,
   },
   sortOptionsList: {
     gap: 10,
@@ -2792,7 +2937,7 @@ const styles = StyleSheet.create({
   webSidebar: {
     width: 320,
     borderRightWidth: 1,
-    paddingHorizontal: 18,
+    paddingLeft: 18,
   },
   webSidebarContent: {
     paddingBottom: 28,
@@ -2909,6 +3054,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
   },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  filterPillClose: {
+    padding: 2,
+  },
   webResultsContent: {
     paddingVertical: 20,
   },
@@ -2944,28 +3105,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   webResultInfo: {
-    padding: 16,
+    padding: 12,
+    gap: 4,
   },
   webVehicleTitle: {
     fontSize: 15,
     fontWeight: "600",
-    marginBottom: 8,
-    lineHeight: 22,
+    lineHeight: 20,
+    flex: 1,
   },
   webUsageStatus: {
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
-    marginBottom: 8,
   },
   webSeller: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "500",
   },
   webVehiclePrice: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "700",
-    marginBottom: 12,
+    marginTop: 2,
   },
   webVehicleSpecs: {
     flexDirection: "row",

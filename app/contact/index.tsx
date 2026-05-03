@@ -10,6 +10,7 @@ import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { ContactSEO } from '@/components/page-meta';
 import { createContactMessage } from '@/lib/api-contact-messages';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ContactScreen() {
   useEffect(() => {
@@ -35,7 +36,7 @@ export default function ContactScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-
+  const insets = useSafeAreaInsets()
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -151,7 +152,7 @@ export default function ContactScreen() {
 
               <View style={[styles.contactInfoItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.iconBg, { backgroundColor: `${colors.primary}20` }]}>
-                  <IconSymbol name="house.fill" size={24} color={colors.primary} />
+                  <IconSymbol name="location.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.contactInfoText}>
                   <ThemedText style={styles.contactInfoLabel}>Address</ThemedText>
@@ -286,6 +287,7 @@ export default function ContactScreen() {
               );
             })}
           </View>
+          <View style={{marginBottom:insets.bottom}} />
         </View>
         <WebFooter />
       </ScrollView>
@@ -385,6 +387,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'center',
     marginBottom: 12,
+    paddingVertical:4
   },
   heroSubtitle: {
     fontSize: 18,

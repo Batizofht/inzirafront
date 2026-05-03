@@ -13,6 +13,7 @@ import {
   Pressable,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
@@ -97,6 +98,7 @@ export default function EditVehicleScreen() {
   const colors = Colors[theme];
   const { width, height } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
+  const insets = useSafeAreaInsets();
   const isWebMd = isWeb && width >= 768 && width < 1024;
   const isWebLg = isWeb && width >= 1024 && width < 1440;
   const isWebXl = isWeb && width >= 1440;
@@ -527,16 +529,16 @@ export default function EditVehicleScreen() {
         : undefined) ||
       (normalizedSlug
         ? categories.find(
-            (cat) =>
-              String(cat.slug || "")
-                .trim()
-                .toLowerCase() === normalizedSlug,
-          )
+          (cat) =>
+            String(cat.slug || "")
+              .trim()
+              .toLowerCase() === normalizedSlug,
+        )
         : undefined) ||
       (normalizedName
         ? categories.find(
-            (cat) => cat.name.trim().toLowerCase() === normalizedName,
-          )
+          (cat) => cat.name.trim().toLowerCase() === normalizedName,
+        )
         : undefined);
 
     if (matchedCategory) {
@@ -1532,7 +1534,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowColorSelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -1540,6 +1542,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -1577,6 +1580,7 @@ export default function EditVehicleScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
               {filteredColorOptions.length === 0 ? (
                 <ThemedText
@@ -1620,7 +1624,7 @@ export default function EditVehicleScreen() {
                 ))
               )}
             </ScrollView>
-          </View>
+          </Pressable>
         </Modal>
       )}
 
@@ -1720,7 +1724,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowCategorySelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -1728,6 +1732,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -1762,7 +1767,10 @@ export default function EditVehicleScreen() {
               />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={isDesktopWeb}>
+            <ScrollView
+              showsVerticalScrollIndicator={isDesktopWeb}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
+            >
               {filteredCategories.length === 0 ? (
                 <ThemedText
                   style={{
@@ -1821,7 +1829,7 @@ export default function EditVehicleScreen() {
                 ))
               )}
             </ScrollView>
-          </View>
+          </Pressable>
         </Modal>
       )}
 
@@ -1939,7 +1947,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowBrandSelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -1947,6 +1955,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -1984,6 +1993,7 @@ export default function EditVehicleScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 320 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
               {filteredBrands.length === 0 ? (
                 <ThemedText
@@ -2027,7 +2037,7 @@ export default function EditVehicleScreen() {
                 ))
               )}
             </ScrollView>
-          </View>
+          </Pressable>
         </Modal>
       )}
 
@@ -2126,7 +2136,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowFuelTypeSelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -2134,6 +2144,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -2150,6 +2161,7 @@ export default function EditVehicleScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
               {filteredFuelTypes.map((opt) => (
                 <TouchableOpacity
@@ -2183,7 +2195,8 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+
+          </Pressable>
         </Modal>
       )}
 
@@ -2268,7 +2281,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowTransmissionSelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -2276,6 +2289,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -2292,6 +2306,7 @@ export default function EditVehicleScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
               {TRANSMISSION_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -2326,7 +2341,7 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+          </Pressable>
         </Modal>
       )}
 
@@ -2412,7 +2427,7 @@ export default function EditVehicleScreen() {
             ]}
             onPress={() => setShowDriveTypeSelector(false)}
           />
-          <View
+          <Pressable
             style={[
               styles.selectorSheetContainer,
               {
@@ -2420,6 +2435,7 @@ export default function EditVehicleScreen() {
                 height: selectorSheetHeight,
               },
             ]}
+            onPress={(e) => e.stopPropagation?.()}
           >
             <View
               style={[
@@ -2436,6 +2452,7 @@ export default function EditVehicleScreen() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom }}
             >
               {DRIVE_TYPE_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -2469,7 +2486,7 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+            </Pressable >
         </Modal>
       )}
 
@@ -2535,7 +2552,8 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+            </View>
+       
         </Modal>
       )}
 
@@ -2547,60 +2565,65 @@ export default function EditVehicleScreen() {
           visible={showBodyTypeSelector}
           onRequestClose={() => setShowBodyTypeSelector(false)}
         >
-          <Pressable
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: "rgba(0,0,0,0.5)" },
-            ]}
-            onPress={() => setShowBodyTypeSelector(false)}
-          />
           <View
             style={[
-              styles.selectorSheet,
-              {
-                backgroundColor: colors.background,
-                height: selectorSheetHeight,
-              },
+              StyleSheet.absoluteFill,
+              { backgroundColor: "rgba(0,0,0,0.35)" },
             ]}
           >
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => setShowBodyTypeSelector(false)}
+            />
             <View
               style={[
-                styles.selectorSheetHandle,
-                { backgroundColor: colors.border },
+                styles.selectorSheetContainer,
+                { backgroundColor: colors.background },
               ]}
-            />
-            <ThemedText
-              type="defaultSemiBold"
-              style={styles.selectorSheetTitle}
             >
-              Select Body Type
-            </ThemedText>
-            <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-              <TextInput
+              <View
                 style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
+                  styles.selectorSheetHandle,
+                  { backgroundColor: colors.border },
                 ]}
-                placeholder="Search body type..."
-                placeholderTextColor={colors.icon}
-                value={bodyTypeSearch}
-                onChangeText={setBodyTypeSearch}
-                autoFocus
               />
+              <ThemedText
+                type="defaultSemiBold"
+                style={styles.selectorSheetTitle}
+              >
+                Select Body Type
+              </ThemedText>
+              <View style={{  marginBottom: 8 }}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder="Search body type..."
+                  placeholderTextColor={colors.icon}
+                  value={bodyTypeSearch}
+                  onChangeText={setBodyTypeSearch}
+                  autoFocus
+                />
             </View>
             <ScrollView
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+              style={{ height: 400 }}
+              contentContainerStyle={{ paddingBottom: 20 + insets.bottom }}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
+              alwaysBounceVertical={true}
             >
               {filteredBodyTypes.map((opt) => (
                 <TouchableOpacity
                   key={opt}
                   style={[
-                    styles.selectorOptionRow,
+                    styles.colorOption,
                     { borderBottomColor: colors.border },
                     bodyType === opt && {
                       backgroundColor: `${colors.primary}15`,
@@ -2610,7 +2633,7 @@ export default function EditVehicleScreen() {
                 >
                   <ThemedText
                     style={[
-                      styles.selectorOptionText,
+                      styles.colorOptionText,
                       {
                         color: bodyType === opt ? colors.primary : colors.text,
                       },
@@ -2629,7 +2652,8 @@ export default function EditVehicleScreen() {
               ))}
             </ScrollView>
           </View>
-        </Modal>
+        </View>
+      </Modal>
       )}
 
       {/* Desktop Body Type Dropdown */}
@@ -2712,7 +2736,7 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
+        </View>
         </Modal>
       )}
     </View>
@@ -2975,5 +2999,19 @@ const styles = StyleSheet.create({
   loadingSkeletonLine: {
     borderRadius: 6,
     marginBottom: 12,
+  },
+  colorOption: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  colorOptionText: {
+    fontSize: 14,
+    flex: 1,
+    textAlign: "left",
   },
 });

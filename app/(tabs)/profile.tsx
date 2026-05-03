@@ -3433,6 +3433,8 @@ export default function ProfileScreen() {
                 Change Profile Picture
               </ThemedText>
             </TouchableOpacity>
+
+            <View style={{marginBottom: insets.bottom}} />
           </Pressable>
         </Pressable>
       </Modal>

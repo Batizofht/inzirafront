@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -12,7 +12,7 @@ import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { router, usePathname } from "expo-router";
+import { Link, router, usePathname } from "expo-router";
 import { isWeb } from "@/lib/platform";
 import { useTranslation } from "react-i18next";
 import { Image } from "expo-image";
@@ -39,14 +39,10 @@ function WebLink({
   const [hovered, setHovered] = useState(false);
   const theme = useResolvedTheme();
   const colors = Colors[theme];
+  const RouterLink = Link as any;
 
-  const handlePress = (e?: any) => {
-    if (e) {
-      e.preventDefault();
-    }
-    if (onNavigate) {
-      onNavigate();
-    }
+  const handlePress = () => {
+    if (onNavigate) onNavigate();
     router.push(href as any);
   };
 
@@ -57,31 +53,37 @@ function WebLink({
       </Pressable>
     );
   }
-  // Use any type for web-specific props
-  const WebView = View as any;
+
+  const baseStyle = StyleSheet.flatten(style) || {};
+  const hoverStyle = hovered
+    ? (StyleSheet.flatten([
+        styles.linkHovered,
+        {
+          backgroundColor: isActive
+            ? `${colors.primary}15`
+            : "rgba(128,128,128,0.15)",
+        },
+      ]) as any)
+    : {};
+  const webStyle = {
+    display: "flex",
+    ...baseStyle,
+    cursor: "pointer",
+    ...hoverStyle,
+  };
 
   return (
-    <WebView
-      accessibilityRole="link"
-      href={href}
+    <RouterLink
+      href={href as any}
+      onPress={() => {
+        if (onNavigate) onNavigate();
+      }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={handlePress}
-      style={[
-        style,
-        { cursor: "pointer" },
-        hovered && [
-          styles.linkHovered,
-          {
-            backgroundColor: isActive
-              ? `${colors.primary}15`
-              : "rgba(128,128,128,0.15)",
-          },
-        ],
-      ]}
+      style={webStyle}
     >
       {children}
-    </WebView>
+    </RouterLink>
   );
 }
 
@@ -97,13 +99,9 @@ function MobileWebLink({
   style?: any;
   onNavigate?: () => void;
 }) {
-  const handlePress = (e?: any) => {
-    if (e) {
-      e.preventDefault();
-    }
-    if (onNavigate) {
-      onNavigate();
-    }
+  const RouterLink = Link as any;
+  const handlePress = () => {
+    if (onNavigate) onNavigate();
     router.push(href as any);
   };
 
@@ -114,18 +112,20 @@ function MobileWebLink({
       </Pressable>
     );
   }
-  // Use any type for web-specific props
-  const WebView = View as any;
+
+  const baseStyle = StyleSheet.flatten(style) || {};
+  const webStyle = { display: "flex", cursor: "pointer", ...baseStyle };
 
   return (
-    <WebView
-      accessibilityRole="link"
-      href={href}
-      onClick={handlePress}
-      style={[{ cursor: "pointer" }, style]}
+    <RouterLink
+      href={href as any}
+      onPress={() => {
+        if (onNavigate) onNavigate();
+      }}
+      style={webStyle}
     >
       {children}
-    </WebView>
+    </RouterLink>
   );
 }
 
@@ -141,25 +141,19 @@ const BUYING_MENU = {
     { label: "Certified pre-owned cars for sale", path: "/explore?usage=Used%20In%20Rwanda" },
   ],
   bodyType: [
-    { label: "SUVs & Crossovers", path: "/explore" },
-    { label: "Trucks", path: "/explore" },
-    { label: "Sedans", path: "/explore" },
-    { label: "Coupes", path: "/explore" },
-    { label: "Minivans", path: "/explore" },
-    { label: "Hatchbacks", path: "/explore" },
-    { label: "Convertibles", path: "/explore" },
-    { label: "Station wagons", path: "/explore" },
+    { label: "SUVs & Crossovers", path: "/explore?typebodies=SUVs" },
+    { label: "Trucks", path: "/explore?typebodies=Trucks" },
+    { label: "Sedans", path: "/explore?typebodies=Sedans" },
+    { label: "Coupes", path: "/explore?typebodies=Coupes" },
+    { label: "Minivans", path: "/explore?typebodies=Minivans" },
+    { label: "Hatchbacks", path: "/explore?typebodies=Hatchbacks" },
+    { label: "Convertibles", path: "/explore?typebodies=Convertibles" },
+    { label: "Station wagons", path: "/explore?typebodies=Station%20Wagons" },
   ],
   otherVehicles: [
-    { label: "Commercial & Heavy trucks", path: "/explore" },
-    { label: "Trailers", path: "/explore" },
-    { label: "RVs", path: "/explore" },
-    { label: "Boats", path: "/explore" },
-    { label: "Watercraft", path: "/explore" },
-    { label: "Bikes & ATVs", path: "/explore" },
-    { label: "Snowmobiles", path: "/explore" },
-    { label: "Heavy equipment", path: "/explore" },
-    { label: "Farm equipment", path: "/explore" },
+    { label: "Bus", path: "/category/Bus" },
+    { label: "Truck", path: "/category/Truck" },
+   
   ],
 };
 
@@ -196,6 +190,10 @@ export function WebHeader() {
   const { t, i18n } = useTranslation();
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const buyingWrapperRef = useRef<any>(null);
+  const sellingWrapperRef = useRef<any>(null);
+  const moreWrapperRef = useRef<any>(null);
+  const langWrapperRef = useRef<any>(null);
 
   // Responsive breakpoints
   const isMobileWeb = isWeb && width < 768;
@@ -255,6 +253,44 @@ export function WebHeader() {
       clearInterval(intervalId);
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!isWeb || !isDesktopWeb) return;
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (!(showBuyingDropdown || showSellingDropdown || showMoreDropdown || showLangDropdown)) {
+        return;
+      }
+
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      const wrappers = [
+        buyingWrapperRef.current,
+        sellingWrapperRef.current,
+        moreWrapperRef.current,
+        langWrapperRef.current,
+      ].filter(Boolean);
+
+      const clickedInside = wrappers.some((node: any) => {
+        try {
+          return node && typeof node.contains === "function" && node.contains(target);
+        } catch {
+          return false;
+        }
+      });
+
+      if (!clickedInside) {
+        setShowBuyingDropdown(false);
+        setShowSellingDropdown(false);
+        setShowMoreDropdown(false);
+        setShowLangDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [isDesktopWeb, showBuyingDropdown, showSellingDropdown, showMoreDropdown, showLangDropdown]);
 
   // Mobile Web View - Hamburger Menu
   if (isMobileWeb) {
@@ -811,18 +847,6 @@ export function WebHeader() {
           },
         ]}
       >
-        {(showBuyingDropdown || showSellingDropdown || showMoreDropdown || showLangDropdown) && (
-          <Pressable
-            style={styles.dropdownOverlay}
-            onPress={() => {
-              setShowBuyingDropdown(false);
-              setShowSellingDropdown(false);
-              setShowMoreDropdown(false);
-              setShowLangDropdown(false);
-            }}
-          />
-        )}
-
         <View style={styles.leftGroup}>
           {/* Left Side: Logo */}
           <TouchableOpacity
@@ -839,7 +863,7 @@ export function WebHeader() {
 
           {/* Left: Navigation Links */}
           <View style={styles.leftNav}>
-            <View style={styles.dropdownNavWrapper}>
+            <View style={styles.dropdownNavWrapper} ref={buyingWrapperRef} collapsable={false}>
               <TouchableOpacity
                 style={[
                   styles.navItem,
@@ -880,7 +904,7 @@ export function WebHeader() {
                     styles.megaDropdown,
                     { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
-                  onMouseLeave={() => setShowBuyingDropdown(false)}
+                  pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
                     <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Cars</ThemedText>
@@ -933,7 +957,7 @@ export function WebHeader() {
               )}
             </View>
 
-            <View style={styles.dropdownNavWrapper}>
+            <View style={styles.dropdownNavWrapper} ref={sellingWrapperRef} collapsable={false}>
               <TouchableOpacity
                 style={[
                   styles.navItem,
@@ -974,7 +998,7 @@ export function WebHeader() {
                     styles.megaDropdown,
                     { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
-                  onMouseLeave={() => setShowSellingDropdown(false)}
+                  pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
                     <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Sell</ThemedText>
@@ -1035,7 +1059,7 @@ export function WebHeader() {
               </ThemedText>
             </WebLink>
 
-            <View style={styles.moreNavWrapper}>
+            <View style={styles.moreNavWrapper} ref={moreWrapperRef} collapsable={false}>
               <TouchableOpacity
                 style={[
                   styles.navItem,
@@ -1479,6 +1503,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 24,
     elevation: 18,
+    zIndex: 100001,
   },
   megaDropdown: {
     position: "absolute",
@@ -1497,6 +1522,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 28,
     elevation: 18,
+    zIndex: 100001,
   },
   companyDropdown: {
     position: "absolute",
@@ -1648,7 +1674,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 100000,
+    zIndex: 99998,
   },
 
   // Mobile Web Header Styles

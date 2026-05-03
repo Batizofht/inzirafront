@@ -71,39 +71,39 @@ const BRAND_LOGOS: Record<string, string> = {
   Honda: "https://www.carlogos.org/car-logos/honda-logo-2000-full-download.png",
 
   // Brandfetch CDN
-  "Mercedes-Benz": "https://cdn.brandfetch.io/mercedes-benz.com/w/400/h/400/logo",
-  Mercedes: "https://cdn.brandfetch.io/mercedes-benz.com/w/400/h/400/logo",
-  BMW: "https://cdn.brandfetch.io/bmw.com/w/400/h/400/logo",
-  Audi: "https://cdn.brandfetch.io/audi.com/w/400/h/400/logo",
-  Nissan: "https://cdn.brandfetch.io/nissan.com/w/400/h/400/logo",
-  Ford: "https://cdn.brandfetch.io/ford.com/w/400/h/400/logo",
-  Volkswagen: "https://cdn.brandfetch.io/volkswagen.com/w/400/h/400/logo",
-  Hyundai: "https://cdn.brandfetch.io/hyundai.com/w/400/h/400/logo",
-  Kia: "https://cdn.brandfetch.io/kia.com/w/400/h/400/logo",
-  Chevrolet: "https://cdn.brandfetch.io/chevrolet.com/w/400/h/400/logo",
-  Mazda: "https://cdn.brandfetch.io/mazda.com/w/400/h/400/logo",
-  Subaru: "https://cdn.brandfetch.io/subaru.com/w/400/h/400/logo",
-  Lexus: "https://cdn.brandfetch.io/lexus.com/w/400/h/400/logo",
-  Jeep: "https://cdn.brandfetch.io/jeep.com/w/400/h/400/logo",
-  "Land Rover": "https://cdn.brandfetch.io/landrover.com/w/400/h/400/logo",
-  Porsche: "https://cdn.brandfetch.io/porsche.com/w/400/h/400/logo",
-  Volvo: "https://cdn.brandfetch.io/volvocars.com/w/400/h/400/logo",
-  Tesla: "https://cdn.brandfetch.io/tesla.com/w/400/h/400/logo",
-  Mitsubishi: "https://cdn.brandfetch.io/mitsubishi.com/w/400/h/400/logo",
-  Peugeot: "https://cdn.brandfetch.io/peugeot.com/w/400/h/400/logo",
-  Renault: "https://cdn.brandfetch.io/renault.com/w/400/h/400/logo",
-  Suzuki: "https://cdn.brandfetch.io/suzuki.com/w/400/h/400/logo",
-  Isuzu: "https://cdn.brandfetch.io/isuzu.com/w/400/h/400/logo",
-  Fiat: "https://cdn.brandfetch.io/fiat.com/w/400/h/400/logo",
-  Jaguar: "https://cdn.brandfetch.io/jaguar.com/w/400/h/400/logo",
-  "Range Rover": "https://cdn.brandfetch.io/landrover.com/w/400/h/400/logo",
-  Acura: "https://cdn.brandfetch.io/acura.com/w/400/h/400/logo",
-  Infiniti: "https://cdn.brandfetch.io/infiniti.com/w/400/h/400/logo",
-  Cadillac: "https://cdn.brandfetch.io/cadillac.com/w/400/h/400/logo",
-  Dodge: "https://cdn.brandfetch.io/dodge.com/w/400/h/400/logo",
-  RAM: "https://cdn.brandfetch.io/ramtrucks.com/w/400/h/400/logo",
-  GMC: "https://cdn.brandfetch.io/gmc.com/w/400/h/400/logo",
-  "Aston Martin": "https://cdn.brandfetch.io/astonmartin.com/w/400/h/400/logo",
+  "Mercedes-Benz": "https://cdn.brandfetch.io/mercedes-benz.com/w/400/h/400/logo.png",
+  Mercedes: "https://cdn.brandfetch.io/mercedes-benz.com/w/400/h/400/logo.png",
+  BMW: "https://cdn.brandfetch.io/bmw.com/w/400/h/400/logo.png",
+  Audi: "https://cdn.brandfetch.io/audi.com/w/400/h/400/logo.png",
+  Nissan: "https://cdn.brandfetch.io/nissan.com/w/400/h/400/logo.png",
+  Ford: "https://cdn.brandfetch.io/ford.com/w/400/h/400/logo.png",
+  Volkswagen: "https://cdn.brandfetch.io/volkswagen.com/w/400/h/400/logo.png",
+  Hyundai: "https://cdn.brandfetch.io/hyundai.com/w/400/h/400/logo.png",
+  Kia: "https://cdn.brandfetch.io/kia.com/w/400/h/400/logo.png",
+  Chevrolet: "https://cdn.brandfetch.io/chevrolet.com/w/400/h/400/logo.png",
+  Mazda: "https://cdn.brandfetch.io/mazda.com/w/400/h/400/logo.png",
+  Subaru: "https://cdn.brandfetch.io/subaru.com/w/400/h/400/logo.png",
+  Lexus: "https://cdn.brandfetch.io/lexus.com/w/400/h/400/logo.png",
+  Jeep: "https://cdn.brandfetch.io/jeep.com/w/400/h/400/logo.png",
+  "Land Rover": "https://cdn.brandfetch.io/landrover.com/w/400/h/400/logo.png",
+  Porsche: "https://cdn.brandfetch.io/porsche.com/w/400/h/400/logo.png",
+  Volvo: "https://cdn.brandfetch.io/volvocars.com/w/400/h/400/logo.png",
+  Tesla: "https://cdn.brandfetch.io/tesla.com/w/400/h/400/logo.png",
+  Mitsubishi: "https://cdn.brandfetch.io/mitsubishi.com/w/400/h/400/logo.png",
+  Peugeot: "https://cdn.brandfetch.io/peugeot.com/w/400/h/400/logo.png",
+  Renault: "https://cdn.brandfetch.io/renault.com/w/400/h/400/logo.png",
+  Suzuki: "https://cdn.brandfetch.io/suzuki.com/w/400/h/400/logo.png",
+  Isuzu: "https://cdn.brandfetch.io/isuzu.com/w/400/h/400/logo.png",
+  Fiat: "https://cdn.brandfetch.io/fiat.com/w/400/h/400/logo.png",
+  Jaguar: "https://cdn.brandfetch.io/jaguar.com/w/400/h/400/logo.png",
+  "Range Rover": "https://cdn.brandfetch.io/landrover.com/w/400/h/400/logo.png",
+  Acura: "https://cdn.brandfetch.io/acura.com/w/400/h/400/logo.png",
+  Infiniti: "https://cdn.brandfetch.io/infiniti.com/w/400/h/400/logo.png",
+  Cadillac: "https://cdn.brandfetch.io/cadillac.com/w/400/h/400/logo.png",
+  Dodge: "https://cdn.brandfetch.io/dodge.com/w/400/h/400/logo.png",
+  RAM: "https://cdn.brandfetch.io/ramtrucks.com/w/400/h/400/logo.png",
+  GMC: "https://cdn.brandfetch.io/gmc.com/w/400/h/400/logo.png",
+  "Aston Martin": "https://cdn.brandfetch.io/astonmartin.com/w/400/h/400/logo.png",
 };
 export default function HomeScreen() {
   useEffect(() => {
@@ -796,14 +796,15 @@ export default function HomeScreen() {
                 onPress={() => setShowLocationSheet(true)}
               >
                 <IconSymbol
-                  name="house.fill"
+                  name="house.geo"
                   size={16}
                   color={colors.text}
                   style={{ marginRight: 6 }}
                 />
                 <ThemedText
-                  style={{ fontSize: 18, flex: 1 }}
+                  style={{ fontSize: 18, width:70}}
                   numberOfLines={1}
+
                   ellipsizeMode="tail"
                 >
                   {currentLocationLabel}
@@ -1170,7 +1171,7 @@ export default function HomeScreen() {
                       </View>
                       <View style={styles.vehicleInfo}>
                         <View
-                          style={{ flexDirection: "row", alignItems: "center" }}
+                          style={{ flexDirection: "row", alignItems: "flex-start", gap: 4 }}
                         >
                           <ThemedText style={styles.vehicleTitle} numberOfLines={1}>
                             {vehicle.title}
@@ -1180,17 +1181,18 @@ export default function HomeScreen() {
                             vehicle.sellerTier === "dealer_pro") && (
                             <View
                               style={{
-                                marginLeft: 6,
+                                marginTop: 2,
                                 backgroundColor: "#3B82F6",
-                                borderRadius: 10,
-                                width: 16,
-                                height: 16,
+                                borderRadius: 7,
+                                width: 13,
+                                height: 13,
                                 justifyContent: "center",
                                 alignItems: "center",
                                 overflow: "hidden",
+                                flexShrink: 0,
                               }}
                             >
-                              <IconSymbol name="checkmark" size={12} color="#fff" />
+                              <IconSymbol name="checkmark" size={9} color="#fff" />
                             </View>
                           )}
                         </View>
@@ -1400,8 +1402,8 @@ export default function HomeScreen() {
                       <View
                         style={{
                           flexDirection: "row",
-                          alignItems: "center",
-                          gap: 8,
+                          alignItems: "flex-start",
+                          gap: 6,
                         }}
                       >
                         {(vehicle.verificationStatus === "approved" ||
@@ -1409,18 +1411,20 @@ export default function HomeScreen() {
                           vehicle.sellerTier === "dealer_pro") && (
                           <View
                             style={{
+                              marginTop: 2,
                               backgroundColor: "#3B82F6",
-                              borderRadius: 10,
-                              width: 16,
-                              height: 16,
+                              borderRadius: 7,
+                              width: 13,
+                              height: 13,
                               justifyContent: "center",
                               alignItems: "center",
                               overflow: "hidden",
+                              flexShrink: 0,
                             }}
                           >
                             <IconSymbol
                               name="checkmark"
-                              size={12}
+                              size={9}
                               color="#fff"
                             />
                           </View>
@@ -1583,7 +1587,13 @@ export default function HomeScreen() {
                           <Image
                             source={{ uri: BRAND_LOGOS[brand.name] }}
                             style={styles.brandImage}
-                            contentFit="contain"
+                            resizeMode="contain"
+                            onError={() => {
+                              console.log('Failed to load brand logo:', brand.name, BRAND_LOGOS[brand.name]);
+                            }}
+                            onLoad={() => {
+                              console.log('Successfully loaded brand logo:', brand.name);
+                            }}
                           />
                         ) : (
                           <IconSymbol
@@ -2328,38 +2338,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   vehicleInfo: {
-    padding: 16,
+    padding: 10,
+    gap: 3,
   },
   vehicleTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "600",
-    marginBottom: 4,
+    flex: 1,
+    lineHeight: 19,
   },
   vehicleUsageStatus: {
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginBottom: 6,
-  },
-  vehicleSeller: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  usageBadge: {
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    marginBottom: 6,
-  },
-  usageBadgeText: {
     fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
   },
-  vehiclePrice: {
-    fontSize: 18,
+  vehicleSeller: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  usageBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  usageBadgeText: {
+    fontSize: 9,
     fontWeight: "700",
-    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  vehiclePrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 2,
   },
   vehicleSpecs: {
     flexDirection: "row",
@@ -2392,45 +2402,45 @@ const styles = StyleSheet.create({
   },
   latestInfo: {
     flex: 1,
-    padding: 12,
-    justifyContent: "space-between",
+    padding: 10,
+    gap: 2,
   },
   latestHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    marginBottom: 2,
   },
   latestTitle: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "600",
-    marginRight: 8,
-    lineHeight: 20,
+    marginRight: 6,
+    lineHeight: 18,
   },
   latestMetaContainer: {
-    marginTop: 8,
+    marginTop: 0,
   },
   latestUsageStatus: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     textTransform: "uppercase",
-    marginBottom: 3,
   },
   latestSeller: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "500",
   },
   latestPrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
-    marginBottom: 4,
   },
   latestSpecsRow: {
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 2,
   },
   latestSpecText: {
-    fontSize: 12,
+    fontSize: 11,
   },
   emptyStateCard: {
     paddingVertical: 24,
@@ -2572,4 +2582,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  emptyStateIconWrap: {
+    padding:10,
+    borderRadius:100
+  }
 });

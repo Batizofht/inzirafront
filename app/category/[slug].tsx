@@ -18,8 +18,9 @@ import { WebFooter } from '@/components/web-footer';
 import { resolveImageUrl } from '@/lib/image-url';
 import { CategorySEO } from '@/components/page-meta';
 import { displayPrice, getPriceFilters, formatFilterPrice, getCurrentCurrencySymbol, getCurrencyPreference, type CurrencyCode } from '@/lib/currencyConverter';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
 
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   try {
@@ -399,6 +400,8 @@ export default function CategoryScreen() {
     setSelectedBrands((prev) => (prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]));
   };
 
+  const insets = useSafeAreaInsets()
+
   const clearAdvancedFilters = () => {
     setSelectedUsageStatuses([]);
     setSelectedPriceFilters([]);
@@ -624,17 +627,17 @@ export default function CategoryScreen() {
                           </TouchableOpacity>
                         </View>
                         <View style={styles.webResultInfo}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
                             <ThemedText style={styles.webVehicleTitle} numberOfLines={2}>{vehicle.title}</ThemedText>
                             {(vehicle.verificationStatus === 'approved' || vehicle.sellerTier === 'trusted' || vehicle.sellerTier === 'dealer_pro') && (
-                              <View style={{ marginLeft: 6, backgroundColor: '#3B82F6', borderRadius: 10, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                                <IconSymbol name="checkmark" size={12} color="#fff" />
+                              <View style={{ marginTop: 2, backgroundColor: '#3B82F6', borderRadius: 8, width: 14, height: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                                <IconSymbol name="checkmark" size={10} color="#fff" />
                               </View>
                             )}
                           </View>
                           <ThemedText style={[styles.webUsageStatus, { color: colors.primary }]}>{vehicle.usageStatus}</ThemedText>
                           {hasActiveSub && (
-                            <ThemedText style={{ color: colors.icon, fontSize: 13, marginTop: 4 }} numberOfLines={1}>
+                            <ThemedText style={{ color: colors.icon, fontSize: 12 }} numberOfLines={1}>
                               {vehicle.sellerName || 'Unknown Seller'}
                             </ThemedText>
                           )}
@@ -658,8 +661,7 @@ export default function CategoryScreen() {
         </View>
       ) : (
         <>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {/* Header - Inside ScrollView */}
+               {/* Header - Inside ScrollView */}
             <View style={[styles.header, { borderBottomColor: colors.border }]}> 
               <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                 <IconSymbol name="chevron.left" size={22} color={colors.text} />
@@ -670,6 +672,8 @@ export default function CategoryScreen() {
               </View>
               <View style={styles.backBtn} />
             </View>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+     
 
             {/* Search Container - Inside ScrollView */}
             <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}> 
@@ -766,8 +770,9 @@ export default function CategoryScreen() {
       )}
 
       <Modal transparent animationType="slide" visible={showFilterSheet} onRequestClose={() => setShowFilterSheet(false)}>
-        <Pressable style={styles.sheetOverlay} onPress={() => setShowFilterSheet(false)}>
-          <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background }]} onPress={() => {}}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setShowFilterSheet(false)} />
+          <View style={[styles.sheetContainer, { backgroundColor: colors.background }]}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
             <View style={styles.sheetHeader}>
@@ -786,208 +791,201 @@ export default function CategoryScreen() {
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent}>
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="chart.bar.fill" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Sort By</ThemedText>
-              </View>
-              <View style={styles.sheetChipsWrap}>
-                {SORT_OPTIONS.map((option) => {
-                  const active = selectedSort === option.id;
-                  return (
-                    <TouchableOpacity
-                      key={option.id}
-                      style={[
-                        styles.sheetChip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}1A` : 'transparent',
-                        },
-                        active && styles.sheetChipActive,
-                      ]}
-                      onPress={() => {
-                        setSelectedSort(option.id);
-                        setShowSortSheet(false);
-                      }}>
-                      <ThemedText style={{ color: active ? colors.primary : colors.text, fontSize: 12, fontWeight: '600' }}>{option.label}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              </View>
-
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="checkmark.circle.fill" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Usage Status</ThemedText>
-              </View>
-              <View style={styles.sheetChipsWrap}>
-                {USAGE_STATUS_FILTERS.map((item) => {
-                  const active = selectedUsageStatuses.includes(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[
-                        styles.sheetChip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}1A` : 'transparent',
-                        },
-                        active && styles.sheetChipActive,
-                      ]}
-                      onPress={() => toggleUsageFilter(item)}>
-                      <ThemedText style={{ color: active ? colors.primary : colors.text, fontSize: 12, fontWeight: '600' }}>{item}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              </View>
-
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="creditcard.fill" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Pricing</ThemedText>
-              </View>
-              <View style={styles.sheetChipsWrap}>
-                {priceFilters.map((item) => {
-                  const active = selectedPriceFilters.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[
-                        styles.sheetChip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}1A` : 'transparent',
-                        },
-                        active && styles.sheetChipActive,
-                      ]}
-                      onPress={() => togglePriceFilter(item.id)}>
-                      <ThemedText style={{ color: active ? colors.primary : colors.text, fontSize: 12, fontWeight: '600' }}>{item.label}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={[styles.priceRangeCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-                <View style={styles.priceRangeRow}>
-                  <ThemedText style={styles.priceRangeLabel}>From</ThemedText>
-                  <ThemedText style={[styles.priceRangeValue, { color: colors.primary }]}>{formatFilterPrice(customMinPrice)}</ThemedText>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.sheetContent} nestedScrollEnabled={true} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" alwaysBounceVertical={true}>
+              {/* Usage Status */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="checkmark.circle.fill" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Usage Status</ThemedText>
                 </View>
-                <RangeSlider
-                  value={customMinPrice}
-                  minimumValue={MIN_PRICE_RWF}
-                  maximumValue={customMaxPrice - getSliderStep()}
-                  step={getSliderStep()}
-                  onValueChange={setCustomMinPrice}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.border}
-                />
-
-                <View style={[styles.priceRangeRow, { marginTop: 8 }]}>
-                  <ThemedText style={styles.priceRangeLabel}>To</ThemedText>
-                  <ThemedText style={[styles.priceRangeValue, { color: colors.primary }]}>{formatFilterPrice(customMaxPrice)}</ThemedText>
+                <View style={styles.brandGrid}>
+                  {USAGE_STATUS_FILTERS.map((item) => {
+                    const active = selectedUsageStatuses.includes(item);
+                    return (
+                      <TouchableOpacity
+                        key={item}
+                        style={[
+                          styles.brandGridItem,
+                          active && [
+                          
+                            {
+                              backgroundColor: `${colors.primary}14`,
+                              borderColor: colors.primary,
+                            },
+                          ],
+                          {
+                            borderColor: active ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => toggleUsageFilter(item)}
+                      >
+                        <ThemedText
+                          style={{
+                            color: active ? colors.primary : colors.text,
+                            fontWeight: active ? "600" : "400",
+                            fontSize: 12,
+                            textAlign: "center",
+                          }}
+                          numberOfLines={1}
+                        >
+                          {item}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <RangeSlider
-                  value={customMaxPrice}
-                  minimumValue={customMinPrice + getSliderStep()}
-                  maximumValue={MAX_PRICE_RWF}
-                  step={getSliderStep()}
-                  onValueChange={setCustomMaxPrice}
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.border}
-                />
-              </View>
               </View>
 
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="car.fill" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Car Model / Type</ThemedText>
-              </View>
-              <View style={styles.sheetChipsWrap}>
-                {modelTypeFilters.map((item) => {
-                  const active = selectedModelTypes.includes(item);
-                  return (
-                    <TouchableOpacity
-                      key={item}
-                      style={[
-                        styles.sheetChip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}1A` : 'transparent',
-                        },
-                        active && styles.sheetChipActive,
-                      ]}
-                      onPress={() => toggleModelTypeFilter(item)}>
-                      <ThemedText style={{ color: active ? colors.primary : colors.text, fontSize: 12, fontWeight: '600' }}>{item}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              </View>
-
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="list" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Brand</ThemedText>
-              </View>
-              <View style={styles.sheetChipsWrap}>
-                {brandFilters.map((brand) => {
-                  const active = selectedBrands.includes(brand);
-                  return (
-                    <TouchableOpacity
-                      key={brand}
-                      style={[
-                        styles.sheetChip,
-                        {
-                          borderColor: active ? colors.primary : colors.border,
-                          backgroundColor: active ? `${colors.primary}1A` : 'transparent',
-                        },
-                        active && styles.sheetChipActive,
-                      ]}
-                      onPress={() => toggleBrandFilter(brand)}>
-                      <ThemedText style={{ color: active ? colors.primary : colors.text, fontSize: 12, fontWeight: '600' }}>{brand}</ThemedText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {/* Brand */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="car.fill" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Brand</ThemedText>
+                </View>
+                <View style={styles.brandGrid}>
+                  {brandFilters.map((brand) => {
+                    const active = selectedBrands.includes(brand);
+                    return (
+                      <TouchableOpacity
+                        key={brand}
+                        style={[
+                          styles.brandGridItem,
+                          active && [
+                            styles.webChipActive,
+                            {
+                              backgroundColor: `${colors.primary}14`,
+                              borderColor: colors.primary,
+                            },
+                          ],
+                          {
+                            borderColor: active ? colors.primary : colors.border,
+                          },
+                        ]}
+                        onPress={() => toggleBrandFilter(brand)}
+                      >
+                        <ThemedText
+                          style={{
+                            color: active ? colors.primary : colors.text,
+                            fontWeight: active ? "600" : "400",
+                            fontSize: 12,
+                            textAlign: "center",
+                          }}
+                          numberOfLines={1}
+                        >
+                          {brand}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
-              <View style={[styles.sheetSectionCard, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-              <View style={styles.sheetSectionHeadingRow}>
-                <IconSymbol name="photo" size={14} color={colors.icon} />
-                <ThemedText style={styles.sheetSectionTitle}>Color</ThemedText>
+              {/* Color */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="photo" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Color</ThemedText>
+                </View>
+                <View style={styles.colorCirclesWrap}>
+                  {colorFilters.map((color) => {
+                    const active = selectedColors.includes(color);
+                    const colorHex = getColorHex(color);
+                    return (
+                      <TouchableOpacity
+                        key={color}
+                        style={[
+                          styles.colorCircle,
+                          { backgroundColor: colorHex },
+                          active && [
+                            styles.colorCircleActive,
+                            { borderColor: colors.primary },
+                          ],
+                        ]}
+                        onPress={() => toggleColorFilter(color)}
+                        accessibilityLabel={color}
+                      >
+                        {active && (
+                          <IconSymbol
+                            name="checkmark"
+                            size={14}
+                            color={
+                              colorHex === "#FFFFFF" || colorHex === "#F8F8F8"
+                                ? "#000"
+                                : "#fff"
+                            }
+                          />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-              <View style={styles.colorCirclesWrap}>
-                {colorFilters.map((color) => {
-                  const active = selectedColors.includes(color);
-                  const colorHex = getColorHex(color);
-                  return (
-                    <TouchableOpacity
-                      key={color}
+
+              {/* Price Range */}
+              <View style={styles.webFilterSection}>
+                <View style={styles.webFilterHeadingRow}>
+                  <IconSymbol name="creditcard.fill" size={14} color={colors.icon} />
+                  <ThemedText style={styles.webFilterLabel}>Price Range</ThemedText>
+                </View>
+                <View
+                  style={[
+                    styles.priceRangeCard,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.card,
+                    },
+                  ]}
+                >
+                  <View style={styles.priceRangeRow}>
+                    <ThemedText style={styles.priceRangeLabel}>From</ThemedText>
+                    <ThemedText
                       style={[
-                        styles.colorCircle,
-                        { backgroundColor: colorHex },
-                        active && [styles.colorCircleActive, { borderColor: colors.primary }],
+                        styles.priceRangeValue,
+                        { color: colors.primary },
                       ]}
-                      onPress={() => toggleColorFilter(color)}
-                      accessibilityLabel={color}
                     >
-                      {active && <IconSymbol name="checkmark" size={14} color={colorHex === '#FFFFFF' || colorHex === '#F8F8F8' ? '#000' : '#fff'} />}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {formatFilterPrice(customMinPrice)}
+                    </ThemedText>
+                  </View>
+                  <RangeSlider
+                    value={customMinPrice}
+                    minimumValue={MIN_PRICE_RWF}
+                    maximumValue={customMaxPrice - getSliderStep()}
+                    step={getSliderStep()}
+                    onValueChange={setCustomMinPrice}
+                    minimumTrackTintColor={colors.primary}
+                    maximumTrackTintColor={colors.border}
+                  />
+
+                  <View style={[styles.priceRangeRow, { marginTop: 8 }]}>
+                    <ThemedText style={styles.priceRangeLabel}>To</ThemedText>
+                    <ThemedText
+                      style={[
+                        styles.priceRangeValue,
+                        { color: colors.primary },
+                      ]}
+                    >
+                      {formatFilterPrice(customMaxPrice)}
+                    </ThemedText>
+                  </View>
+                  <RangeSlider
+                    value={customMaxPrice}
+                    minimumValue={customMinPrice + getSliderStep()}
+                    maximumValue={MAX_PRICE_RWF}
+                    step={getSliderStep()}
+                    onValueChange={setCustomMaxPrice}
+                    minimumTrackTintColor={colors.primary}
+                    maximumTrackTintColor={colors.border}
+                  />
+                </View>
               </View>
             </ScrollView>
 
-            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.primary }]} onPress={() => setShowFilterSheet(false)}>
+            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.primary, marginBottom:insets.bottom }]} onPress={() => setShowFilterSheet(false)}>
               <ThemedText style={styles.applyBtnText}>Show {vehicles.length} vehicles</ThemedText>
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {isDesktopWeb ? (
@@ -1041,8 +1039,9 @@ export default function CategoryScreen() {
       ) : (
         // Mobile Sort Sheet
         <Modal transparent animationType="slide" visible={showSortSheet} onRequestClose={() => setShowSortSheet(false)}>
-          <Pressable style={styles.sheetOverlay} onPress={() => setShowSortSheet(false)}>
-            <Pressable style={[styles.sortSheetContainer, { backgroundColor: colors.background }]} onPress={() => {}}>
+          <View style={styles.sheetOverlay}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShowSortSheet(false)} />
+            <View style={[styles.sortSheetContainer, { backgroundColor: colors.background }]}>
               <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
 
               <View style={styles.sortSheetHeader}>
@@ -1052,7 +1051,7 @@ export default function CategoryScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} style={styles.sortOptionsScroll}>
+              <ScrollView showsVerticalScrollIndicator={false} style={styles.sortOptionsScroll} nestedScrollEnabled={true} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" alwaysBounceVertical={true}>
                 <View style={styles.sortOptionsList}>
                   {SORT_OPTIONS.map((option) => {
                     const active = option.id === selectedSort;
@@ -1088,10 +1087,11 @@ export default function CategoryScreen() {
                   })}
                 </View>
               </ScrollView>
-            </Pressable>
-          </Pressable>
+            </View>
+          </View>
         </Modal>
       )}
+      <View style={{marginBottom:insets.bottom}} />
     </View>
   );
 }
@@ -1389,7 +1389,7 @@ const styles = StyleSheet.create({
   webSidebar: {
     width: 320,
     borderRightWidth: 1,
-    paddingHorizontal: 18,
+    paddingLeft: 18,
   },
   webSidebarContent: {
     paddingBottom: 28,
@@ -1549,24 +1549,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   webResultInfo: {
-    padding: 16,
+    padding: 12,
+    gap: 4,
   },
   webVehicleTitle: {
     fontSize: 15,
     fontWeight: '600',
-    marginBottom: 8,
-    lineHeight: 22,
+    lineHeight: 20,
+    flex: 1,
   },
   webUsageStatus: {
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 8,
   },
   webVehiclePrice: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
-    marginBottom: 12,
+    marginTop: 2,
   },
   webVehicleSpecs: {
     flexDirection: 'row',

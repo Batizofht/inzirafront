@@ -262,13 +262,14 @@ export function HeroSection({ categories }: HeroSectionProps) {
             styles.heroLeft,
             { backgroundColor: isDark ? '#1E3A5F' : colors.primary, paddingHorizontal: heroPadding },
           ]}
-        >
+        >  
+        <ThemedText style={styles.heroTitle}>
+            Welcome To Inzira
+          </ThemedText>
           <View style={styles.heroTag}>
             <ThemedText style={styles.heroTagText}>The Verified Car Marketplace</ThemedText>
           </View>
-          <ThemedText style={styles.heroTitle}>
-            Welcome To Inzira
-          </ThemedText>
+        
         </View>
 
         <View style={styles.heroRight}>
@@ -742,14 +743,14 @@ const styles = StyleSheet.create({
   heroTag: {
     backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 1,
     borderRadius: 20,
     marginBottom: 16,
     alignSelf: "flex-start",
   },
   heroTagText: {
     color: "#fff",
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 1,
@@ -759,6 +760,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 48,
     color: "#fff",
+    marginBottom: 8,
   },
   heroRight: {
     flex: 1,

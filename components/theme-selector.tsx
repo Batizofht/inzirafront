@@ -37,12 +37,12 @@ export function ThemeSelector({ colors }: ThemeSelectorProps) {
   return (
     <View>
       <TouchableOpacity
-        style={[styles.item, { borderColor: colors.border }]}
+        style={[styles.sheetItem, { borderColor: colors.border }]}
         onPress={() => setShowOptions((prev) => !prev)}
       >
-        <View style={styles.row}>
-          <ThemedText style={styles.itemText}>Dark Mode</ThemedText>
-          <View style={styles.rowRight}>
+        <View style={styles.currencyRow}>
+          <ThemedText style={styles.sheetItemText}>Dark Mode</ThemedText>
+          <View style={styles.currencyRowRight}>
             <ThemedText style={{ color: colors.primary, marginRight: 8, fontWeight: '700' }}>
               {themeModeLabel}
             </ThemedText>
@@ -56,14 +56,14 @@ export function ThemeSelector({ colors }: ThemeSelectorProps) {
       </TouchableOpacity>
 
       {showOptions && (
-        <View style={[styles.options, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <View style={[styles.currencyOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
           {THEME_MODES.map((mode) => {
             const label = mode === 'system' ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
             const isSelected = mode === selectedMode;
             return (
               <TouchableOpacity
                 key={mode}
-                style={[styles.option, { borderBottomColor: colors.border }]}
+                style={[styles.currencyOption, { borderBottomColor: colors.border }]}
                 onPress={() => handleSelect(mode)}
               >
                 <ThemedText
@@ -84,29 +84,34 @@ export function ThemeSelector({ colors }: ThemeSelectorProps) {
 }
 
 const styles = StyleSheet.create({
-  item: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  sheetItem: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 10,
   },
-  itemText: {
+  sheetItemText: {
     fontSize: 15,
+    fontWeight: "600",
   },
-  row: {
+  currencyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  rowRight: {
+  currencyRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  options: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  currencyOptions: {
+    borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 10,
+    overflow: 'hidden',
   },
-  option: {
-    paddingHorizontal: 16,
+  currencyOption: {
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
