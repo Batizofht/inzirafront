@@ -106,6 +106,18 @@ const getSellerStats = (vehicles: Vehicle[], contactRequests: ContactRequestResp
 });
 
 export default function ProfileScreen() {
+  const [sellerType, setSellerType] = useState<'individual' | 'company' | null>(null);
+
+  useEffect(() => {
+    async function fetchSellerType() {
+      const user = await getAuthUser();
+      if (user?.role === 'seller') {
+        setSellerType(user.sellerType || 'individual');
+      }
+    }
+    fetchSellerType();
+  }, []);
+
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.title = 'My Profile | Inzira';
@@ -702,8 +714,8 @@ export default function ProfileScreen() {
 
               <View style={styles.userDetails}>
                 <ThemedText style={styles.userName}>
-                  {authUser?.fullName || "Seller"}
-                </ThemedText>
+  {authUser?.fullName || "Seller"}{authUser?.sellerType ? ` - ${authUser.sellerType === 'company' ? 'Business' : 'Individual'}` : ''}
+</ThemedText>
 
                 <ThemedText
                   style={[styles.userContact, { color: colors.icon }]}
@@ -1470,7 +1482,7 @@ export default function ProfileScreen() {
                       ))}
                     </>
                   ) : myVehicles.filter((v) => v.status === "rejected")
-                      .length === 0 ? (
+                    .length === 0 ? (
                     <View
                       style={[
                         styles.emptyCars,
@@ -2372,7 +2384,7 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-            </View>
+          </View>
 
           <WebFooter />
         </ScrollView>
@@ -2397,7 +2409,7 @@ export default function ProfileScreen() {
                   paddingBottom: insets.bottom,
                 },
               ]}
-              onPress={() => {}}
+              onPress={() => { }}
             >
               <View
                 style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -2600,12 +2612,9 @@ export default function ProfileScreen() {
             <Pressable
               style={[
                 styles.sheetContainer,
-                {
-                  backgroundColor: colors.background,
-                  paddingBottom: insets.bottom,
-                },
+                { backgroundColor: colors.background },
               ]}
-              onPress={() => {}}
+              onPress={() => { }}
             >
               <View
                 style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -2622,9 +2631,7 @@ export default function ProfileScreen() {
                   router.push("/settings/account");
                 }}
               >
-                <ThemedText style={styles.sheetItemText}>
-                  Edit Profile
-                </ThemedText>
+                <ThemedText style={styles.sheetItemText}>Edit Profile</ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2865,7 +2872,9 @@ export default function ProfileScreen() {
                 {authUser?.fullName || "Buyer"}
               </ThemedText>
 
-              <ThemedText style={[styles.userContact, { color: colors.icon }]}>
+              <ThemedText
+                style={[styles.userContact, { color: colors.icon }]}
+              >
                 {authUser?.email || ""}
               </ThemedText>
 
@@ -2955,6 +2964,9 @@ export default function ProfileScreen() {
           {/* Tab Content for Buyer */}
           <View
             style={[styles.tabContent, isDesktopWeb && styles.webTabContent]}
+            onLayout={(e) => {
+              console.log("Tab content layout:", e.nativeEvent.layout);
+            }}
           >
             {activeTab === "activity" && (
               <View
@@ -3286,7 +3298,7 @@ export default function ProfileScreen() {
                 paddingBottom: insets.bottom,
               },
             ]}
-            onPress={() => {}}
+            onPress={() => { }}
           >
             <View
               style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -3339,7 +3351,10 @@ export default function ProfileScreen() {
               <View
                 style={[
                   styles.currencyOptions,
-                  { borderColor: colors.border, backgroundColor: colors.card },
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                  },
                 ]}
               >
                 {CURRENCIES.map((currency) => (
@@ -3405,7 +3420,7 @@ export default function ProfileScreen() {
               styles.sheetContainer,
               { backgroundColor: colors.background },
             ]}
-            onPress={() => {}}
+            onPress={() => { }}
           >
             <View
               style={[styles.sheetHandle, { backgroundColor: colors.border }]}
@@ -3434,7 +3449,7 @@ export default function ProfileScreen() {
               </ThemedText>
             </TouchableOpacity>
 
-            <View style={{marginBottom: insets.bottom}} />
+            <View style={{ marginBottom: insets.bottom }} />
           </Pressable>
         </Pressable>
       </Modal>
@@ -3462,10 +3477,10 @@ function MenuItem({
       style={[
         styles.menuItem,
         !isLast &&
-          !isDropdown && {
-            borderBottomWidth: StyleSheet.hairlineWidth,
-            borderBottomColor: colors.border,
-          },
+        !isDropdown && {
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.border,
+        },
       ]}
       onPress={onPress}
     >
@@ -3536,15 +3551,15 @@ const styles = StyleSheet.create({
   webUserInfoSection: {
     width: '100%',
     justifyContent: 'center',
-    alignItems:"center"
-},
+    alignItems: "center"
+  },
 
   webHeader: {
     width: "100%",
   },
 
   userInfoSection: {
-width: '100%',
+    width: '100%',
     justifyContent: 'center',
     alignItems: "center",
 
@@ -3556,7 +3571,7 @@ width: '100%',
     position: "relative",
 
     marginRight: 16,
-    justifyContent:"center",
+    justifyContent: "center",
 
   },
 
@@ -3590,7 +3605,7 @@ width: '100%',
 
   userDetails: {
 
-  
+
     justifyContent: "center",
     alignContent: "center",
     alignItems: "center",
@@ -3650,7 +3665,7 @@ width: '100%',
     alignItems: "center",
 
     gap: 6,
-    marginBottom:10,
+    marginBottom: 10,
 
     borderWidth: 1,
 

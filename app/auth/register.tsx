@@ -10,6 +10,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router, useLocalSearchParams } from 'expo-router';
 import { registerUser } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
+import { subscribeToPlan } from '@/lib/api-subscriptions';
 
 export default function RegisterScreen() {
   const theme = useResolvedTheme();
@@ -37,6 +38,7 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [sellerType, setSellerType] = useState<'individual' | 'company'>('individual');
 
   const isSeller = role === 'seller';
 
@@ -57,9 +59,28 @@ export default function RegisterScreen() {
       return;
     }
 
+    // if (isSeller && sellerType === 'individual') {
+    //   try {
+    //     const paymentResult = await subscribeToPlan({ planId: 'verification', amount: 5000 });
+    //     if (!paymentResult.success) {
+    //       setError('Payment required to proceed with verification.');
+    //       return;
+    //     }
+    //   } catch (error) {
+    //     setError('Payment failed. Please try again.');
+    //     return;
+    //   }
+    // }
+
     setIsLoading(true);
     try {
-      const result = await registerUser({ fullName: fullName.trim(), email: email.trim(), password, role });
+      const result = await registerUser({ 
+        fullName: fullName.trim(), 
+        email: email.trim(), 
+        password, 
+        role,
+        sellerType: isSeller ? sellerType : undefined
+      });
       // Go to OTP verification
       router.push(
         `/auth/verify-otp?userId=${result.userId}&email=${encodeURIComponent(result.email)}&role=${result.role}&mode=register` as any
@@ -95,6 +116,32 @@ export default function RegisterScreen() {
             Registering as {isSeller ? 'Seller' : 'Buyer'}
           </ThemedText>
         </View>
+
+        {isSeller && (
+          <View style={styles.formGroup}>
+            <ThemedText style={[styles.label, { color: colors.icon }]}>Seller Type</ThemedText>
+            <View style={[styles.switchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.switchOption, sellerType === 'individual' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                onPress={() => setSellerType('individual')}
+              >
+                <IconSymbol name="person.fill" size={18} color={sellerType === 'individual' ? colors.primary : colors.icon} />
+                <ThemedText style={[styles.switchOptionText, { color: sellerType === 'individual' ? colors.primary : colors.text }]}>
+                  Individual
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.switchOption, sellerType === 'company' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                onPress={() => setSellerType('company')}
+              >
+                <IconSymbol name="building.2.fill" size={18} color={sellerType === 'company' ? colors.primary : colors.icon} />
+                <ThemedText style={[styles.switchOptionText, { color: sellerType === 'company' ? colors.primary : colors.text }]}>
+                  Company
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <ThemedText type="defaultSemiBold" style={styles.title}>
           {isSeller ? 'Create Seller Account' : 'Create Buyer Account'}
@@ -268,6 +315,23 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15 },
   eyeBtn: { padding: 4 },
   hint: { fontSize: 12, marginTop: 6 },
+  switchContainer: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  switchOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderRightWidth: 0,
+  },
+  switchOptionText: { fontSize: 15, fontWeight: '600' },
   button: {
     width: '100%',
     height: 56,

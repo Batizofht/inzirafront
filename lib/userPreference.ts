@@ -19,6 +19,7 @@ export type AuthUser = {
   isVerifiedSeller?: boolean;
   isEmailVerified?: boolean;
   profileImage?: string | null;
+  sellerType?: 'individual' | 'company' | null;
 };
 
 export async function getAuthToken(): Promise<string | null> {
@@ -32,8 +33,11 @@ export async function getAuthToken(): Promise<string | null> {
 export async function getAuthUser(): Promise<AuthUser | null> {
   try {
     const value = await AsyncStorage.getItem(AUTH_USER_KEY);
-    return value ? (JSON.parse(value) as AuthUser) : null;
-  } catch {
+    const user = value ? (JSON.parse(value) as AuthUser) : null;
+    console.log('Retrieved authUser:', user); // Debug log
+    return user;
+  } catch (error) {
+    console.error('Error retrieving authUser:', error);
     return null;
   }
 }
@@ -70,6 +74,7 @@ export async function registerUser(payload: {
   password: string;
   role: 'buyer' | 'seller';
   phone?: string;
+  sellerType?: 'individual' | 'company';
 }): Promise<{ userId: string; email: string; role: string }> {
   const response = await apiRequest<{ status: number; data: { userId: string; email: string; role: string } }>('/auth/register', {
     method: 'POST',

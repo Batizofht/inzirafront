@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
 import { getAuthToken } from './userPreference';
 
-const DEFAULT_WEB_API = 'https://bonetsell.onrender.com/api/v1';
+const DEFAULT_WEB_API = 'http://localhost:4002/api/v1';
 const DEFAULT_ANDROID_API = 'http://10.0.2.2:4002/api/v1';
-const DEFAULT_IOS_API = 'https://bonetsell.onrender.com/api/v1';
+const DEFAULT_IOS_API = 'http://localhost:4002/api/v1';
 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
