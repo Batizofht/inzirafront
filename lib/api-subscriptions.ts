@@ -1,16 +1,17 @@
 import { apiRequest } from './api-client';
 
 export type SubscriptionPlan = {
-  id: 'basic' | 'pro' | 'business';
+  id: string;
   name: string;
   price: number;
   period: string;
+  durationDays?: number;
 };
 
 export type Subscription = {
   id: string;
   sellerId: string;
-  planId: SubscriptionPlan['id'];
+  planId: string;
   status: 'active' | 'expired' | 'cancelled';
   startedAt: string;
   expiresAt: string;
@@ -42,6 +43,14 @@ export async function subscribeToPlan(planId: string): Promise<{ status: number;
   return apiRequest('/subscriptions/subscribe', {
     method: 'POST',
     body: { planId },
+    auth: true,
+  });
+}
+
+// One-time verification fee payment for individual sellers (RWF 10,000)
+export async function payVerificationFee(): Promise<{ status: number; message: string; data: { hasPaidVerificationFee: boolean } }> {
+  return apiRequest('/subscriptions/pay-verification-fee', {
+    method: 'POST',
     auth: true,
   });
 }

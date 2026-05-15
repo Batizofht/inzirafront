@@ -20,7 +20,7 @@ import { CategorySEO } from '@/components/page-meta';
 import { displayPrice, getPriceFilters, formatFilterPrice, getCurrentCurrencySymbol, getCurrencyPreference, type CurrencyCode } from '@/lib/currencyConverter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
 
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   try {

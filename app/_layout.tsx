@@ -3,11 +3,12 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import 'react-native-reanimated';
-import { useSyncExternalStore, useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { useSyncExternalStore, useEffect, useState, useRef } from 'react';
+import { View, StyleSheet, ScrollView, ActivityIndicator, Platform, Animated, Text } from 'react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as SystemUI from 'expo-system-ui';
+import { Image } from 'expo-image';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/context/AuthContext';
@@ -19,6 +20,9 @@ import { WebFooter } from '@/components/web-footer';
 import { initCrashReporting } from '@/lib/crash-reporting';
 import '../i18n'; // Initialize i18n
 import './globals.css';
+
+const SPLASH_DURATION = 4000;
+const SPLASH_LOGO = require('../assets/images/THELOG.png');
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -35,14 +39,96 @@ function WebLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+function MobileSplashScreen({ onFinish }: { onFinish: () => void }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  useEffect(() => {
+    // Entrance animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Auto-dismiss after duration
+    const timer = setTimeout(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start(() => onFinish());
+    }, SPLASH_DURATION);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        splashStyles.container,
+        { opacity: fadeAnim },
+      ]}
+    >
+      <Animated.View style={{ transform: [{ scale: scaleAnim }], alignItems: 'center' }}>
+        <Image
+          source={SPLASH_LOGO}
+          style={splashStyles.logo}
+          contentFit="contain"
+        />
+        <Text style={splashStyles.title}>Welcome To Inzira</Text>
+        <Text style={splashStyles.subtitle}>The Verified Car Marketplace</Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const splashStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  logo: {
+    width: 60,
+    height: 60,
+    marginBottom: 24,
+    borderRadius:10
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1E293B',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 6,
+    letterSpacing: 0.5,
+  },
+});
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ...FontAwesome.font,
     ...MaterialIcons.font,
   });
   const [isThemeLoaded, setIsThemeLoaded] = useState(false);
+  const [showSplash, setShowSplash] = useState(!isWeb);  // splash shows immediately
   const colorScheme = useColorScheme();
-  
+
   useEffect(() => {
     loadThemePreference().then(() => setIsThemeLoaded(true));
   }, []);
@@ -61,13 +147,8 @@ export default function RootLayout() {
     }
   }, [resolvedTheme]);
 
-  if (!fontsLoaded || !isThemeLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#2563EB" size="large" />
-      </View>
-    );
-  }
+  // ✅ Don't block the whole tree — let splash cover the loading state
+  const isReady = fontsLoaded && isThemeLoaded;
 
   const stackContent = (
     <Stack screenOptions={{ headerShown: false }}>
@@ -100,16 +181,32 @@ export default function RootLayout() {
     <AuthProvider>
       <ThemeProvider value={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
         {isWeb ? (
-          <WebLayout>{stackContent}</WebLayout>
+          <WebLayout>
+            {isReady ? stackContent : (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#2563EB" size="large" />
+              </View>
+            )}
+          </WebLayout>
         ) : (
-          stackContent
+          <>
+            {/* Always render the stack (or a loader) underneath */}
+            {isReady ? stackContent : (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#2563EB" size="large" />
+              </View>
+            )}
+            {/* Splash sits on top via zIndex: 9999, unmounts after animation */}
+            {showSplash && (
+              <MobileSplashScreen onFinish={() => setShowSplash(false)} />
+            )}
+          </>
         )}
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </AuthProvider>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -12,20 +12,32 @@ import { displayPrice } from '@/lib/currencyConverter';
 
 const PLANS = [
   {
-    id: 'basic',
-    name: 'Basic',
+    id: 'basic_weekly',
+    name: 'Basic Weekly',
     price: '5,000',
     period: 'week',
     features: [
       { icon: 'car.fill', text: 'View buyer contact details' },
       { icon: 'bell.fill', text: 'Priority notifications' },
-      { icon: 'message.fill', text: 'Reply to 10 messages/month' },
+      { icon: 'message.fill', text: 'Reply to 10 messages/week' },
     ],
     recommended: false,
   },
   {
-    id: 'pro',
-    name: 'Pro Seller',
+    id: 'basic_monthly',
+    name: 'Basic Monthly',
+    price: '15,000',
+    period: 'month',
+    features: [
+      { icon: 'car.fill', text: 'View buyer contact details' },
+      { icon: 'bell.fill', text: 'Priority notifications' },
+      { icon: 'message.fill', text: 'Reply to 40 messages/month' },
+    ],
+    recommended: false,
+  },
+  {
+    id: 'pro_weekly',
+    name: 'Pro Weekly',
     price: '15,000',
     period: 'week',
     features: [
@@ -37,10 +49,36 @@ const PLANS = [
     recommended: true,
   },
   {
-    id: 'business',
-    name: 'Business',
+    id: 'pro_monthly',
+    name: 'Pro Monthly',
+    price: '45,000',
+    period: 'month',
+    features: [
+      { icon: 'car.fill', text: 'Unlimited contact views' },
+      { icon: 'bell.fill', text: 'Instant notifications' },
+      { icon: 'message.fill', text: 'Unlimited messaging' },
+      { icon: 'checkmark.seal.fill', text: 'Verified seller badge' },
+    ],
+    recommended: false,
+  },
+  {
+    id: 'business_weekly',
+    name: 'Business Weekly',
     price: '50,000',
     period: 'week',
+    features: [
+      { icon: 'car.fill', text: 'Multiple dealership accounts' },
+      { icon: 'bell.fill', text: 'API access for inventory' },
+      { icon: 'message.fill', text: 'Dedicated support' },
+      { icon: 'checkmark.seal.fill', text: 'Featured listings' },
+    ],
+    recommended: false,
+  },
+  {
+    id: 'business_monthly',
+    name: 'Business Monthly',
+    price: '150,000',
+    period: 'month',
     features: [
       { icon: 'car.fill', text: 'Multiple dealership accounts' },
       { icon: 'bell.fill', text: 'API access for inventory' },
@@ -108,7 +146,7 @@ export default function SubscriptionScreen() {
             Unlock Full Access
           </ThemedText>
           <ThemedText style={[styles.heroSubtitle, { color: colors.icon }]}>
-            Subscribe to connect with buyers, receive notifications, and manage unlimited messages
+            Subscribe weekly or monthly to connect with buyers, receive notifications, and manage unlimited messages
           </ThemedText>
         </View>
 

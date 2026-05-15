@@ -12,7 +12,7 @@ import { fetchVehicleById } from '@/lib/api-vehicles';
 import { fetchFavorites, addFavorite, removeFavorite } from '@/lib/api-favorites';
 import { createContactRequest, fetchMyContactRequests } from '@/lib/api-contact-requests';
 import { startConversation } from '@/lib/api-messages';
-import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan } from '@/lib/api-subscriptions';
+import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan, payVerificationFee } from '@/lib/api-subscriptions';
 import type { Vehicle } from '@/types/vehicle';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
@@ -22,7 +22,7 @@ import { displayPrice } from '@/lib/currencyConverter';
 import { PageHead, VehicleSEO } from '@/components/page-head';
 import { VehicleStructuredData } from '@/components/seo-head';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4002/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
 
 // Car brand logos with transparent backgrounds
 const BRAND_LOGOS: Record<string, string> = {
@@ -233,7 +233,7 @@ export default function VehicleDetailsScreen() {
     const activateSubscription = async () => {
       try {
         setIsRequesting(true);
-        await subscribeToPlan('basic');
+        await subscribeToPlan('basic_weekly');
         setHasActiveSub(true);
         const phone = (vehicle as any).sellerPhone;
         const email = (vehicle as any).sellerEmail;
@@ -256,7 +256,7 @@ export default function VehicleDetailsScreen() {
     };
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const confirmed = window.confirm('To view seller contact information, pay RWF 5,000 for 1 week subscription (mock payment).');
+      const confirmed = window.confirm('To view seller contact information, subscribe for RWF 5,000/week (mock payment). You can also choose monthly plans.');
       if (!confirmed) return;
       await activateSubscription();
       return;
@@ -264,10 +264,11 @@ export default function VehicleDetailsScreen() {
 
     Alert.alert(
       'Activate Contact Access',
-      'To view seller contact information, pay RWF 5,000 for 1 week subscription (mock payment).',
+      'To view seller contact information, subscribe for RWF 5,000/week. Monthly plans also available.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Pay RWF 5,000', onPress: async () => { await activateSubscription(); } }
+        { text: 'Weekly RWF 5,000', onPress: async () => { await activateSubscription(); } },
+        { text: 'View All Plans', onPress: () => router.push('/subscription') },
       ]
     );
   };
@@ -293,12 +294,10 @@ export default function VehicleDetailsScreen() {
 
   const handleVerificationPayment = async () => {
     try {
-      const result = await subscribeToPlan({ planId: 'verification', amount: 5000 });
-      if (result.success) {
-        Alert.alert('Payment Successful', 'You can now proceed with verification.');
-      }
-    } catch (error) {
-      Alert.alert('Payment Failed', 'Please try again.');
+      await payVerificationFee();
+      Alert.alert('Payment Successful', 'One-time verification fee paid. You can now proceed with verification.');
+    } catch (error: any) {
+      Alert.alert('Payment Failed', error?.message || 'Please try again.');
     }
   };
 
@@ -916,7 +915,7 @@ export default function VehicleDetailsScreen() {
 
             <View style={styles.modalContent}>
               <View style={[styles.verificationBadge, { backgroundColor: `${colors.primary}15` }]}>
-                <IconSymbol name="verified" size={32} color={colors.primary} />
+                <IconSymbol name="checkmark.seal.fill" size={32} color={colors.primary} />
                 <ThemedText type="defaultSemiBold" style={[styles.verificationScore, { color: colors.primary }]}>{verificationScore}/100</ThemedText>
               </View>
 

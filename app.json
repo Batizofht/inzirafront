@@ -35,6 +35,7 @@
       "favicon": "./assets/images/Logo.png"
     },
     "plugins": [
+      "./plugins/withVerificationFile.js",
       "./plugins/withAsyncStorageMaven.js",
       "expo-router",
       [

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, useWindowDimensions, Alert } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { isWeb } from '@/lib/platform';
 import { fetchConversations, type Conversation } from '@/lib/api-messages';
-import { fetchMySubscription, hasActiveSubscription, subscribeToPlan } from '@/lib/api-subscriptions';
+import { fetchMySubscription, hasActiveSubscription, subscribeToPlan, getSubscriptionRemainingDays } from '@/lib/api-subscriptions';
 import { getAuthUser, getUserType, type UserType } from '@/lib/userPreference';
 
 export default function MessagesScreen() {
@@ -41,16 +41,17 @@ export default function MessagesScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasSub, setHasSub] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
   const [userType, setUserType] = useState<UserType>(null);
   const [isProcessingSubscription, setIsProcessingSubscription] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleMockSubscriptionPayment = async () => {
+  const handleMockSubscriptionPayment = async (planId: string = 'basic_weekly') => {
     if (isProcessingSubscription) return;
 
     try {
       setIsProcessingSubscription(true);
-      await subscribeToPlan('basic');
+      await subscribeToPlan(planId);
       setHasSub(true);
       if (!isWeb) {
         alert('Subscription activated. Messaging is now unlocked.');
@@ -60,9 +61,9 @@ export default function MessagesScreen() {
       loadConversations();
     } catch (error: any) {
       if (!isWeb) {
-        alert(error?.message || 'Unable to process mock payment.');
+        alert(error?.message || 'Unable to process subscription payment.');
       } else {
-        window.alert(error?.message || 'Unable to process mock payment.');
+        window.alert(error?.message || 'Unable to process subscription payment.');
       }
     } finally {
       setIsProcessingSubscription(false);
@@ -90,6 +91,7 @@ export default function MessagesScreen() {
       ]);
       setConversations(conversationsRes.data.conversations);
       setHasSub(hasActiveSubscription(subscriptionRes.data.subscription));
+      setSubscription(subscriptionRes.data.subscription);
       setUserType(type);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load messages';
@@ -156,7 +158,27 @@ export default function MessagesScreen() {
 
   const handleLockedConversationPress = () => {
     if (userType === 'seller' && !hasSub) {
-      handleMockSubscriptionPayment();
+      // Show subscription options (weekly or monthly)
+      if (isWeb && typeof window !== 'undefined') {
+        const choice = window.confirm(
+          'Subscribe to view buyer details:\n\nOK = Weekly (RWF 5,000/week)\nCancel = Choose Monthly from subscription page'
+        );
+        if (choice) {
+          handleMockSubscriptionPayment('basic_weekly');
+        } else {
+          router.push('/subscription');
+        }
+      } else {
+        Alert.alert(
+          'Subscription Required',
+          'Choose a plan to view buyer details:',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Weekly RWF 5,000', onPress: () => handleMockSubscriptionPayment('basic_weekly') },
+            { text: 'View All Plans', onPress: () => router.push('/subscription') },
+          ]
+        );
+      }
       return;
     }
   };
@@ -225,16 +247,31 @@ export default function MessagesScreen() {
                 Subscription Required
               </ThemedText>
               <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>
-                Pay RWF 5,000 to view buyer info and reply to messages
+                Subscribe weekly or monthly to view buyer info and reply to messages
               </ThemedText>
             </View>
             <TouchableOpacity 
               style={[styles.subscribeBtn, { backgroundColor: colors.primary, opacity: isProcessingSubscription ? 0.7 : 1 }]}
-              onPress={handleMockSubscriptionPayment}
+              onPress={() => router.push('/subscription')}
               disabled={isProcessingSubscription}
             >
-              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{isProcessingSubscription ? 'Processing...' : 'Pay Now'}</ThemedText>
+              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Subscribe</ThemedText>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Active subscription remaining days */}
+        {userType === 'seller' && hasSub && subscription && (
+          <View style={[styles.subscriptionBanner, { backgroundColor: `${colors.primary}10`, borderColor: colors.border }]}>
+            <IconSymbol name="checkmark.seal.fill" size={20} color={colors.primary} />
+            <View style={styles.bannerContent}>
+              <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>
+                Subscription Active
+              </ThemedText>
+              <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>
+                {getSubscriptionRemainingDays(subscription)} days remaining
+              </ThemedText>
+            </View>
           </View>
         )}
 

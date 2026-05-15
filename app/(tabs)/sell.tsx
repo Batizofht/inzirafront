@@ -24,7 +24,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan } from '@/lib/api-subscriptions';
+import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan, payVerificationFee } from '@/lib/api-subscriptions';
 
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -32,7 +32,7 @@ import { isWeb } from "@/lib/platform";
 import { WebFooter } from "@/components/web-footer";
 import { createVehicle } from "@/lib/api-vehicles";
 import { SellSEO } from "@/components/page-meta";
-import { getAuthUser, logout, type AuthUser } from "@/lib/userPreference";
+import { getAuthUser, logout, updateStoredAuthUser, type AuthUser } from '@/lib/userPreference';
 import { fetchCategories, type Category } from "@/lib/api-categories";
 import { fetchMyVerificationStatus } from "@/lib/api-verifications";
 import { VEHICLE_BRAND_OPTIONS } from "@/constants/vehicle-brands";
@@ -134,7 +134,7 @@ function ChipGroup({ options, value, onChange, colors }: { options: readonly str
 // ─── Step Progress ────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 1, label: "Photos", icon: "photo.on.rectangle" },
+  { id: 1, label: "Photos", icon: "photo" },
   { id: 2, label: "Vehicle", icon: "car.fill" },
   { id: 3, label: "Specs", icon: "gearshape.fill" },
   { id: 4, label: "Pricing", icon: "tag.fill" },
@@ -166,7 +166,7 @@ function StepProgress({ step, colors }: { step: number; colors: any }) {
                   ? <IconSymbol name="checkmark" size={10} color="#fff" />
                   : <IconSymbol name={s.icon as any} size={11} color={active ? colors.primary : colors.icon} />}
               </View>
-              <ThemedText style={[P.dotLabel, { color: active ? colors.primary : done ? colors.icon : colors.border, fontWeight: active ? "700" : "400" }]}>
+              <ThemedText style={[P.dotLabel, { color: active ? colors.primary : done ? colors.icon : colors.icon, fontWeight: active ? "700" : "400" }]}>
                 {s.label}
               </ThemedText>
             </View>
@@ -511,23 +511,25 @@ export default function SellScreen() {
   };
   const checkAccountType = async () => {
 
-    if (sellerType === 'individual' && !hasActiveSub) {
-      const activateSubscription = async () => {
+    if (sellerType === 'individual' && !authUser?.hasPaidVerificationFee) {
+      const activateVerification = async () => {
         try {
           setIsRequesting(true);
-          await subscribeToPlan('Individual seller');
-          setHasActiveSub(true);
-          // const phone = (vehicle as any).sellerPhone;
-          // const email = (vehicle as any).sellerEmail;
-          setSellerContact(phone || email ? { phone, email } : null);
+          await payVerificationFee();
+          // Update authUser locally AND in AsyncStorage so it persists
+          if (authUser) {
+            const updatedUser = { ...authUser, hasPaidVerificationFee: true };
+            setAuthUser(updatedUser);
+            await updateStoredAuthUser({ hasPaidVerificationFee: true });
+          }
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            window.alert('Payment Successful\n\nWeekly access is active. You can now sell your car');
+            window.alert('Payment Successful\n\nOne-time verification fee paid. You can now proceed with verification.');
           } else {
-            Alert.alert('Payment Successful', 'Weekly access is active. You can now sell your car');
+            Alert.alert('Payment Successful', 'One-time verification fee paid. You can now proceed with verification.');
           }
           router.push("/verify/phone")
         } catch (err) {
-          const message = err instanceof Error ? err.message : 'Failed to activate subscription';
+          const message = err instanceof Error ? err.message : 'Failed to process verification fee payment';
           if (Platform.OS === 'web' && typeof window !== 'undefined') {
             window.alert(`Payment Failed\n\n${message}`);
           } else {
@@ -539,18 +541,18 @@ export default function SellScreen() {
       };
 
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const confirmed = window.confirm('To start selling on Inzira, pay RWF 10,000 for 1 week subscription (mock payment).');
+        const confirmed = window.confirm('To start selling on Inzira as an individual, pay a one-time verification fee of RWF 10,000 (mock payment). This is paid once and never expires.');
         if (!confirmed) return;
-        await activateSubscription();
+        await activateVerification();
         return;
       }
 
       Alert.alert(
-        'Activate Access',
-        'To start selling on Inzira, pay RWF 10,000 for 1 week subscription (mock payment).',
+        'One-time Verification Fee',
+        'To start selling on Inzira as an individual, pay a one-time verification fee of RWF 10,000. This is paid once and never expires.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Pay RWF 10,000', onPress: async () => { await activateSubscription(); } }
+          { text: 'Pay RWF 10,000', onPress: async () => { await activateVerification(); } }
         ]
       );
     } else {
@@ -740,7 +742,7 @@ export default function SellScreen() {
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}30` }]}>
-              <IconSymbol name="shield.checkerboard" size={40} color={colors.primary} />
+              <IconSymbol name="person.fill" size={40} color={colors.primary} />
             </View>
             <ThemedText type="defaultSemiBold" style={S.guardTitle}>Seller Verification Required</ThemedText>
             <ThemedText style={[S.guardDesc, { color: colors.icon }]}>
@@ -823,7 +825,7 @@ export default function SellScreen() {
             {step === 1 && (
               <>
                 <FormCard colors={colors}>
-                  <SectionHead icon="photo.on.rectangle" title={t("sell.photos")} subtitle="Add up to 6 high-quality photos" colors={colors} />
+                  <SectionHead icon="camera.fill" title={t("sell.photos")} subtitle="Add up to 6 high-quality photos" colors={colors} />
 
                   {images.length > 0 && (
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>

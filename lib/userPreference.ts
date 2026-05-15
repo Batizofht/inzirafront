@@ -20,6 +20,7 @@ export type AuthUser = {
   isEmailVerified?: boolean;
   profileImage?: string | null;
   sellerType?: 'individual' | 'company' | null;
+  hasPaidVerificationFee?: boolean;
 };
 
 export async function getAuthToken(): Promise<string | null> {
@@ -50,6 +51,19 @@ export async function setAuthSession(token: string, user: AuthUser): Promise<voi
 
   if (user.isVerifiedSeller) {
     await AsyncStorage.removeItem(SELLER_VERIFICATION_STATUS_KEY);
+  }
+}
+
+// Update the stored auth user in AsyncStorage (e.g. after payment changes flags)
+export async function updateStoredAuthUser(updates: Partial<AuthUser>): Promise<void> {
+  try {
+    const value = await AsyncStorage.getItem(AUTH_USER_KEY);
+    if (!value) return;
+    const existing = JSON.parse(value) as AuthUser;
+    const updated = { ...existing, ...updates };
+    await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+  } catch {
+    // Silently fail
   }
 }
 

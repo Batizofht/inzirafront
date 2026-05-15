@@ -1213,14 +1213,14 @@ export default function HomeScreen() {
                             <ThemedText
                               style={[styles.specText, { color: colors.icon }]}
                             >
-                              {vehicle.year || "N/A"}
+                           Year: {vehicle.year || "N/A"}{" .  "}
                             </ThemedText>
                           </View>
                           <View style={styles.specItem}>
                             <ThemedText
                               style={[styles.specText, { color: colors.icon }]}
                             >
-                              {vehicle.mileage || "N/A"}
+                              {vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km . ` : "N/A"}  
                             </ThemedText>
                           </View>
                           <View style={styles.specItem}>

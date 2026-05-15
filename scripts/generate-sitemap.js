@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://inzira.co').replace(/\/$/, '');
-const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4002/api/v1').replace(/\/$/, '');
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1').replace(/\/$/, '');
 
 const STATIC_ROUTES = [
   { path: '/', changefreq: 'daily', priority: '1.0' },

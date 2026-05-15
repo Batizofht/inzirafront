@@ -64,14 +64,12 @@ const UNICODE_MAPPING: Record<string, string> = {
   'auto-awesome': '\uE65F',
   'schedule': '\uE8B5',
   'place': '\uE0C8',
-  'location-on': '\uE0C8',
   'credit-card': '\uE870',
   'bar-chart': '\uE26B',
   'groups': '\uE7EF',
   'thumb-up': '\uE8DC',
   'arrow-upward': '\uE5D8',
   'campaign': '\uE63F',
-  'photo': '\uE410',
   'upload': '\uE2C6',
   'settings': '\uE8B8',
   'local-offer': '\uE03E',
@@ -85,6 +83,14 @@ const UNICODE_MAPPING: Record<string, string> = {
   'fullscreen': '\uE5D0',
   'help-outline': '\uE8FD',
   'public': '\uE80B',
+  'shield-checkerboard': '\uE8E8',
+  'assignment': '\uE85D',
+  'folder-open': '\uE2C8',
+  'inventory': '\uE179',
+  'badge': '\uEA67',
+  'person-outline': '\uE7FD',
+  'verified-user': '\uE8E8',
+  'security': '\uE32A',
 };
 
 /**
@@ -126,7 +132,7 @@ const MAPPING = {
   'checkmark.circle.fill': 'check-circle',
   'checkmark': 'check',
   'checkmark.seal.fill': 'verified',
-  'checkmark.shield.fill': 'shield',
+  'checkmark.shield.fill': 'verified-user',
   'arrow.counterclockwise': 'refresh',
   'arrow.clockwise': 'refresh',
   'camera.fill': 'photo-camera',
@@ -171,13 +177,11 @@ const MAPPING = {
   'arrow.up.left.and.arrow.down.right': 'fullscreen',
   'arrow.up.right.and.arrow.down.left': 'fullscreen',
   'globe': 'public',
-  'photo.on.rectangle': 'photo',
   'arrow.up.doc': 'upload',
   'gearshape.fill': 'settings',
   'tag.fill': 'local-offer',
+  'shield.checkerboard': 'verified-user',
   // Direct Material Icons fallbacks (when backend sends Material names directly)
-  'verified': 'verified',
-  'check-circle': 'check-circle',
   'electric_car': 'electric-car',
   'electric-car': 'electric-car',
   'directions-car': 'directions-car',
@@ -186,7 +190,6 @@ const MAPPING = {
   'directions-bus': 'directions-bus',
   'local-shipping': 'local-shipping',
   'bolt': 'bolt',
-  'public': 'public',
 } as IconMapping;
 
 /**

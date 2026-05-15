@@ -330,25 +330,25 @@ export default function ProfileScreen() {
     }
   };
   const insets = useSafeAreaInsets();
-  const handleMockSubscriptionPayment = async () => {
+  const handleMockSubscriptionPayment = async (planId: string = 'basic_weekly') => {
     if (isProcessingSubscription) return;
 
     Alert.alert(
       "Subscription Payment",
-      "Mock payment: pay RWF 5,000 to unlock orders contact access and seller messaging.",
+      "Choose a plan to view buyer contact details:",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Pay Now",
+          text: "Weekly RWF 5,000",
           onPress: async () => {
             try {
               setIsProcessingSubscription(true);
-              await subscribeToPlan("basic");
+              await subscribeToPlan('basic_weekly');
               setHasSub(true);
               setIsProcessingSubscription(false);
               Alert.alert(
                 "Payment Successful",
-                "Subscription activated. You can now view contacts and reply.",
+                "Weekly subscription activated. You can now view contacts and reply.",
               );
               loadSellerData();
             } catch (error: any) {
@@ -359,6 +359,10 @@ export default function ProfileScreen() {
               );
             }
           },
+        },
+        {
+          text: "View All Plans",
+          onPress: () => router.push('/subscription'),
         },
       ],
     );
@@ -717,6 +721,14 @@ export default function ProfileScreen() {
   {authUser?.fullName || "Seller"}{authUser?.sellerType ? ` - ${authUser.sellerType === 'company' ? 'Business' : 'Individual'}` : ''}
 </ThemedText>
 
+                {/* Green name indicator for individual sellers who paid verification fee */}
+                {authUser?.sellerType === 'individual' && authUser?.hasPaidVerificationFee && (
+                  <View style={[styles.verifiedBadge, { backgroundColor: '#16A34A15', borderColor: '#16A34A40', marginTop: 4 }]}>
+                    <IconSymbol name="checkmark.seal.fill" size={10} color="#16A34A" />
+                    <ThemedText style={{ color: '#16A34A', fontSize: 11, fontWeight: '600' }}>Verified Fee Paid</ThemedText>
+                  </View>
+                )}
+
                 <ThemedText
                   style={[styles.userContact, { color: colors.icon }]}
                 >
@@ -899,7 +911,7 @@ export default function ProfileScreen() {
                     <ThemedText
                       style={{ color: colors.text, fontWeight: "600" }}
                     >
-                      Weekly Subscription Active
+                      Viewing Subscription Active
                     </ThemedText>
                     <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
                       {getSubscriptionRemainingDays(subscription)} days
@@ -1704,7 +1716,7 @@ export default function ProfileScreen() {
                             <ThemedText
                               style={{ color: colors.icon, fontSize: 13 }}
                             >
-                              Pay RWF 5,000 to view buyer contact details
+                              Subscribe weekly or monthly to view buyer contact details
                             </ThemedText>
                           </View>
                           <TouchableOpacity
@@ -1723,7 +1735,7 @@ export default function ProfileScreen() {
                             >
                               {isProcessingSubscription
                                 ? "Processing..."
-                                : "Pay Now"}
+                                : "Subscribe"}
                             </ThemedText>
                           </TouchableOpacity>
                         </View>
