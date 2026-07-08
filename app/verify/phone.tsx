@@ -1,5 +1,5 @@
 import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, StatusBar, Image, Modal, FlatList, KeyboardAvoidingView, Text } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -10,6 +10,7 @@ import { countryData } from '@/lib/Phonenumbercodes';
 import { isWeb } from '@/lib/platform';
 import { setVerificationDraft } from '@/lib/verificationDraft';
 import { sendPhoneOtpViaEmail, verifyPhoneOtp } from '@/lib/api-verifications';
+import { getAuthUser } from '@/lib/userPreference';
 
 interface CountryData {
   code: string;
@@ -20,8 +21,8 @@ interface CountryData {
 }
 
 export default function PhoneVerificationScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colorScheme = useResolvedTheme();
+  const colors = Colors[colorScheme];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   
@@ -77,12 +78,18 @@ export default function PhoneVerificationScreen() {
     try {
       const normalizedPhone = `${selectedCountry.dialCode}${phoneNumber}`.replace(/\s+/g, '');
       await verifyPhoneOtp(normalizedPhone, otpCode);
-      
+
+      // Get seller type from auth user to determine next screen
+      const user = await getAuthUser();
+      const sellerType = (user?.sellerType as 'individual' | 'company') || 'individual';
+
       await setVerificationDraft({
         phoneNumber: normalizedPhone,
         phoneVerified: true,
+        sellerType,
       });
 
+      // Business sellers go to id screen (RDB cert), individual go to id screen (ID front)
       router.push('/verify/id');
     } catch (err: any) {
       setError(err?.message || 'Invalid OTP. Please try again.');
@@ -514,5 +521,10 @@ const styles = StyleSheet.create({
   countryDialCode: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 13,
+    marginBottom: 12,
   },
 });

@@ -18,9 +18,11 @@ export type AuthUser = {
   location?: string | null;
   isVerifiedSeller?: boolean;
   isEmailVerified?: boolean;
+  isBroker?: boolean;
   profileImage?: string | null;
   sellerType?: 'individual' | 'company' | null;
   hasPaidVerificationFee?: boolean;
+  createdAt?: string;
 };
 
 export async function getAuthToken(): Promise<string | null> {
@@ -89,6 +91,7 @@ export async function registerUser(payload: {
   role: 'buyer' | 'seller';
   phone?: string;
   sellerType?: 'individual' | 'company';
+  isBroker?: boolean;
 }): Promise<{ userId: string; email: string; role: string }> {
   const response = await apiRequest<{ status: number; data: { userId: string; email: string; role: string } }>('/auth/register', {
     method: 'POST',
@@ -212,4 +215,15 @@ export async function logout(): Promise<void> {
   } catch {
     // Silently fail
   }
+}
+
+export async function switchAccountRole(
+  role: 'buyer' | 'seller',
+  sellerType?: 'individual' | 'company',
+): Promise<{ status: number; data: { user: AuthUser } }> {
+  return apiRequest<{ status: number; data: { user: AuthUser } }>('/auth/switch-role', {
+    method: 'POST',
+    auth: true,
+    body: { role, sellerType },
+  });
 }

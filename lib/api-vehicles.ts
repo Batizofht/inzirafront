@@ -7,6 +7,10 @@ export type VehicleListResponse = {
     vehicles: Array<
       Vehicle & { sellerName?: string; sellerPhone?: string; category?: string }
     >;
+    total?: number;
+    page?: number;
+    limit?: number;
+    hasMore?: boolean;
   };
 };
 
@@ -16,6 +20,7 @@ export type VehicleDetailResponse = {
     vehicle: Vehicle & {
       sellerName?: string;
       sellerPhone?: string;
+      sellerEmail?: string;
       category?: string;
     };
   };
@@ -42,6 +47,8 @@ export type CreateVehiclePayload = {
   engineSize?: string;
   driveType?: string;
   vehicleIdentificationDoc?: string;
+  isBrokered?: boolean;
+  providesAssurance?: boolean;
   status?: "active" | "pending" | "sold" | "rejected";
 };
 
@@ -53,6 +60,16 @@ export async function fetchVehicles(filters?: {
   maxPrice?: number;
   location?: string;
   status?: string;
+  page?: number;
+  limit?: number;
+  sort?: string;
+  brand?: string[];
+  color?: string[];
+  usageStatus?: string[];
+  bodyType?: string[];
+  model?: string[];
+  minMileage?: number;
+  maxMileage?: number;
 }): Promise<VehicleListResponse> {
   const params = new URLSearchParams();
   if (filters?.q) params.append("q", filters.q);
@@ -62,6 +79,16 @@ export async function fetchVehicles(filters?: {
   if (filters?.maxPrice) params.append("maxPrice", String(filters.maxPrice));
   if (filters?.location) params.append("location", filters.location);
   if (filters?.status) params.append("status", filters.status);
+  if (filters?.page) params.append("page", String(filters.page));
+  if (filters?.limit) params.append("limit", String(filters.limit));
+  if (filters?.sort) params.append("sort", filters.sort);
+  if (filters?.brand?.length) params.append("brand", filters.brand.join(","));
+  if (filters?.color?.length) params.append("color", filters.color.join(","));
+  if (filters?.usageStatus?.length) params.append("usageStatus", filters.usageStatus.join(","));
+  if (filters?.bodyType?.length) params.append("bodyType", filters.bodyType.join(","));
+  if (filters?.model?.length) params.append("model", filters.model.join(","));
+  if (filters?.minMileage != null) params.append("minMileage", String(filters.minMileage));
+  if (filters?.maxMileage != null) params.append("maxMileage", String(filters.maxMileage));
 
   const query = params.toString();
   return apiRequest(`/vehicles${query ? `?${query}` : ""}`);
@@ -75,6 +102,16 @@ export async function fetchVehiclesByCategory(
     maxPrice?: number;
     location?: string;
     status?: string;
+    page?: number;
+    limit?: number;
+    sort?: string;
+    brand?: string[];
+    color?: string[];
+    usageStatus?: string[];
+    bodyType?: string[];
+    model?: string[];
+    minMileage?: number;
+    maxMileage?: number;
   },
 ): Promise<VehicleListResponse> {
   const params = new URLSearchParams();
@@ -83,6 +120,16 @@ export async function fetchVehiclesByCategory(
   if (filters?.maxPrice) params.append("maxPrice", String(filters.maxPrice));
   if (filters?.location) params.append("location", filters.location);
   if (filters?.status) params.append("status", filters.status);
+  if (filters?.page) params.append("page", String(filters.page));
+  if (filters?.limit) params.append("limit", String(filters.limit));
+  if (filters?.sort) params.append("sort", filters.sort);
+  if (filters?.brand?.length) params.append("brand", filters.brand.join(","));
+  if (filters?.color?.length) params.append("color", filters.color.join(","));
+  if (filters?.usageStatus?.length) params.append("usageStatus", filters.usageStatus.join(","));
+  if (filters?.bodyType?.length) params.append("bodyType", filters.bodyType.join(","));
+  if (filters?.model?.length) params.append("model", filters.model.join(","));
+  if (filters?.minMileage != null) params.append("minMileage", String(filters.minMileage));
+  if (filters?.maxMileage != null) params.append("maxMileage", String(filters.maxMileage));
 
   const query = params.toString();
   return apiRequest(`/vehicles/category/${slug}${query ? `?${query}` : ""}`);
@@ -98,10 +145,18 @@ export async function fetchFeaturedVehicles(
 
 export async function fetchRecentVehicles(
   limit = 25,
+  excludeIds?: string[],
 ): Promise<VehicleListResponse> {
   const params = new URLSearchParams();
   params.append("limit", String(limit));
+  if (excludeIds && excludeIds.length > 0) {
+    params.append("excludeIds", excludeIds.join(","));
+  }
   return apiRequest(`/vehicles/recent?${params.toString()}`);
+}
+
+export async function fetchDailyPicks(): Promise<VehicleListResponse & { data: { ids: string[] } }> {
+  return apiRequest(`/vehicles/daily-picks`);
 }
 
 export async function fetchVehicleById(
@@ -113,6 +168,7 @@ export async function fetchVehicleById(
 export async function fetchMyVehicles(): Promise<VehicleListResponse> {
   return apiRequest("/vehicles/mine", { auth: true });
 }
+
 
 export async function createVehicle(
   payload: CreateVehiclePayload,
@@ -139,6 +195,8 @@ export async function createVehicle(
   formData.append("location", payload.location);
   if (payload.engineSize) formData.append("engineSize", payload.engineSize);
   if (payload.driveType) formData.append("driveType", payload.driveType);
+  if (payload.isBrokered) formData.append("isBrokered", "true");
+  if (payload.providesAssurance) formData.append("providesAssurance", "true");
 
   // Handle images - prefer file-based uploads, keep base64 as fallback
   if (payload.images && payload.images.length > 0) {
@@ -278,6 +336,8 @@ export async function updateVehicle(
     if (payload.location) formData.append("location", payload.location);
     if (payload.engineSize) formData.append("engineSize", payload.engineSize);
     if (payload.driveType) formData.append("driveType", payload.driveType);
+    if (payload.isBrokered !== undefined) formData.append("isBrokered", String(payload.isBrokered));
+    if (payload.providesAssurance !== undefined) formData.append("providesAssurance", String(payload.providesAssurance));
 
     // Handle images - append new uploads and keep existing file paths
     if (payload.images && payload.images.length > 0) {
@@ -378,6 +438,15 @@ export async function updateVehicle(
             name: filename,
             type: "image/jpeg",
           } as any);
+        } else if (
+          docUri.startsWith("/uploads/") ||
+          docUri.startsWith("/vehicles/") ||
+          docUri.startsWith("http://") ||
+          docUri.startsWith("https://") ||
+          !docUri.includes("/")
+        ) {
+          // Existing server URL — pass as-is, no re-fetch
+          formData.append("vehicleIdentificationDoc", docUri);
         } else {
           try {
             const resp = await fetch(docUri);
@@ -428,6 +497,8 @@ export async function updateVehicle(
     if (payload.location) formData.append("location", payload.location);
     if (payload.engineSize) formData.append("engineSize", payload.engineSize);
     if (payload.driveType) formData.append("driveType", payload.driveType);
+    if (payload.isBrokered !== undefined) formData.append("isBrokered", String(payload.isBrokered));
+    if (payload.providesAssurance !== undefined) formData.append("providesAssurance", String(payload.providesAssurance));
     const docUri = payload.vehicleIdentificationDoc;
     try {
       if (docUri.startsWith("data:image/")) {
@@ -448,6 +519,15 @@ export async function updateVehicle(
           name: filename,
           type: "image/jpeg",
         } as any);
+      } else if (
+        docUri.startsWith("/uploads/") ||
+        docUri.startsWith("/vehicles/") ||
+        docUri.startsWith("http://") ||
+        docUri.startsWith("https://") ||
+        !docUri.includes("/")
+      ) {
+        // Existing server URL — pass as-is, no re-fetch
+        formData.append("vehicleIdentificationDoc", docUri);
       } else {
         try {
           const resp = await fetch(docUri);
@@ -576,6 +656,16 @@ export async function fetchBrandsWithImages(): Promise<{
   };
 }> {
   return apiRequest("/vehicles/brands");
+}
+
+// Fetch body types with counts
+export async function fetchBodyTypes(): Promise<{
+  status: number;
+  data: {
+    bodyTypes: Array<{ name: string; count: number }>;
+  };
+}> {
+  return apiRequest("/vehicles/body-types");
 }
 
 // Suggested featured vehicles from subscribed sellers

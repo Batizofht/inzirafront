@@ -140,11 +140,18 @@ export default function ListingsScreen() {
           ) : (
             <View style={[isWeb && styles.webGrid]}>
             {listings.map((listing) => (
-              <TouchableOpacity key={listing.id} style={[styles.listingCard, isWeb && [styles.webListingCard, { width: cardWidth as any }], { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => goToVehicle(listing.id)}>
+              <TouchableOpacity key={listing.id} style={[styles.listingCard, isWeb && [styles.webListingCard, { width: cardWidth as any }], { backgroundColor: colors.card, borderColor: colors.border }]} onPress={() => goToVehicle(listing.id)}>
                 <Image source={{ uri: resolveImageUrl(listing.images?.[0]) }} style={styles.listingImage} contentFit="cover" />
                 <View style={styles.listingInfo}>
                   <View style={styles.listingHeader}>
-                    <ThemedText style={styles.listingTitle} numberOfLines={2}>{listing.title}</ThemedText>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 12 }}>
+                      <ThemedText style={[styles.listingTitle, { marginRight: 0 }]} numberOfLines={2}>{listing.title}</ThemedText>
+                      {listing.isBrokered && (
+                        <View style={{ backgroundColor: '#8B5CF6', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+                          <ThemedText style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>B</ThemedText>
+                        </View>
+                      )}
+                    </View>
                     <View style={styles.headerActions}>
                       <TouchableOpacity 
                         style={[styles.actionBtn, { backgroundColor: colors.card }]}
@@ -338,10 +345,15 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   listingCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 8,
+    elevation: 3,
   },
   listingImage: {
     width: '100%',

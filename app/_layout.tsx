@@ -17,6 +17,8 @@ import { isWeb } from '@/lib/platform';
 import { Colors } from '@/constants/theme';
 import { WebHeader } from '@/components/web-header';
 import { WebFooter } from '@/components/web-footer';
+import { CookieBanner } from '@/components/cookie-banner';
+import { NotificationToastHost } from '@/components/NotificationToastHost';
 import { initCrashReporting } from '@/lib/crash-reporting';
 import '../i18n'; // Initialize i18n
 import './globals.css';
@@ -35,6 +37,7 @@ function WebLayout({ children }: { children: React.ReactNode }) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator>
         {children}
       </ScrollView>
+      <CookieBanner />
     </View>
   );
 }
@@ -203,6 +206,7 @@ export default function RootLayout() {
           </>
         )}
         <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+        <NotificationToastHost />
       </ThemeProvider>
     </AuthProvider>
   );

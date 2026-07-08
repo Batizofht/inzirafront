@@ -6,8 +6,12 @@ export type Conversation = {
   vehicleTitle?: string;
   buyerId: string;
   buyerName?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
   sellerId: string;
   sellerName?: string;
+  sellerPhone?: string;
+  sellerEmail?: string;
   lastMessage?: string;
   lastMessageAt?: string;
   unreadCount: number;

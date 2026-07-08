@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, Alert, useWindowDimensions, Modal, Pressable, Dimensions } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, Alert, useWindowDimensions, Modal, Pressable, Dimensions, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Elevation, Radius } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ZoomableImage } from '@/components/zoomable-image';
 import { fetchVehicleById } from '@/lib/api-vehicles';
 import { fetchFavorites, addFavorite, removeFavorite } from '@/lib/api-favorites';
 import { createContactRequest, fetchMyContactRequests } from '@/lib/api-contact-requests';
 import { startConversation } from '@/lib/api-messages';
-import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan, payVerificationFee } from '@/lib/api-subscriptions';
 import type { Vehicle } from '@/types/vehicle';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
@@ -22,7 +22,7 @@ import { displayPrice } from '@/lib/currencyConverter';
 import { PageHead, VehicleSEO } from '@/components/page-head';
 import { VehicleStructuredData } from '@/components/seo-head';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.inzira.co/api/v1';
 
 // Car brand logos with transparent backgrounds
 const BRAND_LOGOS: Record<string, string> = {
@@ -93,7 +93,7 @@ export default function VehicleDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   const isWebMd = isWeb && width >= 768 && width < 1024;
@@ -106,10 +106,8 @@ export default function VehicleDetailsScreen() {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavLoading, setIsFavLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [sellerContact, setSellerContact] = useState<{phone?: string; email?: string} | null>(null);
-  const [hasActiveSub, setHasActiveSub] = useState(false);
-  const [isRequesting, setIsRequesting] = useState(false);
   const [isBuying, setIsBuying] = useState(false);
   const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
   const [showLoginToast, setShowLoginToast] = useState(false);
@@ -133,26 +131,11 @@ export default function VehicleDetailsScreen() {
         ]);
         const user = await getAuthUser();
 
-        let subActive = false;
-        try {
-          const subRes = await fetchMySubscription();
-          subActive = checkActiveSub(subRes.data?.subscription);
-          if (subActive && mounted) {
-            const v = vehicleRes.data.vehicle as any;
-            const phone = v?.sellerPhone;
-            const email = v?.sellerEmail;
-            setSellerContact(phone || email ? { phone, email } : null);
-          }
-        } catch {
-          // No subscription or error
-        }
-
         if (mounted) {
           setVehicle(vehicleRes.data.vehicle);
           setIsFavorited(favoritesRes.data.favorites.some(f => f.vehicleId === id));
           setHasPlacedOrder(ordersRes.data.requests.some((req: any) => req.vehicleId === id));
           setAuthUser(user);
-          setHasActiveSub(subActive);
         }
       } catch (err) {
         console.error('Failed to load vehicle:', err);
@@ -209,9 +192,10 @@ export default function VehicleDetailsScreen() {
   };
 
   const onToggleFavorite = async () => {
-    if (!id) return;
+    if (!id || isFavLoading) return;
     const isAuthenticated = await ensureLoggedIn();
     if (!isAuthenticated) return;
+    setIsFavLoading(true);
     try {
       if (isFavorited) {
         await removeFavorite(id);
@@ -222,59 +206,13 @@ export default function VehicleDetailsScreen() {
       }
     } catch (err) {
       console.error('Favorite toggle failed:', err);
+    } finally {
+      setIsFavLoading(false);
     }
-  };
-
-  const handleRequestContact = async () => {
-    if (!vehicle) return;
-    const isAuthenticated = await ensureLoggedIn();
-    if (!isAuthenticated) return;
-
-    const activateSubscription = async () => {
-      try {
-        setIsRequesting(true);
-        await subscribeToPlan('basic_weekly');
-        setHasActiveSub(true);
-        const phone = (vehicle as any).sellerPhone;
-        const email = (vehicle as any).sellerEmail;
-        setSellerContact(phone || email ? { phone, email } : null);
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert('Payment Successful\n\nWeekly contact access is active. You can now view seller contact info.');
-        } else {
-          Alert.alert('Payment Successful', 'Weekly contact access is active. You can now view seller contact info.');
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to activate subscription';
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.alert(`Payment Failed\n\n${message}`);
-        } else {
-          Alert.alert('Payment Failed', message);
-        }
-      } finally {
-        setIsRequesting(false);
-      }
-    };
-
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const confirmed = window.confirm('To view seller contact information, subscribe for RWF 5,000/week (mock payment). You can also choose monthly plans.');
-      if (!confirmed) return;
-      await activateSubscription();
-      return;
-    }
-
-    Alert.alert(
-      'Activate Contact Access',
-      'To view seller contact information, subscribe for RWF 5,000/week. Monthly plans also available.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Weekly RWF 5,000', onPress: async () => { await activateSubscription(); } },
-        { text: 'View All Plans', onPress: () => router.push('/subscription') },
-      ]
-    );
   };
 
   const handleBuyNow = async () => {
-    if (!vehicle || isBuying) return;
+    if (!vehicle || isBuying || hasPlacedOrder) return;
     const isAuthenticated = await ensureLoggedIn();
     if (!isAuthenticated) return;
     setIsBuying(true);
@@ -289,15 +227,6 @@ export default function VehicleDetailsScreen() {
     } catch (err) {
       setIsBuying(false);
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to place order');
-    }
-  };
-
-  const handleVerificationPayment = async () => {
-    try {
-      await payVerificationFee();
-      Alert.alert('Payment Successful', 'One-time verification fee paid. You can now proceed with verification.');
-    } catch (error: any) {
-      Alert.alert('Payment Failed', error?.message || 'Please try again.');
     }
   };
 
@@ -443,7 +372,6 @@ export default function VehicleDetailsScreen() {
   const heroColorHex = getVehicleColorHex(vehicle.color || '');
   const isOwner = Boolean(authUser && vehicle && vehicle.sellerId === authUser.id);
   const isAvailable = vehicle.status === 'active';
-  const canBuyNow = !isOwner && isAvailable && !hasPlacedOrder;
   const verificationScore = Number(vehicle.verificationScore || 0);
   const sellerTierLabel =
     vehicle.sellerTier === 'dealer_pro' ? 'Dealer Pro'
@@ -457,25 +385,39 @@ export default function VehicleDetailsScreen() {
   // ─── ACTION BUTTONS (shared between desktop right-panel and mobile bottom) ────
   const ActionButtons = () => (
     <View style={styles.actionsRow}>
-      <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={onToggleFavorite}>
-        <ThemedText style={{ color: colors.primary, fontWeight: '600',fontSize:14 }}>
-          {isFavorited ? 'Remove Favorite' : 'Add Favorite'}
-        </ThemedText>
+      {/* Favorite — icon button, fixed width, sits beside Buy */}
+      <TouchableOpacity
+        style={[styles.favButton, {
+          borderColor: isFavorited ? '#EF4444' : colors.border,
+          backgroundColor: isFavorited
+            ? 'rgba(239,68,68,0.08)'
+            : colors.card,
+          opacity: isFavLoading ? 0.5 : 1,
+        }]}
+        onPress={onToggleFavorite}
+        disabled={isFavLoading}>
+        <IconSymbol
+          name="heart.fill"
+          size={20}
+          color={isFavorited ? '#EF4444' : colors.icon}
+        />
       </TouchableOpacity>
 
-      {canBuyNow ? (
+      {hasPlacedOrder ? (
+        <View style={[styles.primaryButton, { backgroundColor: colors.icon, opacity: 0.6 }]}>
+          <ThemedText style={styles.primaryButtonText}>Already Ordered</ThemedText>
+        </View>
+      ) : !isAvailable ? (
+        <View style={[styles.primaryButton, { backgroundColor: '#6B7280', opacity: 0.6 }]}>
+          <ThemedText style={styles.primaryButtonText}>Sold</ThemedText>
+        </View>
+      ) : (
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: isBuying ? 0.7 : 1 }]}
           onPress={handleBuyNow}
           disabled={isBuying}>
           <ThemedText style={styles.primaryButtonText}>{isBuying ? 'Ordering...' : 'Buy Now'}</ThemedText>
         </TouchableOpacity>
-      ) : (
-        <View style={[styles.secondaryButton, { borderColor: colors.border, opacity: 0.8, justifyContent: 'center', alignItems: 'center' }]}>
-          <ThemedText style={{ color: colors.icon, fontWeight: '600' ,fontSize:14 }}>
-            {hasPlacedOrder ? 'Order already placed' : 'Not available'}
-          </ThemedText>
-        </View>
       )}
     </View>
   );
@@ -514,6 +456,10 @@ export default function VehicleDetailsScreen() {
         <ThemedText style={{ color: colors.icon }}>{vehicle.location}</ThemedText>
         <ThemedText style={{ color: colors.icon }}> • {vehicle.createdAt ? new Date(vehicle.createdAt).toLocaleDateString() : ''}</ThemedText>
       </View>
+
+      <ThemedText style={{ color: '#16A34A', fontSize: 13, fontWeight: '600' }}>
+        {(vehicle as any).isBrokered || vehicle.sellerType === 'company' ? 'Dealer' : 'Seller Owner'}
+      </ThemedText>
 
       {!isOwner && <ActionButtons />}
     </View>
@@ -687,6 +633,9 @@ export default function VehicleDetailsScreen() {
                   <ThemedText style={{ color: colors.icon }}>{vehicle.location}</ThemedText>
                   <ThemedText style={{ color: colors.icon }}> • {vehicle.createdAt ? new Date(vehicle.createdAt).toLocaleDateString() : ''}</ThemedText>
                 </View>
+                <ThemedText style={{ color: '#16A34A', fontSize: 13, fontWeight: '600' }}>
+                  {(vehicle as any).isBrokered || vehicle.sellerType === 'company' ? 'Dealer' : 'Seller Owner'}
+                </ThemedText>
                 {!isOwner && <ActionButtons />}
               </>
             )}
@@ -697,7 +646,7 @@ export default function VehicleDetailsScreen() {
               <SpecItem label="Mileage" value={vehicle.mileage} colors={colors} isDesktopWeb={isDesktopWeb} />
               <SpecItem label="Fuel" value={vehicle.fuelType} colors={colors} isDesktopWeb={isDesktopWeb} />
               <SpecItem label="Transmission" value={vehicle.transmission} colors={colors} isDesktopWeb={isDesktopWeb} />
-              <SpecItem label="Color" value={vehicle.color} colors={colors} isDesktopWeb={isDesktopWeb} />
+              <SpecItem label="Color" value={vehicle.color || 'N/A'} colors={colors} isDesktopWeb={isDesktopWeb} />
               <SpecItem label="Engine Size" value={(vehicle as any).engineSize} colors={colors} isDesktopWeb={isDesktopWeb} />
               <SpecItem label="Drive Type" value={(vehicle as any).driveType} colors={colors} isDesktopWeb={isDesktopWeb} />
               <SpecItem label="Type" value={vehicle.vehicleType} colors={colors} isDesktopWeb={isDesktopWeb} />
@@ -747,54 +696,83 @@ export default function VehicleDetailsScreen() {
               <View style={styles.section}>
                 <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Seller</ThemedText>
                 <View style={[styles.sellerCard, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  {hasActiveSub ? (
-                    <ThemedText type="defaultSemiBold">{vehicle.sellerName || 'Seller'}</ThemedText>
-                  ) : (
-                    <ThemedText type="defaultSemiBold" style={{ color: colors.icon }}>Seller (Subscribe to view)</ThemedText>
-                  )}
-                  <View style={[styles.usageBadge, { backgroundColor: `${colors.primary}1A`, marginTop: 8, alignSelf: 'flex-start' }]}>
-                    <ThemedText style={[styles.usageBadgeText, { color: colors.primary }]}>{sellerTierLabel}</ThemedText>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.checkValidityButton, { backgroundColor: colors.primary }]}
-                    onPress={() => setShowValidityModal(true)}>
-                    <IconSymbol name="checkmark.seal.fill" size={14} color="#fff" />
-                    <ThemedText style={styles.checkValidityButtonText}>Check Validity</ThemedText>
-                  </TouchableOpacity>
-                  {hasActiveSub && (sellerContact?.phone || sellerContact?.email) ? (
-                    <View style={{ marginTop: 12 }}>
-                      {sellerContact?.phone ? (
-                        <ThemedText style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>Phone: {sellerContact.phone}</ThemedText>
-                      ) : null}
-                      {sellerContact?.email ? (
-                        <ThemedText style={{ color: colors.primary, marginTop: 2, fontSize: 14, fontWeight: '600' }}>Email: {sellerContact.email}</ThemedText>
-                      ) : null}
+                  {/* Seller identity row */}
+                  <View style={styles.sellerIdentityRow}>
+                    <View style={[styles.sellerAvatar, { backgroundColor: `${colors.primary}18` }]}>
+                      <IconSymbol
+                        name={vehicle.sellerType === 'company' ? 'building.2.fill' : 'person.fill'}
+                        size={20}
+                        color={colors.primary}
+                      />
                     </View>
-                  ) : null}
+                    <View style={{ flex: 1 }}>
+                      <ThemedText style={[styles.sellerName, { color: colors.text }]} numberOfLines={1}>
+                        {vehicle.sellerType === 'company'
+                          ? `Seller: Dealer`
+                          : `Seller: ${vehicle.sellerName || 'Individual'}`}
+                      </ThemedText>
+                      <ThemedText style={[styles.sellerName, { color: colors.icon, fontSize: 13, fontWeight: '600' }]} numberOfLines={1}>
+                        {vehicle.sellerName || '—'}
+                      </ThemedText>
+                      <View style={[styles.tierPill, { backgroundColor: `${colors.primary}18` }]}>
+                        <ThemedText style={[styles.tierPillText, { color: colors.primary }]}>{sellerTierLabel}</ThemedText>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.checkValidityButton, { backgroundColor: colors.primary }]}
+                      onPress={() => setShowValidityModal(true)}>
+                      <IconSymbol name="checkmark.seal.fill" size={14} color="#fff" />
+                      <ThemedText style={styles.checkValidityButtonText}>Verify</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Assured callout banner */}
+                  {/* {vehicle.providesAssurance === true && ( */}
+                    <View style={styles.assuredBanner}>
+                      <View style={styles.assuredBannerIcon}>
+                        <IconSymbol name="checkmark.shield.fill" size={18} color="#16A34A" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={styles.assuredBannerTitle}>Get Assurance</ThemedText>
+                        <ThemedText style={styles.assuredBannerSub}>
+                          Do you want insurance for your vehicle. Inzira got you covered!
+                        </ThemedText>
+                      </View>
+                    </View>
+                  {/* )} */}
+
+                  {/* WhatsApp button — same condition as the assurance banner above
+                      (providesAssurance === true), so it always appears alongside it. */}
+                  { (() => {
+                    const phoneRaw = '+250 788 378 766';
+                    const phoneDigits = String(phoneRaw).replace(/[^0-9]/g, '');
+                    const waText = encodeURIComponent(
+                      `Hi, I'm interested in ${vehicle.title} and its assurance. Is it still available?`
+                    );
+
+                    return (
+                      <View style={styles.assuranceContactRow}>
+                        <TouchableOpacity
+                          style={styles.whatsappButton}
+                          onPress={() => {
+                            Linking.openURL(`https://wa.me/${phoneDigits}?text=${waText}`).catch(() => {
+                              // WhatsApp not installed — fall back to a regular call
+                              if (phoneDigits) Linking.openURL(`tel:+${phoneDigits}`).catch(() => {});
+                            });
+                          }}
+                        >
+                          <IconSymbol name="message.fill" size={16} color="#fff" />
+                          <ThemedText style={styles.whatsappButtonText}>WhatsApp</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })()}
                 </View>
               </View>
             )}
 
-            {/* Mobile-only: action buttons repeated at bottom (original position) removed — they appear after location row above */}
-
             {!isOwner && (
               <>
-                {!sellerContact && !hasActiveSub && (
-                  <TouchableOpacity
-                    style={[styles.requestContactButton, { backgroundColor: colors.primary, opacity: isRequesting ? 0.7 : 1 }]}
-                    onPress={handleRequestContact}
-                    disabled={isRequesting}>
-                    <IconSymbol name="message.fill" size={18} color="#fff" />
-                    <ThemedText style={styles.requestContactButtonText}>{isRequesting ? 'Processing...' : 'Request Contact'}</ThemedText>
-                  </TouchableOpacity>
-                )}
-
-                {sellerContact && (
-                  <View style={[styles.approvedBadge, { backgroundColor: `${colors.primary}15` }]}>
-                    <IconSymbol name="checkmark.seal.fill" size={16} color={colors.primary} />
-                    <ThemedText style={{ color: colors.primary, fontSize: 13, fontWeight: '600' }}>Seller contact unlocked!</ThemedText>
-                  </View>
-                )}
 
                 <View style={[styles.sellerCard, { borderColor: colors.border, backgroundColor: colors.card, marginTop: 12 }]}>
                   <ThemedText type="defaultSemiBold" style={{ marginBottom: 6 }}>Buyer Safety Guide</ThemedText>
@@ -808,7 +786,7 @@ export default function VehicleDetailsScreen() {
                         `/report?targetType=vehicle&targetId=${encodeURIComponent(vehicle.id || id)}&reason=${encodeURIComponent('Scam or Spam')}&description=${encodeURIComponent(`Potential scam reported for listing ${vehicle.title}`)}` as any
                       )
                     }>
-                    <ThemedText style={{ color: '#DC2626', fontWeight: '600' }}>Report Scam</ThemedText>
+                    <ThemedText style={{ color: '#DC2626', fontWeight: '600', textDecorationLine: 'underline' }}>Report a problem</ThemedText>
                   </TouchableOpacity>
                 </View>
               </>
@@ -840,7 +818,16 @@ export default function VehicleDetailsScreen() {
           </View>
 
           {/* Main image with navigation */}
-          <Pressable style={styles.imageViewerMainArea} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[
+              styles.imageViewerMainArea,
+              // Native only: padding clears the absolutely-positioned controls.
+              // Web must NOT have these or height:'100%' on the image resolves to 0.
+              !isWeb && { paddingTop: 100, paddingBottom: 124, paddingHorizontal: 20 },
+              isWeb && !isDesktopWeb && { paddingHorizontal: 8 },
+            ]}
+            onPress={(e) => e.stopPropagation()}>
+
             {/* Previous button */}
             {currentImageIndex > 0 && (
               <TouchableOpacity
@@ -850,12 +837,29 @@ export default function VehicleDetailsScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Current image */}
-            <Image
-              source={{ uri: resolveImageUrl(vehicle.images?.[currentImageIndex]) }}
-              style={styles.imageViewerImage}
-              contentFit="contain"
-            />
+            {/* Current image — plain on web, zoomable (pinch) on native */}
+            {isWeb ? (
+              <Image
+                source={{ uri: resolveImageUrl(vehicle.images?.[currentImageIndex]) }}
+                style={{ flex: 1, width: '100%' }}
+                contentFit="contain"
+              />
+            ) : (
+              <View style={styles.imageViewerImage}>
+                <ZoomableImage
+                  uri={resolveImageUrl(vehicle.images?.[currentImageIndex])}
+                  resetKey={currentImageIndex}
+                />
+              </View>
+            )}
+
+            {/* Zoom hint — native only */}
+            {!isWeb && (
+              <View style={styles.imageViewerZoomHint} pointerEvents="none">
+                <IconSymbol name="arrow.up.left.and.arrow.down.right" size={13} color="rgba(255,255,255,0.85)" />
+                <ThemedText style={styles.imageViewerZoomHintText}>Pinch to zoom</ThemedText>
+              </View>
+            )}
 
             {/* Next button */}
             {currentImageIndex < (vehicle.images?.length || 1) - 1 && (
@@ -894,7 +898,7 @@ export default function VehicleDetailsScreen() {
               ))}
             </ScrollView>
           </View>
-          <View style={{marginBottom:insets.botttom+20}} />
+          <View style={{marginBottom:insets.bottom+20}} />
         </Pressable>
       </Modal>
 
@@ -937,19 +941,19 @@ export default function VehicleDetailsScreen() {
                   <ThemedText style={[styles.infoLabel, { color: colors.icon, marginBottom: 10 }]}>Trust Checklist</ThemedText>
                   <View style={styles.checklist}>
                     <View style={styles.checklistItem}>
-                      <IconSymbol name={vehicle.verificationChecklist.identityVerified ? 'check-circle' : 'cancel'} size={16} color={vehicle.verificationChecklist.identityVerified ? colors.primary : colors.icon} />
+                      <IconSymbol name={vehicle.verificationChecklist.identityVerified ? 'checkmark.circle.fill' : 'xmark.circle.fill'} size={16} color={vehicle.verificationChecklist.identityVerified ? colors.primary : colors.icon} />
                       <ThemedText style={styles.checklistText}>ID verified</ThemedText>
                     </View>
                     <View style={styles.checklistItem}>
-                      <IconSymbol name={vehicle.verificationChecklist.ownershipDocsVerified ? 'check-circle' : 'cancel'} size={16} color={vehicle.verificationChecklist.ownershipDocsVerified ? colors.primary : colors.icon} />
+                      <IconSymbol name={vehicle.verificationChecklist.ownershipDocsVerified ? 'checkmark.circle.fill' : 'xmark.circle.fill'} size={16} color={vehicle.verificationChecklist.ownershipDocsVerified ? colors.primary : colors.icon} />
                       <ThemedText style={styles.checklistText}>Ownership docs</ThemedText>
                     </View>
                     <View style={styles.checklistItem}>
-                      <IconSymbol name={vehicle.verificationChecklist.phoneVerified ? 'check-circle' : 'cancel'} size={16} color={vehicle.verificationChecklist.phoneVerified ? colors.primary : colors.icon} />
+                      <IconSymbol name={vehicle.verificationChecklist.phoneVerified ? 'checkmark.circle.fill' : 'xmark.circle.fill'} size={16} color={vehicle.verificationChecklist.phoneVerified ? colors.primary : colors.icon} />
                       <ThemedText style={styles.checklistText}>Phone verified</ThemedText>
                     </View>
                     <View style={styles.checklistItem}>
-                      <IconSymbol name={vehicle.verificationChecklist.locationVerified ? 'check-circle' : 'cancel'} size={16} color={vehicle.verificationChecklist.locationVerified ? colors.primary : colors.icon} />
+                      <IconSymbol name={vehicle.verificationChecklist.locationVerified ? 'checkmark.circle.fill' : 'xmark.circle.fill'} size={16} color={vehicle.verificationChecklist.locationVerified ? colors.primary : colors.icon} />
                       <ThemedText style={styles.checklistText}>Location verified</ThemedText>
                     </View>
                   </View>
@@ -965,6 +969,7 @@ export default function VehicleDetailsScreen() {
           </View>
         </Pressable>
       </Modal>
+
     </View>
   );
 }
@@ -1155,6 +1160,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.4,
     lineHeight: 30,
   },
   usageBadge: {
@@ -1168,39 +1175,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   price: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.3,
     marginTop: 6,
     marginBottom: 8,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
     flexWrap: 'wrap',
   },
   specGrid: {
     borderWidth: 1,
-    borderRadius: 14,
-    padding: 10,
+    borderRadius: Radius.lg,
+    padding: 6,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     marginBottom: 20,
+    ...Elevation.flat,
   },
   webSpecGrid: {
-    gap: 10,
+    gap: 12,
   },
   specItem: {
     width: '48.5%',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     minHeight: 72,
     justifyContent: 'center',
+    ...Elevation.flat,
   },
   webSpecItem: {
     width: '31.8%',
@@ -1209,13 +1219,13 @@ const styles = StyleSheet.create({
   specLabel: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
     marginBottom: 6,
   },
   specValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 22,
   },
   colorBadge: {
@@ -1245,7 +1255,7 @@ const styles = StyleSheet.create({
   galleryImage: {
     width: 180,
     height: 120,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
   },
   description: {
@@ -1254,8 +1264,71 @@ const styles = StyleSheet.create({
   },
   sellerCard: {
     borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: 16,
+    gap: 12,
+    ...Elevation.card,
+  },
+  sellerIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  sellerAvatar: {
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  sellerName: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  tierPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  tierPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  assuredBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(22,163,74,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.2)',
+    borderRadius: 10,
+    padding: 12,
+  },
+  assuredBannerIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(22,163,74,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  assuredBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#15803D',
+    marginBottom: 2,
+  },
+  assuredBannerSub: {
+    fontSize: 12,
+    color: '#166534',
+    lineHeight: 16,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -1263,30 +1336,51 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
+  favButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   primaryButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryButtonText: {
     color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
   },
-  secondaryButton: {
+  primaryButtonDisabled: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
-    borderWidth: 1,
+    height: 52,
+    borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
+  },
+  secondaryButton: {
+      flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 0,
+    paddingVertical: 10,
+    borderRadius: 999,
+    
   },
   requestContactButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    paddingVertical: 16,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     marginTop: 16,
   },
   requestContactButtonText: {
@@ -1306,12 +1400,50 @@ const styles = StyleSheet.create({
   checkValidityButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 10,
     alignSelf: 'flex-start',
+    flexShrink: 0,
+  },
+  assuranceContactRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  whatsappButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#25D366',
+  },
+  whatsappButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.1,
+  },
+  assuranceContactBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  assuranceContactBtnText: {
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: 0.1,
   },
   checkValidityButtonText: {
     color: '#fff',
@@ -1383,11 +1515,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Elevation.raised,
   },
   toastText: {
     color: '#FFFFFF',
@@ -1493,8 +1621,6 @@ const styles = StyleSheet.create({
   imageViewerOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
     position: 'relative',
   },
   imageViewerContainer: {
@@ -1534,17 +1660,18 @@ const styles = StyleSheet.create({
   imageViewerMainArea: {
     flex: 1,
     width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 60,
+    // column (default) so flex:1 on the image grows height, not width.
+    // Nav buttons are absolutely positioned so they don't need row layout.
+    // Padding applied per-platform inline in JSX.
   },
   imageViewerNavButton: {
     position: 'absolute',
+    top: '50%',        // vertically center the arrows over the car image
+    marginTop: -25,    // half the button height (50)
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -1557,6 +1684,7 @@ const styles = StyleSheet.create({
   },
   imageViewerImage: {
     flex: 1,
+    alignSelf: 'stretch',
     width: '100%',
     height: '100%',
   },
@@ -1601,5 +1729,23 @@ const styles = StyleSheet.create({
   imageViewerThumbnailImage: {
     width: '100%',
     height: '100%',
+  },
+  imageViewerZoomHint: {
+    position: 'absolute',
+    bottom: 120,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    zIndex: 10,
+  },
+  imageViewerZoomHintText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

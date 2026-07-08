@@ -1,5 +1,5 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, Image } from 'react-native';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -13,8 +13,8 @@ import { getVerificationDraft, clearVerificationDraft } from '@/lib/verification
 import { submitSellerVerification } from '@/lib/api-verifications';
 
 export default function SelfieVerificationScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colorScheme = useResolvedTheme();
+  const colors = Colors[colorScheme];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   
@@ -79,7 +79,6 @@ export default function SelfieVerificationScreen() {
         phoneVerified: Boolean(draft.phoneVerified),
         idType: draft.idType,
         idFrontImage: draft.idFrontImage,
-        idBackImage: draft.idBackImage,
         selfieImage,
       });
 

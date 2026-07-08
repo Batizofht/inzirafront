@@ -5,10 +5,13 @@ const VERIFICATION_DRAFT_KEY = '@seller_verification_draft';
 export type VerificationDraft = {
   phoneNumber?: string;
   phoneVerified?: boolean;
+  sellerType?: 'individual' | 'company';
+  // Individual fields
   idType?: 'national_id' | 'passport' | 'driving_license';
   idFrontImage?: string;
-  idBackImage?: string;
   selfieImage?: string;
+  // Business fields
+  rdbCertificate?: string;
 };
 
 export async function getVerificationDraft(): Promise<VerificationDraft> {

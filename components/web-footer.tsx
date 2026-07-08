@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Pressable,
   useWindowDimensions,
-  Platform,
+  Linking,
 } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { isWeb } from '@/lib/platform';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { getThemeModePreference, setThemeModePreference, subscribeThemePreference } from '@/lib/themePreference';
 
 const LOGO_IMAGE = require('@/assets/images/Logo.png');
 
@@ -61,7 +62,6 @@ function WebLink({ href, children, style }: { href: string; children: React.Reac
 const FOOTER_LINKS = {
   company: [
     { label: 'About Us', path: '/about' },
-    { label: 'Our Team', path: '/team' },
     { label: 'Careers', path: '/careers' },
     { label: 'Press', path: '/press' },
   ],
@@ -81,15 +81,15 @@ const FOOTER_LINKS = {
 };
 
 const SOCIAL_LINKS = [
-  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366' },
-  { icon: require('@/assets/social/instagram.png'), label: 'Instagram', color: '#E4405F' },
-  { icon: require('@/assets/social/tiktok.png'), label: 'TikTok', color: '#111111' },
-  { icon: require('@/assets/social/linkedin.png'), label: 'LinkedIn', color: '#0A66C2' },
+  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366', url: 'https://wa.me/250788378766' },
+  { icon: require('@/assets/social/instagram.png'), label: 'Instagram', color: '#E4405F', url: 'https://instagram.com/inzira.rw' },
+  { icon: require('@/assets/social/tiktok.png'), label: 'TikTok', color: '#111111', url: 'https://tiktok.com/@inzira.rw' },
+  { icon: require('@/assets/social/linkedin.png'), label: 'LinkedIn', color: '#0A66C2', url: 'https://linkedin.com/company/inzira' },
 ];
 
 const LANGUAGES = [
-  { code: 'en', name: 'English', flag: '🇬🇧' },
-  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', name: 'English', flag: 'https://flagcdn.com/w40/gb.png' },
+  { code: 'fr', name: 'Français', flag: 'https://flagcdn.com/w40/fr.png' },
 ];
 
 export function WebFooter() {
@@ -111,20 +111,32 @@ export function WebFooter() {
 
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [themeMode, setThemeMode] = useState(() => getThemeModePreference());
+
+  useEffect(() => {
+    const unsubscribe = subscribeThemePreference(() => {
+      setThemeMode(getThemeModePreference());
+    });
+    return () => { unsubscribe(); };
+  }, []);
 
   if (!isWeb) return null;
 
   const handleSubscribe = () => {
-    if (email && email.includes('@')) {
-      setSubscribed(true);
-      setEmail('');
-      setTimeout(() => setSubscribed(false), 5000);
+    setEmailError('');
+    if (!email.trim()) {
+      setEmailError('Please enter your email address');
+      return;
     }
-  };
-
-  const navigateTo = (path: string) => {
-    router.push(path as any);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    setSubscribed(true);
+    setEmail('');
+    setTimeout(() => setSubscribed(false), 5000);
   };
 
   return (
@@ -166,17 +178,18 @@ export function WebFooter() {
                 </ThemedText>
               </View>
             ) : (
+              <>
               <View style={[styles.subscriptionForm, isMobile && styles.subscriptionFormMobile]}>
                 <TextInput
                   style={[styles.emailInput, isMobile && styles.emailInputMobile, {
                     backgroundColor: colors.background,
                     color: colors.text,
-                    borderColor: colors.border,
+                    borderColor: emailError ? '#EF4444' : colors.border,
                   }]}
                   placeholder="Enter your email"
                   placeholderTextColor={colors.icon}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={(t) => { setEmail(t); setEmailError(''); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -187,6 +200,10 @@ export function WebFooter() {
                   <ThemedText style={styles.subscribeBtnText}>Subscribe</ThemedText>
                 </TouchableOpacity>
               </View>
+              {!!emailError && (
+                <ThemedText style={{ color: '#EF4444', fontSize: 12, marginTop: 6 }}>{emailError}</ThemedText>
+              )}
+            </>
             )}
           </View>
         </View>
@@ -269,7 +286,7 @@ export function WebFooter() {
               <TouchableOpacity
                 key={social.label}
                 style={[styles.socialBtn, { backgroundColor: colors.card }]}
-                onPress={() => {}}
+                onPress={() => { if (social.url) Linking.openURL(social.url); }}
               >
                 <Image source={social.icon} style={{ width: 30, height: 30 }} contentFit="contain" />
               </TouchableOpacity>
@@ -282,7 +299,7 @@ export function WebFooter() {
                 onPress={() => setShowLangDropdown((prev) => !prev)}
                 activeOpacity={0.85}
               >
-                <ThemedText style={styles.langFlag}>{LANGUAGES.find(l => l.code === i18n.language)?.flag || '🇬🇧'}</ThemedText>
+                <Image source={{ uri: LANGUAGES.find(l => l.code === i18n.language)?.flag || 'https://flagcdn.com/w40/gb.png' }} style={{ width: 20, height: 14, borderRadius: 2 }} contentFit="cover" />
                 <IconSymbol name={showLangDropdown ? "chevron.up" : "chevron.down"} size={10} color={colors.icon} />
               </TouchableOpacity>
 
@@ -308,7 +325,7 @@ export function WebFooter() {
                           }}
                           activeOpacity={0.85}
                         >
-                          <ThemedText style={styles.langOptionFlag}>{lang.flag}</ThemedText>
+                          <Image source={{ uri: lang.flag }} style={{ width: 24, height: 16, borderRadius: 2 }} contentFit="cover" />
                           <View style={styles.langOptionInfo}>
                             <ThemedText style={styles.langOptionLabel}>{lang.name}</ThemedText>
                           </View>
@@ -332,7 +349,6 @@ export function WebFooter() {
           © 2026 Inzira Rwanda. All rights reserved.
         </ThemedText>
         <View style={styles.paymentMethods}>
-          {/* <ThemedText style={styles.paymentText}>We accept:</ThemedText> */}
           <View style={styles.paymentIcons}>
             <View style={[styles.paymentBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
               <ThemedText style={styles.paymentBadgeText}>MTN MoMo</ThemedText>
@@ -345,6 +361,21 @@ export function WebFooter() {
             </View>
           </View>
         </View>
+        {/* Dark Mode Toggle */}
+        <TouchableOpacity
+          style={styles.darkModeToggle}
+          onPress={() => {
+            const next = themeMode === 'dark' ? 'light' : 'dark';
+            setThemeModePreference(next);
+            setThemeMode(next);
+          }}
+          activeOpacity={0.8}
+        >
+          <IconSymbol name={themeMode === 'dark' ? 'sun.max.fill' : 'moon.fill'} size={16} color="#fff" />
+          <ThemedText style={styles.darkModeToggleText}>
+            {themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </ThemedText>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -690,5 +721,19 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 100000,
+  },
+  darkModeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  darkModeToggleText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

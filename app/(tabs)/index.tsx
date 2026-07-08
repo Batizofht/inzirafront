@@ -9,11 +9,13 @@ import {
   Modal,
   Pressable,
   useWindowDimensions,
+  ActivityIndicator,
 } from "react-native";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
-import { Colors } from "@/constants/theme";
+import { Colors, Elevation, Radius } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { VehicleCard } from "@/components/vehicle-card";
 import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useState, useRef } from "react";
@@ -21,9 +23,10 @@ import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/context/AuthContext";
 import {
-  fetchFeaturedVehicles,
+  fetchDailyPicks,
   fetchRecentVehicles,
   fetchBrandsWithImages,
+  fetchBodyTypes,
 } from "@/lib/api-vehicles";
 import {
   fetchFavorites,
@@ -31,10 +34,6 @@ import {
   removeFavorite,
 } from "@/lib/api-favorites";
 import { fetchCategories, type Category } from "@/lib/api-categories";
-import {
-  fetchMySubscription,
-  hasActiveSubscription as checkActiveSub,
-} from "@/lib/api-subscriptions";
 import { fetchUnreadMessagesCount } from "@/lib/api-messages";
 import { fetchUnreadNotificationsCount } from "@/lib/api-notifications";
 import type { Vehicle } from "@/types/vehicle";
@@ -58,6 +57,7 @@ import { HeroSection } from "@/components/hero-section";
 import { isWeb } from "@/lib/platform";
 import { WebFooter } from "@/components/web-footer";
 import { resolveImageUrl } from "@/lib/image-url";
+import { getUsageStatusColor } from '@/lib/usage-status';
 import { LocalBusinessStructuredData } from "@/components/seo-head";
 import { HomeSEO } from "@/components/page-head";
 import { createPortal } from "react-dom";
@@ -104,6 +104,21 @@ const BRAND_LOGOS: Record<string, string> = {
   GMC: "https://www.carlogos.org/logo/GMC-logo-2200x600.png",
   "Aston Martin": "https://www.carlogos.org/logo/Aston-Martin-logo-2003-6000x3000.png",
 };
+
+// Body type placeholder images - replace with custom images later
+const BODY_TYPE_IMAGES: Record<string, string> = {
+  "SUVs": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/SUV@2x.png",
+  "SUVs & Crossovers": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/SUV@2x.png",
+  "Trucks": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Truck@2x.png",
+  "Sedans": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Sedan@2x.png",
+  "Coupes": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Coupe@2x.png",
+  "Minivans": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Minivan@2x.png",
+  "Hatchbacks": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Hatchback@2x.png",
+  "Convertibles": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Convertible@2x.png",
+  "Station Wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
+  "Station wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
+};
+
 export default function HomeScreen() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -147,10 +162,14 @@ export default function HomeScreen() {
     null,
   );
   const hasSyncedLocationRef = useRef(false);
-  const [featuredVehicles, setFeaturedVehicles] = useState<Vehicle[]>([]);
+  const [dailyPicks, setDailyPicks] = useState<Vehicle[]>([]);
+  const [dailyPickIds, setDailyPickIds] = useState<string[]>([]);
   const [recentVehicles, setRecentVehicles] = useState<Vehicle[]>([]);
   const [brands, setBrands] = useState<
     Array<{ name: string; image: string | null; count: number }>
+  >([]);
+  const [bodyTypes, setBodyTypes] = useState<
+    Array<{ name: string; count: number }>
   >([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,7 +177,6 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [hasActiveSub, setHasActiveSub] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -167,7 +185,7 @@ export default function HomeScreen() {
   const [brandsScrollX, setBrandsScrollX] = useState(0);
   const brandsScrollRef = useRef<ScrollView>(null);
   const errorColor = isDark ? "#FCA5A5" : "#DC2626"; // Professional red shades
-  const hasFeaturedVehicles = featuredVehicles.length > 0;
+  const hasDailyPicks = dailyPicks.length > 0;
   const hasRecentVehicles = recentVehicles.length > 0;
 
   const isFavorited = (id: string) => favoriteIds.includes(id);
@@ -323,41 +341,36 @@ export default function HomeScreen() {
   const handleRefresh = async () => {
     try {
       setIsRefreshing(true);
+      setIsLoading(true);
       setError(null);
-      const [featuredRes, recentRes, favoritesRes, categoriesRes, brandsRes] =
+      const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes] =
         await Promise.all([
-          fetchFeaturedVehicles(10),
-          fetchRecentVehicles(4),
+          fetchDailyPicks(),
           fetchFavorites().catch(() => ({ data: { favorites: [] } })),
           fetchCategories().catch(() => ({ data: { categories: [] } })),
           fetchBrandsWithImages().catch(() => ({ data: { brands: [] } })),
+          fetchBodyTypes().catch(() => ({ data: { bodyTypes: [] } })),
         ]);
-      // Fetch auth user and subscription
-      const user = await getAuthUser();
-      let subActive = false;
-      if (user) {
-        try {
-          const subRes = await fetchMySubscription();
-          subActive = checkActiveSub(subRes.data?.subscription);
-        } catch {
-          // No subscription or not logged in
-        }
-      }
-      setFeaturedVehicles(featuredRes.data.vehicles || []);
+      const pickIds = dailyPicksRes.data.ids || [];
+      const [recentRes] = await Promise.all([
+        fetchRecentVehicles(8, pickIds),
+      ]);
+      setDailyPicks(dailyPicksRes.data.vehicles || []);
+      setDailyPickIds(pickIds);
       setRecentVehicles(recentRes.data.vehicles || []);
       setBrands(brandsRes.data.brands || []);
+      setBodyTypes(bodyTypesRes.data.bodyTypes || []);
       setFavoriteIds(
         favoritesRes.data.favorites.map((f: any) => f.vehicleId) || [],
       );
       setCategories(categoriesRes.data.categories || []);
-      setAuthUser(user);
-      setHasActiveSub(subActive);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to refresh home listings",
       );
     } finally {
       setIsRefreshing(false);
+      setIsLoading(false);
     }
   };
 
@@ -367,35 +380,31 @@ export default function HomeScreen() {
       try {
         setIsLoading(true);
         setError(null);
-        const [featuredRes, recentRes, favoritesRes, categoriesRes, brandsRes] =
+        const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes] =
           await Promise.all([
-            fetchFeaturedVehicles(10),
-            fetchRecentVehicles(4),
+            fetchDailyPicks(),
             fetchFavorites().catch(() => ({ data: { favorites: [] } })),
             fetchCategories().catch(() => ({ data: { categories: [] } })),
             fetchBrandsWithImages().catch(() => ({ data: { brands: [] } })),
+            fetchBodyTypes().catch(() => ({ data: { bodyTypes: [] } })),
           ]);
-        // Fetch auth user and subscription
+        const pickIds = dailyPicksRes.data.ids || [];
+        const [recentRes] = await Promise.all([
+          fetchRecentVehicles(8, pickIds),
+        ]);
+        // Fetch auth user
         const user = await getAuthUser();
-        let subActive = false;
-        if (user) {
-          try {
-            const subRes = await fetchMySubscription();
-            subActive = checkActiveSub(subRes.data?.subscription);
-          } catch {
-            // No subscription or not logged in
-          }
-        }
         if (mounted) {
-          setFeaturedVehicles(featuredRes.data.vehicles || []);
+          setDailyPicks(dailyPicksRes.data.vehicles || []);
+          setDailyPickIds(pickIds);
           setRecentVehicles(recentRes.data.vehicles || []);
           setBrands(brandsRes.data.brands || []);
+          setBodyTypes(bodyTypesRes.data.bodyTypes || []);
           setFavoriteIds(
             favoritesRes.data.favorites.map((f: any) => f.vehicleId) || [],
           );
           setCategories(categoriesRes.data.categories || []);
           setAuthUser(user);
-          setHasActiveSub(subActive);
         }
       } catch (err) {
         if (mounted) {
@@ -536,10 +545,12 @@ export default function HomeScreen() {
     router.push("/contact");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setShowLocationSheet(false);
     setShowProfileMenu(false);
-    logout();
+    setAuthUser(null);
+    await logout();
+    router.replace("/auth/login" as any);
   };
 
   const renderEmptyState = (containerStyle?: object) => (
@@ -670,7 +681,7 @@ export default function HomeScreen() {
   const renderLatestSkeleton = () => (
     <View
       style={[
-        styles.latestListings,
+        styles.latestGrid,
         isDesktopWeb &&
           (is2Xl
             ? styles.webLatestListings2Xl
@@ -681,61 +692,39 @@ export default function HomeScreen() {
                 : styles.webLatestListingsMd),
       ]}
     >
-      {Array.from({ length: 4 }).map((_, index) => (
+      {Array.from({ length: isDesktopWeb ? 4 : 4 }).map((_, index) => (
         <View
           key={`latest-skeleton-${index}`}
           style={[
-            styles.latestCard,
-            { backgroundColor: colors.background, borderColor: colors.border },
+            isDesktopWeb ? styles.webLatestGridCard : styles.latestGridCard,
+            {
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              overflow: "hidden",
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
           ]}
         >
           <View
             style={[
-              styles.skeletonLatestImage,
+              styles.skeletonFeaturedImage,
               { backgroundColor: skeletonSoft },
             ]}
           />
-          <View style={styles.latestInfo}>
-            <View style={styles.latestHeaderRow}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <View
-                  style={[
-                    styles.skeletonLine,
-                    { width: "90%", backgroundColor: skeletonBase },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.skeletonLine,
-                    {
-                      width: "70%",
-                      marginBottom: 0,
-                      backgroundColor: skeletonBase,
-                    },
-                  ]}
-                />
-              </View>
-              <View
-                style={[
-                  styles.skeletonIconDot,
-                  { backgroundColor: skeletonBase },
-                ]}
-              />
-            </View>
-            <View style={styles.latestMetaContainer}>
-              <View
-                style={[
-                  styles.skeletonLine,
-                  { width: "40%", height: 10, backgroundColor: skeletonBase },
-                ]}
-              />
-              <View
-                style={[
-                  styles.skeletonLine,
-                  { width: "54%", height: 12, backgroundColor: skeletonBase },
-                ]}
-              />
-            </View>
+          <View style={styles.vehicleInfo}>
+            <View
+              style={[
+                styles.skeletonLine,
+                { width: "82%", backgroundColor: skeletonBase },
+              ]}
+            />
+            <View
+              style={[
+                styles.skeletonLine,
+                { width: "56%", marginBottom: 0, backgroundColor: skeletonBase },
+              ]}
+            />
           </View>
         </View>
       ))}
@@ -768,196 +757,6 @@ export default function HomeScreen() {
       <Themman />
       {isWeb && <LocalBusinessStructuredData />}
 
-      {/* Mobile Header - Hidden on Web Desktop */}
-      {!isDesktopWeb && (
-        <View
-          style={[
-            styles.header,
-            { backgroundColor: colors.background, zIndex: 10 },
-          ]}
-        >
-          <View style={styles.headerTop}>
-            <View style={{ flex: 1 }}>
-              <ThemedText
-                style={{
-                  color: colors.icon,
-                  fontSize: 13,
-                  textTransform: "uppercase",
-                  letterSpacing: 1,
-                  fontWeight: "600",
-                  marginBottom: 4,
-                }}
-              >
-                {t("home.location")}
-              </ThemedText>
-              <TouchableOpacity
-                style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
-                onPress={() => setShowLocationSheet(true)}
-              >
-                <IconSymbol
-                  name="house.geo"
-                  size={16}
-                  color={colors.text}
-                  style={{ marginRight: 6 }}
-                />
-                <ThemedText
-                  style={{ fontSize: 18, width:70}}
-                  numberOfLines={1}
-
-                  ellipsizeMode="tail"
-                >
-                  {currentLocationLabel}
-                </ThemedText>
-                <ThemedText
-                  style={{
-                    color: colors.primary,
-                    marginLeft: 8,
-                    fontSize: 12,
-                    fontWeight: "700",
-                  }}
-                >
-                  {selectedCurrency}
-                </ThemedText>
-                <IconSymbol
-                  name="chevron.down"
-                  size={16}
-                  color={colors.text}
-                  style={{ marginLeft: 4 }}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.headerActions}>
-              <TouchableOpacity
-                style={[
-                  styles.iconBtn,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => router.push("/notifications")}
-              >
-                <IconSymbol name="bell.fill" size={20} color={colors.text} />
-                {!!authUser && unreadNotificationsCount > 0 && (
-                  <View
-                    style={[
-                      styles.notificationBadge,
-                      { backgroundColor: errorColor },
-                    ]}
-                  />
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.iconBtn,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={() => router.push("/messages")}
-              >
-                <IconSymbol name="message.fill" size={20} color={colors.text} />
-                {!!authUser && unreadMessagesCount > 0 && (
-                  <View
-                    style={[
-                      styles.notificationBadge,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  />
-                )}
-              </TouchableOpacity>
-
-              <View ref={profileTriggerRef} style={{ position: "relative" }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    // Calculate position for portal dropdown on web
-                    if (isWeb && profileTriggerRef.current) {
-                      const el =
-                        profileTriggerRef.current as unknown as HTMLElement;
-                      if (el && el.getBoundingClientRect) {
-                        const rect = el.getBoundingClientRect();
-                        setProfileDropdownPos({
-                          top: rect.bottom + window.scrollY + 8,
-                          left: rect.left + window.scrollX - 156, // Align right edge
-                        });
-                      }
-                    }
-                    setShowProfileMenu(!showProfileMenu);
-                  }}
-                >
-                  {authUser?.profileImage ? (
-                    <Image
-                      source={{ uri: authUser.profileImage }}
-                      style={[
-                        styles.profileAvatar,
-                        { borderColor: colors.primary },
-                      ]}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.profileAvatar,
-                        {
-                          backgroundColor: colors.primary,
-                          justifyContent: "center",
-                          alignItems: "center",
-                          borderRadius: 22,
-                        },
-                      ]}
-                    >
-                      <ThemedText
-                        style={{
-                          color: "#fff",
-                          fontSize: 18,
-                          fontWeight: "700",
-                        }}
-                      >
-                        {(authUser?.fullName || "U")[0].toUpperCase()}
-                      </ThemedText>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          <View
-            style={[
-              styles.searchContainer,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <IconSymbol
-              name="magnifyingglass"
-              size={20}
-              color={colors.icon}
-              style={styles.searchIcon}
-            />
-            <TouchableOpacity
-              style={styles.searchTapArea}
-              onPress={goToSearch}
-              activeOpacity={0.8}
-            >
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder={t("home.searchPlaceholder")}
-                placeholderTextColor={colors.icon}
-                value={searchQuery}
-                editable={false}
-                pointerEvents="none"
-              />
-            </TouchableOpacity>
-            <View
-              style={[styles.searchDivider, { backgroundColor: colors.border }]}
-            />
-            <TouchableOpacity style={styles.filterBtn} onPress={goToSearch}>
-              <IconSymbol
-                name="chevron.right"
-                size={20}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
 
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
@@ -967,6 +766,151 @@ export default function HomeScreen() {
           isDesktopWeb && styles.webScrollContent,
         ]}
       >
+        {/* Mobile Header — scrolls with the page */}
+        {!isDesktopWeb && (
+          <View style={[styles.header, { backgroundColor: colors.background }]}>
+            <View style={styles.headerTop}>
+              <View style={{ flex: 1 }}>
+                <ThemedText
+                  style={{
+                    color: colors.icon,
+                    fontSize: 13,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                    fontWeight: "600",
+                    marginBottom: 4,
+                  }}
+                >
+                  {t("home.location")}
+                </ThemedText>
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", flex: 1 }}
+                  onPress={() => setShowLocationSheet(true)}
+                >
+                  <IconSymbol
+                    name="house.geo"
+                    size={16}
+                    color={colors.text}
+                    style={{ marginRight: 6 }}
+                  />
+                  <ThemedText
+                    style={{ fontSize: 18, width: 70 }}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {currentLocationLabel}
+                  </ThemedText>
+                  <ThemedText
+                    style={{
+                      color: colors.primary,
+                      marginLeft: 8,
+                      fontSize: 12,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {selectedCurrency}
+                  </ThemedText>
+                  <IconSymbol
+                    name="chevron.down"
+                    size={16}
+                    color={colors.text}
+                    style={{ marginLeft: 4 }}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => router.push("/notifications")}
+                >
+                  <IconSymbol name="bell.fill" size={20} color={colors.text} />
+                  {!!authUser && unreadNotificationsCount > 0 && (
+                    <View style={[styles.notificationBadge, { backgroundColor: errorColor }]} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => router.push("/messages")}
+                >
+                  <IconSymbol name="message.fill" size={20} color={colors.text} />
+                  {!!authUser && unreadMessagesCount > 0 && (
+                    <View style={[styles.notificationBadge, { backgroundColor: colors.primary }]} />
+                  )}
+                </TouchableOpacity>
+
+                <View ref={profileTriggerRef} style={{ position: "relative" }}>
+                  <TouchableOpacity
+                    disabled={isLoading}
+                    onPress={() => {
+                      if (isLoading) return;
+                      if (!authUser) {
+                        router.push("/auth/login" as any);
+                        return;
+                      }
+                      if (isWeb && profileTriggerRef.current) {
+                        const el = profileTriggerRef.current as unknown as HTMLElement;
+                        if (el && el.getBoundingClientRect) {
+                          const rect = el.getBoundingClientRect();
+                          setProfileDropdownPos({
+                            top: rect.bottom + window.scrollY + 8,
+                            left: rect.left + window.scrollX - 156,
+                          });
+                        }
+                      }
+                      setShowProfileMenu(!showProfileMenu);
+                    }}
+                  >
+                    {isLoading ? (
+                      <View style={[styles.profileAvatar, { justifyContent: "center", alignItems: "center" }]}>
+                        <ActivityIndicator size="small" color={colors.icon} />
+                      </View>
+                    ) : authUser?.profileImage ? (
+                      <Image
+                        source={{ uri: authUser.profileImage }}
+                        style={[styles.profileAvatar, { borderColor: colors.primary }]}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[styles.profileAvatar, {
+                          backgroundColor: colors.primary,
+                          justifyContent: "center",
+                          alignItems: "center",
+                          borderRadius: 22,
+                        }]}
+                      >
+                        <ThemedText style={{ color: "#fff", fontSize: 18, fontWeight: "700" }}>
+                          {(authUser?.fullName || "U")[0].toUpperCase()}
+                        </ThemedText>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <IconSymbol name="magnifyingglass" size={20} color={colors.icon} style={styles.searchIcon} />
+              <TouchableOpacity style={styles.searchTapArea} onPress={goToSearch} activeOpacity={0.8}>
+                <TextInput
+                  style={[styles.searchInput, { color: colors.text }]}
+                  placeholder={t("home.searchPlaceholder")}
+                  placeholderTextColor={colors.icon}
+                  value={searchQuery}
+                  editable={false}
+                  pointerEvents="none"
+                />
+              </TouchableOpacity>
+              <View style={[styles.searchDivider, { backgroundColor: colors.border }]} />
+              <TouchableOpacity style={styles.filterBtn} onPress={goToSearch}>
+                <IconSymbol name="chevron.right" size={20} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Hero Section with Mega Search - Web Only */}
         {isDesktopWeb && <HeroSection categories={categories} />}
 
@@ -1041,8 +985,8 @@ export default function HomeScreen() {
                       : styles.webSectionHeaderMd),
             ]}
           >
-            <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
-              {t("home.featuredListings")}
+            <ThemedText type="defaultSemiBold" style={{ fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
+              {"Your Today's Pick"}
             </ThemedText>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <TouchableOpacity onPress={() => router.push("/explore")}>
@@ -1085,7 +1029,7 @@ export default function HomeScreen() {
             >
               {error}
             </ThemedText>
-          ) : !hasFeaturedVehicles ? (
+          ) : !hasDailyPicks ? (
             renderEmptyState(
               isDesktopWeb
                 ? is2Xl
@@ -1130,109 +1074,16 @@ export default function HomeScreen() {
                             : styles.webFeaturedScrollMd),
                   ]}
                 >
-                  {featuredVehicles.map((vehicle) => (
-                    <TouchableOpacity
+                  {dailyPicks.slice(0, 10).map((vehicle) => (
+                    <VehicleCard
                       key={vehicle.id}
-                      style={[
-                        styles.vehicleCard,
-                        {
-                          backgroundColor: colors.background,
-                          borderColor: colors.border,
-                        },
-                      ]}
+                      vehicle={vehicle}
+                      variant="grid"
+                      isFavorited={isFavorited(vehicle.id)}
                       onPress={() => goToVehicle(vehicle.id)}
-                    >
-                      <View style={styles.imageContainer}>
-                        <Image
-                          source={{ uri: resolveImageUrl(vehicle.images?.[0]) }}
-                          style={styles.vehicleImage}
-                          contentFit="cover"
-                        />
-                        <TouchableOpacity
-                          style={[
-                            styles.favoriteBtn,
-                            {
-                              backgroundColor: isDark
-                                ? "rgba(0,0,0,0.5)"
-                                : "rgba(255,255,255,0.8)",
-                            },
-                          ]}
-                          onPress={() => handleToggleFavorite(vehicle.id)}
-                        >
-                          <IconSymbol
-                            name="heart.fill"
-                            size={16}
-                            color={
-                              isFavorited(vehicle.id) ? "#EF4444" : colors.icon
-                            }
-                          />
-                        </TouchableOpacity>
-                      </View>
-                      <View style={styles.vehicleInfo}>
-                        <View
-                          style={{ flexDirection: "row", alignItems: "flex-start", gap: 4 }}
-                        >
-                          <ThemedText style={styles.vehicleTitle} numberOfLines={1}>
-                            {vehicle.title}
-                          </ThemedText>
-                          {(vehicle.verificationStatus === "approved" ||
-                            vehicle.sellerTier === "trusted" ||
-                            vehicle.sellerTier === "dealer_pro") && (
-                            <View
-                              style={{
-                                marginTop: 2,
-                                backgroundColor: "#3B82F6",
-                                borderRadius: 7,
-                                width: 13,
-                                height: 13,
-                                justifyContent: "center",
-                                alignItems: "center",
-                                overflow: "hidden",
-                                flexShrink: 0,
-                              }}
-                            >
-                              <IconSymbol name="checkmark" size={9} color="#fff" />
-                            </View>
-                          )}
-                        </View>
-                        <ThemedText
-                          style={[
-                            styles.vehicleUsageStatus,
-                            { color: colors.primary },
-                          ]}
-                        >
-                          {vehicle.usageStatus || "New"}
-                        </ThemedText>
-                        <ThemedText
-                          style={[styles.vehiclePrice, { color: colors.text }]}
-                        >
-                          {displayPrice(vehicle.price, selectedCurrency)}
-                        </ThemedText>
-                        <View style={styles.vehicleSpecs}>
-                          <View style={styles.specItem}>
-                            <ThemedText
-                              style={[styles.specText, { color: colors.icon }]}
-                            >
-                           Year: {vehicle.year || "N/A"}{" .  "}
-                            </ThemedText>
-                          </View>
-                          <View style={styles.specItem}>
-                            <ThemedText
-                              style={[styles.specText, { color: colors.icon }]}
-                            >
-                              {vehicle.mileage ? `${Number(vehicle.mileage).toLocaleString()} km . ` : "N/A"}  
-                            </ThemedText>
-                          </View>
-                          <View style={styles.specItem}>
-                            <ThemedText
-                              style={[styles.specText, { color: colors.icon }]}
-                            >
-                              {vehicle.vehicleType || "Car"}
-                            </ThemedText>
-                          </View>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                      onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                      style={styles.vehicleCard}
+                    />
                   ))}
                 </ScrollView>
                 {isDesktopWeb && (
@@ -1270,6 +1121,102 @@ export default function HomeScreen() {
               </View>
             </View>
           )}
+        </View>
+
+        {/* Browse by Body Type */}
+        <View style={[styles.section, isDesktopWeb && styles.webSection, { marginTop: 40 }]}>
+          <View
+            style={[
+              styles.bodyTypeSectionContainer,
+              {
+                borderColor: colors.border,
+                backgroundColor: isDark ? "rgba(31, 41, 55, 0.3)" : "rgba(248, 250, 252, 0.8)",
+              },
+              isDesktopWeb &&
+                (is2Xl
+                  ? styles.webBodyTypeSectionContainer2Xl
+                  : isXl
+                    ? styles.webBodyTypeSectionContainerXl
+                    : isLg
+                      ? styles.webBodyTypeSectionContainerLg
+                      : styles.webBodyTypeSectionContainerMd),
+            ]}
+          >
+            <ThemedText type="defaultSemiBold" style={[styles.bodyTypeSectionTitle, { color: colors.text }]}>
+              Browse by body type
+            </ThemedText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.bodyTypesScroll}
+            >
+              {[
+                "SUVs & Crossovers",
+                "Trucks",
+                "Sedans",
+                "Coupes",
+                "Minivans",
+                "Hatchbacks",
+                "Convertibles",
+                "Station Wagons",
+              ].map((type) => {
+                const matchedType = bodyTypes.find(
+                  (bt) => bt.name.toLowerCase() === type.toLowerCase()
+                );
+                const count = matchedType?.count || 0;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.bodyTypeItem}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/explore",
+                        params: { typebodies: type.replace("SUVs & Crossovers", "SUVs") },
+                      } as any)
+                    }
+                    activeOpacity={0.85}
+                  >
+                    <View
+                      style={[
+                        styles.bodyTypeImageContainer,
+                        {
+                          backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      {BODY_TYPE_IMAGES[type] ? (
+                        <Image
+                          source={{ uri: BODY_TYPE_IMAGES[type] }}
+                          style={styles.bodyTypeImage}
+                          contentFit="contain"
+                        />
+                      ) : (
+                        <IconSymbol
+                          name="car.fill"
+                          size={36}
+                          color={colors.primary}
+                        />
+                      )}
+                    </View>
+                    <ThemedText
+                      style={[styles.bodyTypeName, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {type.replace("SUVs & Crossovers", "SUVs")}
+                    </ThemedText>
+                    {count > 0 && (
+                      <ThemedText
+                        style={[styles.bodyTypeCount, { color: colors.icon }]}
+                      >
+                        {count} cars
+                      </ThemedText>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
         </View>
 
         {/* Promotional Banner */}
@@ -1338,7 +1285,7 @@ export default function HomeScreen() {
                       : styles.webSectionHeaderMd),
             ]}
           >
-            <ThemedText type="defaultSemiBold" style={{ fontSize: 16 }}>
+            <ThemedText type="defaultSemiBold" style={{ fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
               {t("home.recentlyAdded")}
             </ThemedText>
           </View>
@@ -1365,7 +1312,7 @@ export default function HomeScreen() {
           ) : (
             <View
               style={[
-                styles.latestListings,
+                styles.latestGrid,
                 isDesktopWeb &&
                   (is2Xl
                     ? styles.webLatestListings2Xl
@@ -1376,130 +1323,38 @@ export default function HomeScreen() {
                         : styles.webLatestListingsMd),
               ]}
             >
-              {recentVehicles.slice(0, 4).map((vehicle) => (
-                <TouchableOpacity
-                  key={`latest-${vehicle.id}`}
-                  style={[
-                    styles.latestCard,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                  onPress={() => goToVehicle(vehicle.id)}
-                >
-                  <Image
-                    source={{ uri: resolveImageUrl(vehicle.images?.[0]) }}
-                    style={styles.latestImage}
-                    contentFit="cover"
+              {recentVehicles
+                .filter((v) => !dailyPickIds.includes(v.id))
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+                )
+                .slice(0, 8)
+                .map((vehicle) => (
+                  <VehicleCard
+                    key={`latest-${vehicle.id}`}
+                    vehicle={vehicle}
+                    variant="grid"
+                    isFavorited={isFavorited(vehicle.id)}
+                    onPress={() => goToVehicle(vehicle.id)}
+                    onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                    style={isDesktopWeb ? styles.webLatestGridCard : styles.latestGridCard}
                   />
-                  <View style={styles.latestInfo}>
-                    <View style={styles.latestHeaderRow}>
-                      <ThemedText style={styles.latestTitle} numberOfLines={2}>
-                        {vehicle.title}
-                      </ThemedText>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          alignItems: "flex-start",
-                          gap: 6,
-                        }}
-                      >
-                        {(vehicle.verificationStatus === "approved" ||
-                          vehicle.sellerTier === "trusted" ||
-                          vehicle.sellerTier === "dealer_pro") && (
-                          <View
-                            style={{
-                              marginTop: 2,
-                              backgroundColor: "#3B82F6",
-                              borderRadius: 7,
-                              width: 13,
-                              height: 13,
-                              justifyContent: "center",
-                              alignItems: "center",
-                              overflow: "hidden",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <IconSymbol
-                              name="checkmark"
-                              size={9}
-                              color="#fff"
-                            />
-                          </View>
-                        )}
-                        <TouchableOpacity
-                          onPress={() => handleToggleFavorite(vehicle.id)}
-                        >
-                          <IconSymbol
-                            name="heart.fill"
-                            size={18}
-                            color={
-                              isFavorited(vehicle.id) ? "#EF4444" : colors.icon
-                            }
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.latestMetaContainer}>
-                      <ThemedText
-                        style={[
-                          styles.latestUsageStatus,
-                          { color: colors.primary },
-                        ]}
-                      >
-                        {vehicle.usageStatus}
-                      </ThemedText>
-                      {hasActiveSub && (
-                        <ThemedText
-                          style={[
-                            styles.latestSeller,
-                            { color: colors.icon, marginTop: 4 },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {vehicle.sellerName || "Unknown Seller"}
-                        </ThemedText>
-                      )}
-                      <ThemedText
-                        style={[styles.latestPrice, { color: colors.text }]}
-                      >
-                        {displayPrice(Number(vehicle.price) || 0)}
-                      </ThemedText>
-                      <View style={styles.latestSpecsRow}>
-                        <ThemedText
-                          style={[
-                            styles.latestSpecText,
-                            { color: colors.icon },
-                          ]}
-                        >
-                          {vehicle.mileage}
-                        </ThemedText>
-                        <ThemedText
-                          style={[
-                            styles.latestSpecText,
-                            { color: colors.icon },
-                          ]}
-                        >
-                          {" "}
-                          •{" "}
-                        </ThemedText>
-                        <ThemedText
-                          style={[
-                            styles.latestSpecText,
-                            { color: colors.icon },
-                          ]}
-                        >
-                          {vehicle.vehicleType}
-                        </ThemedText>
-                      </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
+                ))}
             </View>
           )}
+        </View>
+
+        {/* Browse All button */}
+        <View style={styles.browseAllWrap}>
+          <TouchableOpacity
+            style={[styles.browseAllBtn, { backgroundColor: colors.primary }]}
+            onPress={() => router.push('/(tabs)/explore' as any)}
+            activeOpacity={0.8}
+          >
+            <ThemedText style={styles.browseAllBtnText}>Browse All</ThemedText>
+            <IconSymbol name="arrow.right" size={14} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {/* Get your car by brand */}
@@ -1728,7 +1583,7 @@ export default function HomeScreen() {
                     borderColor: colors.border,
                     backgroundColor: colors.card,
                     zIndex: 100,
-                    elevation: 10,
+                    ...Elevation.raised,
                   },
                 ]}
               >
@@ -1775,8 +1630,7 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {isWeb &&
-        showProfileMenu &&
+      {showProfileMenu && (isWeb ? (
         profileDropdownPos &&
         createPortal(
           <>
@@ -1858,7 +1712,54 @@ export default function HomeScreen() {
             </View>
           </>,
           document.body,
-        )}
+        )
+      ) : (
+        <Modal transparent visible={showProfileMenu} animationType="slide" onRequestClose={() => setShowProfileMenu(false)}>
+          <View style={styles.sheetOverlay}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShowProfileMenu(false)} />
+            <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
+              <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Profile Menu</ThemedText>
+
+              <View style={[styles.dropdownHeader, { borderBottomColor: colors.border, paddingHorizontal: 0, paddingVertical: 12 }]}>
+                <ThemedText style={styles.dropdownName}>
+                  {authUser?.fullName || "User"}
+                </ThemedText>
+                <ThemedText style={[styles.dropdownType, { color: colors.icon }]}>
+                  {authUser?.role || "Buyer"}
+                </ThemedText>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  router.push("/(tabs)/profile" as any);
+                }}
+              >
+                <ThemedText style={styles.sheetItemText}>Profile</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowProfileMenu(false);
+                  router.push("/order" as any);
+                }}
+              >
+                <ThemedText style={styles.sheetItemText}>{t("home.soldBought")}</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={handleLogout}
+              >
+                <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>Logout</ThemedText>
+              </TouchableOpacity>
+            </Pressable>
+          </View>
+        </Modal>
+      ))}
     </View>
   );
 }
@@ -1884,11 +1785,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Elevation.raised,
   },
   toastText: {
     color: "#FFFFFF",
@@ -1932,11 +1829,7 @@ const styles = StyleSheet.create({
     width: 200,
     borderRadius: 12,
     borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Elevation.raised,
     zIndex: 100,
   },
   portalProfileDropdown: {
@@ -2071,7 +1964,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   webSection: {
-    marginTop: 32,
+    marginTop: 48,
   },
   webSectionHeaderSm: {
     paddingHorizontal: 16,
@@ -2095,9 +1988,10 @@ const styles = StyleSheet.create({
     marginTop: 28,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     borderColor: "rgba(59, 130, 246, 0.3)",
+    ...Elevation.flat,
   },
   webPromoBannerMd: {
     marginHorizontal: 40,
@@ -2207,7 +2101,20 @@ const styles = StyleSheet.create({
   },
   latestListings: {
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 10,
+  },
+  latestGrid: {
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  latestGridCard: {
+    width: "48%",
+  },
+  webLatestGridCard: {
+    width: "calc(25% - 18px)" as any,
+    minWidth: 220,
   },
   webLatestListingsSm: {
     paddingHorizontal: 16,
@@ -2291,6 +2198,66 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
+  // Body Type styles
+  bodyTypeSectionContainer: {
+    marginHorizontal: 20,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  webBodyTypeSectionContainerMd: {
+    marginHorizontal: 40,
+  },
+  webBodyTypeSectionContainerLg: {
+    marginHorizontal: 80,
+  },
+  webBodyTypeSectionContainerXl: {
+    marginHorizontal: 160,
+  },
+  webBodyTypeSectionContainer2Xl: {
+    marginHorizontal: 400,
+  },
+  bodyTypeSectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginBottom: 20,
+  },
+  bodyTypesScroll: {
+    gap: 16,
+    alignItems: "flex-start",
+    marginLeft:5
+  },
+  bodyTypeItem: {
+    alignItems: "center",
+    width: 110,
+  },
+  bodyTypeImageContainer: {
+    width: 120,
+    height: 100,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  bodyTypeImage: {
+    width: "90%",
+    height: "80%",
+  },
+  bodyTypeName: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 2,
+  },
+  bodyTypeCount: {
+    fontSize: 11,
+    fontWeight: "500",
+    textAlign: "center",
+  },
   categoryItem: {
     alignItems: "center",
     marginHorizontal: 4,
@@ -2307,20 +2274,24 @@ const styles = StyleSheet.create({
   },
   categoryName: {
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
     textAlign: "center",
   },
   vehicleCard: {
-    width: 280,
-    borderRadius: 16,
-    marginHorizontal: 4,
+    width: 260,
+    borderRadius: Radius.lg,
+    marginHorizontal: 5,
     borderWidth: 1,
     overflow: "hidden",
+    ...Elevation.card,
   },
   imageContainer: {
     position: "relative",
-    height: 180,
+    height: 175,
     width: "100%",
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    overflow: "hidden",
   },
   vehicleImage: {
     width: "100%",
@@ -2328,23 +2299,53 @@ const styles = StyleSheet.create({
   },
   favoriteBtn: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
   },
+  usageOverlayBadge: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  usageOverlayText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   vehicleInfo: {
-    padding: 10,
-    gap: 3,
+    padding: 12,
+    gap: 6,
+  },
+  vehicleTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   vehicleTitle: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     flex: 1,
     lineHeight: 19,
+  },
+  verifiedBadge: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    flexShrink: 0,
   },
   vehicleUsageStatus: {
     fontSize: 10,
@@ -2366,13 +2367,29 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   vehiclePrice: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginTop: 2,
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.3,
   },
   vehicleSpecs: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  vehicleSpecChips: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+    marginTop: 2,
+  },
+  specChip: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderWidth: 1,
+  },
+  specChipText: {
+    fontSize: 11,
+    fontWeight: "500",
   },
   specItem: {
     flexDirection: "row",
@@ -2390,32 +2407,50 @@ const styles = StyleSheet.create({
   },
   latestCard: {
     flexDirection: "row",
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: "hidden",
-    height: 120,
+    height: 118,
+    ...Elevation.card,
+  },
+  latestImageWrap: {
+    position: "relative",
+    width: 118,
+    height: "100%",
   },
   latestImage: {
-    width: 120,
+    width: 118,
     height: "100%",
+  },
+  latestUsageBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  latestUsageBadgeText: {
+    color: "#fff",
+    fontSize: 8,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   latestInfo: {
     flex: 1,
     padding: 10,
-    gap: 2,
+    justifyContent: "space-between",
   },
   latestHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 2,
   },
   latestTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    marginRight: 6,
-    lineHeight: 18,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 17,
   },
   latestMetaContainer: {
     marginTop: 0,
@@ -2428,18 +2463,29 @@ const styles = StyleSheet.create({
   latestSeller: {
     fontSize: 11,
     fontWeight: "500",
+    marginTop: 1,
   },
   latestPrice: {
     fontSize: 15,
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    marginTop: 2,
   },
   latestSpecsRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2,
+    marginTop: 4,
+    gap: 4,
+  },
+  latestSpecDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    opacity: 0.5,
   },
   latestSpecText: {
     fontSize: 11,
+    fontWeight: "500",
   },
   emptyStateCard: {
     paddingVertical: 24,
@@ -2493,11 +2539,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     zIndex: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Elevation.flat,
   },
   scrollNavButtonLeft: {
     left: 8,
@@ -2584,5 +2626,23 @@ const styles = StyleSheet.create({
   emptyStateIconWrap: {
     padding:10,
     borderRadius:100
-  }
+  },
+  browseAllWrap: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 4,
+  },
+  browseAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  browseAllBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
 });

@@ -20,9 +20,15 @@ export type Vehicle = {
   status?: 'active' | 'pending' | 'sold' | 'rejected';
   rejectionReason?: string;
   views?: number;
+  isBrokered?: boolean;
+  /** Company sellers can declare they provide assurance/insurance for the vehicle. */
+  providesAssurance?: boolean;
   createdAt?: string;
   sellerName?: string;
   sellerPhone?: string;
+  sellerCompanyName?: string;
+  /** Seller account type, when returned by the API. */
+  sellerType?: 'individual' | 'company';
   verificationStatus?: 'approved' | 'pending' | 'rejected' | 'none';
   verificationScore?: number;
   sellerTier?: 'dealer_pro' | 'trusted' | 'verified' | 'basic';

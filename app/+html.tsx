@@ -11,9 +11,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* Theme & PWA */}
         <meta name="theme-color" content="#2563EB" />
         <meta name="msapplication-TileColor" content="#2563EB" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/png" href="/Logo.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+        {/* Open Graph default image */}
+        <meta property="og:image" content="https://inzira.co/og-image.png" />
 
         <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+
         <ScrollViewStyleReset />
       </head>
       <body>{children}</body>

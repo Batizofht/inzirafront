@@ -11,7 +11,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { isWeb } from '@/lib/platform';
 import { fetchConversations, type Conversation } from '@/lib/api-messages';
-import { fetchMySubscription, hasActiveSubscription, subscribeToPlan, getSubscriptionRemainingDays } from '@/lib/api-subscriptions';
 import { getAuthUser, getUserType, type UserType } from '@/lib/userPreference';
 
 export default function MessagesScreen() {
@@ -40,35 +39,8 @@ export default function MessagesScreen() {
     : undefined;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSub, setHasSub] = useState(false);
-  const [subscription, setSubscription] = useState<any>(null);
   const [userType, setUserType] = useState<UserType>(null);
-  const [isProcessingSubscription, setIsProcessingSubscription] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleMockSubscriptionPayment = async (planId: string = 'basic_weekly') => {
-    if (isProcessingSubscription) return;
-
-    try {
-      setIsProcessingSubscription(true);
-      await subscribeToPlan(planId);
-      setHasSub(true);
-      if (!isWeb) {
-        alert('Subscription activated. Messaging is now unlocked.');
-      } else {
-        window.alert('Subscription activated. Messaging is now unlocked.');
-      }
-      loadConversations();
-    } catch (error: any) {
-      if (!isWeb) {
-        alert(error?.message || 'Unable to process subscription payment.');
-      } else {
-        window.alert(error?.message || 'Unable to process subscription payment.');
-      }
-    } finally {
-      setIsProcessingSubscription(false);
-    }
-  };
 
   const loadConversations = async () => {
     try {
@@ -78,27 +50,22 @@ export default function MessagesScreen() {
       const authUser = await getAuthUser();
       if (!authUser) {
         setConversations([]);
-        setHasSub(false);
         setUserType(null);
         setError('Authentication required');
         return;
       }
 
-      const [conversationsRes, subscriptionRes, type] = await Promise.all([
+      const [conversationsRes, type] = await Promise.all([
         fetchConversations(),
-        fetchMySubscription().catch(() => ({ data: { subscription: null } })),
         getUserType(),
       ]);
       setConversations(conversationsRes.data.conversations);
-      setHasSub(hasActiveSubscription(subscriptionRes.data.subscription));
-      setSubscription(subscriptionRes.data.subscription);
       setUserType(type);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load messages';
       setError(message);
       if (/missing auth token|unauthorized|not authenticated|authentication required|401/i.test(message)) {
         setConversations([]);
-        setHasSub(false);
         setUserType(null);
       } else {
         console.error('Failed to load messages:', err);
@@ -150,36 +117,9 @@ export default function MessagesScreen() {
 
   const getChatPartner = (conv: Conversation) => {
     if (userType === 'buyer') {
-      return { name: conv.sellerName, type: 'Seller' };
+      return { name: conv.sellerName, phone: conv.sellerPhone, email: conv.sellerEmail, type: 'Seller' };
     } else {
-      return { name: conv.buyerName, type: 'Buyer' };
-    }
-  };
-
-  const handleLockedConversationPress = () => {
-    if (userType === 'seller' && !hasSub) {
-      // Show subscription options (weekly or monthly)
-      if (isWeb && typeof window !== 'undefined') {
-        const choice = window.confirm(
-          'Subscribe to view buyer details:\n\nOK = Weekly (RWF 5,000/week)\nCancel = Choose Monthly from subscription page'
-        );
-        if (choice) {
-          handleMockSubscriptionPayment('basic_weekly');
-        } else {
-          router.push('/subscription');
-        }
-      } else {
-        Alert.alert(
-          'Subscription Required',
-          'Choose a plan to view buyer details:',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Weekly RWF 5,000', onPress: () => handleMockSubscriptionPayment('basic_weekly') },
-            { text: 'View All Plans', onPress: () => router.push('/subscription') },
-          ]
-        );
-      }
-      return;
+      return { name: conv.buyerName, phone: conv.buyerPhone, email: conv.buyerEmail, type: 'Buyer' };
     }
   };
 
@@ -189,10 +129,10 @@ export default function MessagesScreen() {
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}> 
           <View style={[styles.topHeaderInner, desktopInnerWidth]}> 
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, styles.backBtnAbsolute]}>
-                <IconSymbol name="chevron.left" size={24} color={colors.text} />
-                <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <IconSymbol name="chevron.left" size={22} color={colors.text} />
               </TouchableOpacity>
+              <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
            
             </View>
           </View>
@@ -210,14 +150,12 @@ export default function MessagesScreen() {
       <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}> 
         <View style={[styles.topHeaderInner, desktopInnerWidth]}> 
           <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, styles.backBtnAbsolute]}>
-              <IconSymbol name="chevron.left" size={24} color={colors.text} />
-         <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <IconSymbol name="chevron.left" size={22} color={colors.text} />
             </TouchableOpacity>
-            
+            <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
           </View>
         </View>
-        
       </View>
 
       <ScrollView 
@@ -238,44 +176,6 @@ export default function MessagesScreen() {
           </View>
         ) : (
           <>
-        {/* Seller Subscription Banner */}
-        {userType === 'seller' && !hasSub && (
-          <View style={[styles.subscriptionBanner, { backgroundColor: `${colors.primary}15`, borderColor: colors.border }]}> 
-            <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.primary} />
-            <View style={styles.bannerContent}>
-              <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>
-                Subscription Required
-              </ThemedText>
-              <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>
-                Subscribe weekly or monthly to view buyer info and reply to messages
-              </ThemedText>
-            </View>
-            <TouchableOpacity 
-              style={[styles.subscribeBtn, { backgroundColor: colors.primary, opacity: isProcessingSubscription ? 0.7 : 1 }]}
-              onPress={() => router.push('/subscription')}
-              disabled={isProcessingSubscription}
-            >
-              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Subscribe</ThemedText>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Active subscription remaining days */}
-        {userType === 'seller' && hasSub && subscription && (
-          <View style={[styles.subscriptionBanner, { backgroundColor: `${colors.primary}10`, borderColor: colors.border }]}>
-            <IconSymbol name="checkmark.seal.fill" size={20} color={colors.primary} />
-            <View style={styles.bannerContent}>
-              <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>
-                Subscription Active
-              </ThemedText>
-              <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>
-                {getSubscriptionRemainingDays(subscription)} days remaining
-              </ThemedText>
-            </View>
-          </View>
-        )}
-
-        {/* Empty State */}
         {conversations.length === 0 && (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIcon, { backgroundColor: `${colors.primary}15` }]}>
@@ -302,24 +202,16 @@ export default function MessagesScreen() {
         {/* Conversation List */}
         {conversations.map((chat) => {
           const partner = getChatPartner(chat);
-          const isSeller = userType === 'seller';
-          const canReply = !isSeller || hasSub;
           
           return (
             <TouchableOpacity 
               key={chat.id} 
               style={[styles.chatItem, { borderBottomColor: colors.border }]}
-              onPress={() => {
-                if (isSeller && !hasSub) {
-                  handleLockedConversationPress();
-                  return;
-                }
-                handleChatPress(chat.id);
-              }}
+              onPress={() => handleChatPress(chat.id)}
             >
               <View style={styles.avatarContainer}>
                 <View style={[styles.avatarPlaceholder, { backgroundColor: colors.card }]}>
-                  <IconSymbol name="person.fill" size={24} color={colors.icon} />
+                  <IconSymbol name="person.fill" size={22} color={colors.icon} />
                 </View>
                 {chat.unreadCount > 0 && (
                   <View style={[styles.unreadDot, { backgroundColor: colors.primary }]} />
@@ -329,48 +221,48 @@ export default function MessagesScreen() {
               <View style={styles.chatInfo}>
                 <View style={styles.chatHeader}>
                   <View style={styles.nameRow}>
-                    <ThemedText style={styles.userName} numberOfLines={1}>
-                      {isSeller && !hasSub ? '••••••••' : partner.name}
+                    <ThemedText style={[styles.userName, chat.unreadCount > 0 && { fontWeight: '700' }]} numberOfLines={1}>
+                      {partner.name}
                     </ThemedText>
-                    {/* Seller can't see buyer name without subscription */}
-                    {isSeller && !hasSub && (
-                      <View style={[styles.lockedBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <IconSymbol name="lock.fill" size={10} color={colors.icon} />
-                        <ThemedText style={{ color: colors.icon, fontSize: 10 }}>Locked</ThemedText>
-                      </View>
+                    {partner.phone && (
+                      <ThemedText style={[styles.contactHint, { color: colors.icon }]} numberOfLines={1}>
+                        {partner.phone}
+                      </ThemedText>
                     )}
                   </View>
-                  <ThemedText style={[styles.time, { 
-                    color: chat.unreadCount > 0 ? colors.primary : colors.icon,
-                    fontWeight: chat.unreadCount > 0 ? '600' : '400'
-                  }]}>
-                    {formatTime(chat.lastMessageAt)}
-                  </ThemedText>
+                  <View style={styles.timeRow}>
+                    {chat.unreadCount > 0 && (
+                      <View style={[styles.unreadBadgeSmall, { backgroundColor: colors.primary }]}>
+                        <ThemedText style={styles.unreadTextSmall}>{chat.unreadCount}</ThemedText>
+                      </View>
+                    )}
+                    <ThemedText style={[styles.time, { color: colors.icon }]}>
+                      {formatTime(chat.lastMessageAt)}
+                    </ThemedText>
+                  </View>
                 </View>
-                
-                <View style={styles.vehicleContext}>
-                  <IconSymbol name="car.fill" size={12} color={colors.icon} style={{ marginRight: 4 }} />
+
+                <View style={styles.subRow}>
+                  <IconSymbol name="car.fill" size={10} color={colors.icon} />
                   <ThemedText style={[styles.vehicleRef, { color: colors.icon }]} numberOfLines={1}>
                     {chat.vehicleTitle}
                   </ThemedText>
-                </View>
-                
-                <View style={styles.messageRow}>
+                  <ThemedText style={[styles.subDot, { color: colors.icon }]}>•</ThemedText>
                   <ThemedText 
                     style={[styles.lastMessage, { 
                       color: chat.unreadCount > 0 ? colors.text : colors.icon,
-                      fontWeight: chat.unreadCount > 0 ? '600' : '400',
-                      opacity: isSeller && !hasSub ? 0.55 : 1,
                     }]} 
                     numberOfLines={1}
                   >
-                    {isSeller && !hasSub ? 'Tap to pay RWF 5,000 and unlock buyer info' : chat.lastMessage}
+                    {chat.lastMessage}
                   </ThemedText>
-                  
-                  {chat.unreadCount > 0 && (
-                    <View style={[styles.unreadBadge, { backgroundColor: colors.primary }]}>
-                      <ThemedText style={styles.unreadText}>{chat.unreadCount}</ThemedText>
-                    </View>
+                  {partner.email && (
+                    <>
+                      <ThemedText style={[styles.subDot, { color: colors.icon }]}>•</ThemedText>
+                      <ThemedText style={[styles.contactHint, { color: colors.icon }]} numberOfLines={1}>
+                        {partner.email}
+                      </ThemedText>
+                    </>
                   )}
                 </View>
               </View>
@@ -392,7 +284,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -403,50 +295,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerRow: {
-    width: '100%',
-    minHeight: 40,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    gap: 8,
+    width: '100%',
   },
   content: {
     padding: 16,
     paddingBottom: 200,
   },
   backBtn: {
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  backBtnAbsolute: {
-    position: 'absolute',
-    left: 0,
+    padding: 6,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
+    fontWeight: '600',
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  subscriptionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  bannerContent: {
-    flex: 1,
-  },
-  subscribeBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
   },
   emptyState: {
     alignItems: 'center',
@@ -478,17 +346,17 @@ const styles = StyleSheet.create({
   },
   chatItem: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 16,
+    marginRight: 12,
   },
   avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -496,9 +364,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     borderWidth: 2,
     borderColor: '#fff',
   },
@@ -515,58 +383,57 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
     minWidth: 0,
   },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     flexShrink: 1,
   },
-  lockedBadge: {
+  contactHint: {
+    fontSize: 11,
+    flexShrink: 1,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
+  time: {
+    fontSize: 11,
+    textAlign: 'right',
+  },
+  unreadBadgeSmall: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  unreadTextSmall: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  subRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  time: {
-    fontSize: 12,
-    marginLeft: 8,
-    textAlign: 'right',
-  },
-  vehicleContext: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   vehicleRef: {
     fontSize: 12,
+    maxWidth: '30%',
   },
-  messageRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  subDot: {
+    fontSize: 10,
   },
   lastMessage: {
-    flex: 1,
-    fontSize: 14,
-    marginRight: 8,
-  },
-  unreadBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unreadText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 13,
+    flexShrink: 1,
   },
   webScrollContent: {
     paddingVertical: 24,

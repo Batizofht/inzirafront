@@ -139,6 +139,8 @@ const BUYING_MENU = {
     { label: "New cars for sale", path: "/explore?usage=Brand%20New" },
     { label: "Used cars for sale", path: "/explore?usage=Imported%20Used" },
     { label: "Certified pre-owned cars for sale", path: "/explore?usage=Used%20In%20Rwanda" },
+    { label: "Search cars", path: "/search" },
+    { label: "Buy vehicle insurance", path: "/insurance" },
   ],
   bodyType: [
     { label: "SUVs & Crossovers", path: "/explore?typebodies=SUVs" },
@@ -172,8 +174,8 @@ const MORE_NAV_ITEMS = [
 ];
 
 const LANGUAGES = [
-  { code: "en", name: "English", flag: "🇬🇧" },
-  { code: "fr", name: "Français", flag: "🇫🇷" },
+  { code: "en", name: "English", flag: "https://flagcdn.com/w40/gb.png" },
+  { code: "fr", name: "Français", flag: "https://flagcdn.com/w40/fr.png" },
 ];
 
 export function WebHeader() {
@@ -373,46 +375,67 @@ export function WebHeader() {
               </View>
 
               <ScrollView style={styles.menuContent}>
-                {/* Main Nav Items */}
+                {/* Expandable Buying Section */}
                 <View style={styles.menuSection}>
-                  {CENTER_NAV_ITEMS.map((item) => (
-                    <MobileWebLink
-                      key={item.path}
-                      href={item.path}
-                      onNavigate={() => setMobileMenuOpen(false)}
-                      style={[
-                        styles.menuItem,
-                        isActive(item.path) && {
-                          backgroundColor: `${colors.primary}15`,
-                        },
-                      ]}
-                    >
-                      <IconSymbol
-                        name={item.icon as any}
-                        size={22}
-                        color={
-                          isActive(item.path) ? colors.primary : colors.icon
-                        }
-                      />
-                      <ThemedText
-                        style={[
-                          styles.menuItemText,
-                          {
-                            color: isActive(item.path)
-                              ? colors.primary
-                              : colors.text,
-                          },
-                        ]}
-                      >
-                        {item.label}
+                  <TouchableOpacity
+                    style={[styles.menuItem, { justifyContent: 'space-between' }]}
+                    onPress={() => setShowBuyingDropdown((prev) => !prev)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <IconSymbol name="magnifyingglass" size={22} color={showBuyingDropdown ? colors.primary : colors.icon} />
+                      <ThemedText style={[styles.menuItemText, { color: showBuyingDropdown ? colors.primary : colors.text }]}>
+                        Buy a Car
                       </ThemedText>
-                    </MobileWebLink>
-                  ))}
+                    </View>
+                    <IconSymbol name={showBuyingDropdown ? "chevron.down" : "chevron.right"} size={18} color={colors.icon} />
+                  </TouchableOpacity>
+                  {showBuyingDropdown && (
+                    <View style={{ paddingLeft: 38, gap: 2 }}>
+                      {BUYING_MENU.cars.map((item) => (
+                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        </MobileWebLink>
+                      ))}
+                      <ThemedText style={[styles.menuSubHeader, { color: colors.icon }]}>By Body Type</ThemedText>
+                      {BUYING_MENU.bodyType.map((item) => (
+                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        </MobileWebLink>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Expandable Selling Section */}
+                  <TouchableOpacity
+                    style={[styles.menuItem, { justifyContent: 'space-between' }]}
+                    onPress={() => setShowSellingDropdown((prev) => !prev)}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <IconSymbol name="plus.circle.fill" size={22} color={showSellingDropdown ? colors.primary : colors.icon} />
+                      <ThemedText style={[styles.menuItemText, { color: showSellingDropdown ? colors.primary : colors.text }]}>
+                        Selling
+                      </ThemedText>
+                    </View>
+                    <IconSymbol name={showSellingDropdown ? "chevron.down" : "chevron.right"} size={18} color={colors.icon} />
+                  </TouchableOpacity>
+                  {showSellingDropdown && (
+                    <View style={{ paddingLeft: 38, gap: 2 }}>
+                      {SELLING_MENU.sell.map((item) => (
+                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        </MobileWebLink>
+                      ))}
+                    </View>
+                  )}
+
+                  <MobileWebLink href="/brands" onNavigate={() => setMobileMenuOpen(false)}
+                    style={[styles.menuItem, isActive("/brands") && { backgroundColor: `${colors.primary}15` }]}>
+                    <IconSymbol name="car.fill" size={22} color={isActive("/brands") ? colors.primary : colors.icon} />
+                    <ThemedText style={[styles.menuItemText, { color: isActive("/brands") ? colors.primary : colors.text }]}>Brands</ThemedText>
+                  </MobileWebLink>
                 </View>
 
-                <View
-                  style={[styles.divider, { backgroundColor: colors.border }]}
-                />
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
                 <View style={styles.menuSection}>
                   {MORE_NAV_ITEMS.map((item) => (
@@ -422,28 +445,11 @@ export function WebHeader() {
                       onNavigate={() => setMobileMenuOpen(false)}
                       style={[
                         styles.menuItem,
-                        isActive(item.path) && {
-                          backgroundColor: `${colors.primary}15`,
-                        },
+                        isActive(item.path) && { backgroundColor: `${colors.primary}15` },
                       ]}
                     >
-                      <IconSymbol
-                        name={item.icon as any}
-                        size={22}
-                        color={
-                          isActive(item.path) ? colors.primary : colors.icon
-                        }
-                      />
-                      <ThemedText
-                        style={[
-                          styles.menuItemText,
-                          {
-                            color: isActive(item.path)
-                              ? colors.primary
-                              : colors.text,
-                          },
-                        ]}
-                      >
+                      <IconSymbol name={item.icon as any} size={22} color={isActive(item.path) ? colors.primary : colors.icon} />
+                      <ThemedText style={[styles.menuItemText, { color: isActive(item.path) ? colors.primary : colors.text }]}>
                         {item.label}
                       </ThemedText>
                     </MobileWebLink>
@@ -907,7 +913,7 @@ export function WebHeader() {
                   pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Cars</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Cars</ThemedText>
                     {BUYING_MENU.cars.map((item) => (
                       <WebLink
                         key={item.label}
@@ -923,7 +929,7 @@ export function WebHeader() {
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Browse by body type</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Browse by body type</ThemedText>
                     {BUYING_MENU.bodyType.map((item) => (
                       <WebLink
                         key={item.label}
@@ -939,7 +945,7 @@ export function WebHeader() {
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Other vehicles</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Other vehicles</ThemedText>
                     {BUYING_MENU.otherVehicles.map((item) => (
                       <WebLink
                         key={item.label}
@@ -1001,7 +1007,7 @@ export function WebHeader() {
                   pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Sell</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Sell</ThemedText>
                     {SELLING_MENU.sell.map((item) => {
                       const targetHref = !user && item.path !== "/sell" ? "/auth/login" : item.path;
                       return (
@@ -1020,7 +1026,7 @@ export function WebHeader() {
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Other vehicles</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Other vehicles</ThemedText>
                     {SELLING_MENU.otherVehicles.map((item) => (
                       <WebLink
                         key={item.label}
@@ -1099,10 +1105,10 @@ export function WebHeader() {
                     styles.companyDropdown,
                     { backgroundColor: colors.card, borderColor: colors.border },
                   ]}
-                  onMouseLeave={() => setShowMoreDropdown(false)}
+                  {...(isWeb ? { onMouseLeave: () => setShowMoreDropdown(false) } as any : {})}
                 >
                   <View style={styles.companyColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.text }]}>Company</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Company</ThemedText>
                     {MORE_NAV_ITEMS.map((item) => (
                       <WebLink
                         key={item.path}
@@ -1274,7 +1280,7 @@ export function WebHeader() {
                         }}
                         activeOpacity={0.85}
                       >
-                        <ThemedText style={styles.langOptionFlag}>{lang.flag}</ThemedText>
+                        <Image source={{ uri: lang.flag }} style={{ width: 24, height: 16, borderRadius: 2 }} contentFit="cover" />
                         <View style={styles.langOptionInfo}>
                           <ThemedText style={styles.langOptionLabel}>{lang.name}</ThemedText>
                         </View>
@@ -1374,9 +1380,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    height: 72,
+    height: 76,
     position: "relative",
     zIndex: 1000,
   },
@@ -1386,23 +1392,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   logoSection: {
-    marginRight: 32,
+    marginRight: 40,
   },
   brandMark: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    
+    gap: 8,
   },
   brandLogo: {
-    width: 30,
-    height: 30,
-    borderRadius: 5,
-   
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
   },
   brandText: {
     fontSize: 22,
     fontWeight: "800",
+    letterSpacing: -0.5,
     marginTop: 1,
   },
   leftNav: {
@@ -1416,9 +1422,9 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   navItem: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 100,
+    borderRadius: 10,
     position: "relative",
   },
   activeNavItem: {
@@ -1427,7 +1433,7 @@ const styles = StyleSheet.create({
   },
   navText: {
     fontSize: 15,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   activeIndicator: {
     position: "absolute",
@@ -1478,16 +1484,17 @@ const styles = StyleSheet.create({
   sellButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 24,
-    marginLeft: 4,
+    gap: 7,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginLeft: 8,
   },
   sellButtonText: {
     color: "#fff",
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
+    letterSpacing: 0.2,
   },
   rectDropdown: {
     position: "absolute",
@@ -1509,37 +1516,37 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "100%",
     left: 0,
-    marginTop: 10,
-    borderRadius: 16,
+    marginTop: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 28,
     minWidth: 860,
     flexDirection: "row",
-    gap: 48,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 28,
-    elevation: 18,
+    gap: 40,
+    shadowColor: "#0A2540",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.1,
+    shadowRadius: 32,
+    elevation: 12,
     zIndex: 100001,
   },
   companyDropdown: {
     position: "absolute",
     top: "100%",
     left: 0,
-    marginTop: 10,
+    marginTop: 12,
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    width: 150,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    width: 170,
     flexDirection: "column",
-    shadowColor: "#000",
+    shadowColor: "#0A2540",
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.1,
     shadowRadius: 28,
-    elevation: 18,
+    elevation: 12,
   },
   companyColumn: {
     width: "100%",
@@ -1549,17 +1556,21 @@ const styles = StyleSheet.create({
     minWidth: 220,
   },
   megaTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: "800",
-    marginBottom: 14,
+    marginBottom: 8,
+    paddingBottom: 0,
+    paddingHorizontal: 12,
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   megaItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
   },
   megaItemText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "500",
   },
   langContainer: {
@@ -1773,5 +1784,23 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 11,
     fontWeight: "700",
+  },
+  menuSubItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  menuSubItemText: {
+    fontSize: 15,
+    fontWeight: "400",
+  },
+  menuSubHeader: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingHorizontal: 12,
   },
 });

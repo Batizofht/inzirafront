@@ -125,34 +125,25 @@ export default function AboutScreen() {
 
         {/* Team */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Meet the Team</ThemedText>
-          <ThemedText style={[styles.sectionSubtitle, { color: colors.icon }]}>
-            The people building a trusted vehicle marketplace for Rwanda.
-          </ThemedText>
-          <View style={[styles.teamGrid, isDesktopWeb && styles.webTeamGrid]}>
-            {TEAM.map((member, index) => (
-              <View key={index} style={[styles.teamCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <View style={[styles.teamImageWrap, { borderColor: `${colors.primary}55` }]}>
-                  <Image source={{ uri: member.image }} style={styles.teamImage} contentFit="cover" />
-                </View>
-                <View style={[styles.teamFocusBadge, { backgroundColor: `${colors.primary}20` }]}>
-                  <ThemedText style={[styles.teamFocusText, { color: colors.primary }]}>{member.focus}</ThemedText>
-                </View>
-                <ThemedText style={styles.teamName}>{member.name}</ThemedText>
-                <ThemedText style={[styles.teamRole, { color: colors.primary }]}>{member.role}</ThemedText>
-                <ThemedText style={[styles.teamBio, { color: colors.icon }]}>{member.bio}</ThemedText>
-                <View style={[styles.teamMetaRow, { borderTopColor: colors.border }]}> 
-                  <View style={styles.teamMetaItem}>
-                    <IconSymbol name="clock.fill" size={12} color={colors.icon} />
-                    <ThemedText style={[styles.teamMetaText, { color: colors.icon }]}>{member.tenure}</ThemedText>
-                  </View>
-                  <View style={styles.teamMetaItem}>
-                    <IconSymbol name="mappin.and.ellipse" size={12} color={colors.icon} />
-                    <ThemedText style={[styles.teamMetaText, { color: colors.icon }]}>{member.location}</ThemedText>
-                  </View>
-                </View>
-              </View>
-            ))}
+          <View style={[styles.teamCard, { backgroundColor: colors.card, borderColor: colors.border, alignItems: 'center', padding: 28 }]}>
+            <ThemedText style={{ fontSize: 15, color: colors.icon, textAlign: 'center', marginBottom: 8 }}>
+              A product of
+            </ThemedText>
+            <ThemedText type="defaultSemiBold" style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>
+              Bonet Elite Services LTD
+            </ThemedText>
+            <TouchableOpacity
+              onPress={() => {
+                if (isWeb && typeof window !== 'undefined') {
+                  window.open('https://bonet.rw/about', '_blank');
+                } else {
+                  router.push('https://bonet.rw/about' as any);
+                }
+              }}
+              style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+            >
+              <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Learn More About Bonet</ThemedText>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -189,45 +180,6 @@ const VALUES = [
   { icon: 'lock.fill', title: 'Security First', description: 'Your data and transactions are protected with industry-standard encryption. We never share your personal information without consent.' },
   { icon: 'creditcard.fill', title: 'Flexible Payments', description: 'We offer multiple payment options including subscription plans for sellers and secure transaction processing for all users.' },
   { icon: 'chart.bar.fill', title: 'Market Intelligence', description: 'Access real-time market data, pricing insights, and analytics to make informed buying or selling decisions.' },
-];
-
-const TEAM = [
-  {
-    name: 'Jean Mugabo',
-    role: 'CEO & Founder',
-    focus: 'Platform Vision',
-    tenure: '6+ years',
-    location: 'Kigali HQ',
-    bio: 'Leads strategy, trust standards, and dealer growth across Rwanda.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80'
-  },
-  {
-    name: 'Claire Uwase',
-    role: 'Head of Operations',
-    focus: 'Marketplace Ops',
-    tenure: '5+ years',
-    location: 'Kigali HQ',
-    bio: 'Owns listing quality, seller onboarding, and smooth buyer journeys.',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&q=80'
-  },
-  {
-    name: 'Eric Ndayisaba',
-    role: 'Tech Lead',
-    focus: 'Product Engineering',
-    tenure: '4+ years',
-    location: 'Kigali HQ',
-    bio: 'Builds secure search, messaging, and real-time listing infrastructure.',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&q=80'
-  },
-  {
-    name: 'Grace Ingabire',
-    role: 'Customer Success',
-    focus: 'User Experience',
-    tenure: '4+ years',
-    location: 'Kigali HQ',
-    bio: 'Ensures every transaction feels guided, fast, and genuinely supported.',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&q=80'
-  },
 ];
 
 const styles = StyleSheet.create({

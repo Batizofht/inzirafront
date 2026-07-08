@@ -3,6 +3,7 @@ export default {
     tabs: {
       home: 'Ahabanza',
       explore: 'Shakisha',
+      buy: 'Kugura',
       sell: 'Gurisha',
       messages: 'Ubutumwa',
       favorites: 'Ibyo Ukunda',

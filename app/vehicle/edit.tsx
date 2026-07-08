@@ -649,7 +649,7 @@ export default function EditVehicleScreen() {
 
           {/* ══════════ PHOTOS ══════════ */}
           <FormCard colors={colors}>
-            <SectionHead icon="photo.on.rectangle" title="Vehicle Photos" subtitle="Up to 6 photos · First photo is the cover" colors={colors} />
+            <SectionHead icon="photo" title="Vehicle Photos" subtitle="Up to 6 photos · First photo is the cover" colors={colors} />
 
             {images.length > 0 && (
               <View style={S.photosGrid}>

@@ -10,7 +10,6 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router, useLocalSearchParams } from 'expo-router';
 import { registerUser } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
-import { subscribeToPlan } from '@/lib/api-subscriptions';
 
 export default function RegisterScreen() {
   const theme = useResolvedTheme();
@@ -39,6 +38,7 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [sellerType, setSellerType] = useState<'individual' | 'company'>('individual');
+  const [isBroker, setIsBroker] = useState(false);
 
   const isSeller = role === 'seller';
 
@@ -79,7 +79,8 @@ export default function RegisterScreen() {
         email: email.trim(), 
         password, 
         role,
-        sellerType: isSeller ? sellerType : undefined
+        sellerType: isSeller ? sellerType : undefined,
+        isBroker: isSeller ? isBroker : false,
       });
       // Go to OTP verification
       router.push(
@@ -120,26 +121,41 @@ export default function RegisterScreen() {
         {isSeller && (
           <View style={styles.formGroup}>
             <ThemedText style={[styles.label, { color: colors.icon }]}>Seller Type</ThemedText>
-            <View style={[styles.switchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TouchableOpacity
-                style={[styles.switchOption, sellerType === 'individual' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                style={[styles.segmentOption, sellerType === 'individual' && { backgroundColor: colors.primary }]}
                 onPress={() => setSellerType('individual')}
               >
-                <IconSymbol name="person.fill" size={18} color={sellerType === 'individual' ? colors.primary : colors.icon} />
-                <ThemedText style={[styles.switchOptionText, { color: sellerType === 'individual' ? colors.primary : colors.text }]}>
+                <IconSymbol name="person.fill" size={16} color={sellerType === 'individual' ? '#fff' : colors.icon} />
+                <ThemedText style={[styles.segmentText, { color: sellerType === 'individual' ? '#fff' : colors.text }]}>
                   Individual
                 </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.switchOption, sellerType === 'company' && { backgroundColor: `${colors.primary}20`, borderColor: colors.primary }]}
+                style={[styles.segmentOption, sellerType === 'company' && { backgroundColor: colors.primary }]}
                 onPress={() => setSellerType('company')}
               >
-                <IconSymbol name="building.2.fill" size={18} color={sellerType === 'company' ? colors.primary : colors.icon} />
-                <ThemedText style={[styles.switchOptionText, { color: sellerType === 'company' ? colors.primary : colors.text }]}>
+                <IconSymbol name="building.2.fill" size={16} color={sellerType === 'company' ? '#fff' : colors.icon} />
+                <ThemedText style={[styles.segmentText, { color: sellerType === 'company' ? '#fff' : colors.text }]}>
                   Company
                 </ThemedText>
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {isSeller && (
+          <View style={[styles.formGroup, { marginBottom: 12 }]}>
+            <TouchableOpacity
+              style={[styles.brokerToggle, { backgroundColor: isBroker ? `${colors.primary}15` : colors.card, borderColor: isBroker ? colors.primary : colors.border }]}
+              onPress={() => setIsBroker(!isBroker)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.brokerCheckbox, { borderColor: isBroker ? colors.primary : colors.border, backgroundColor: isBroker ? colors.primary : 'transparent' }]}>
+                {isBroker && <IconSymbol name="checkmark" size={12} color="#fff" />}
+              </View>
+              <ThemedText style={[styles.brokerLabel, { color: colors.text }]}>I am a vehicle broker</ThemedText>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -332,6 +348,41 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   switchOptionText: { fontSize: 15, fontWeight: '600' },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  segmentOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 9,
+  },
+  segmentText: { fontSize: 14, fontWeight: '600' },
+  brokerToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  brokerCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  brokerLabel: { fontSize: 14, fontWeight: '500' },
   button: {
     width: '100%',
     height: 56,

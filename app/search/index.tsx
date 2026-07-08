@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VehicleCard } from '@/components/vehicle-card';
 import { Colors } from '@/constants/theme';
 import { liveSearchVehicles, searchVehicles } from '@/lib/api-vehicles';
 import type { Vehicle } from '@/types/vehicle';
@@ -234,27 +235,14 @@ export default function SearchScreen() {
           )}
 
           {showResults && vehicles.map((vehicle) => (
-            <TouchableOpacity
+            <VehicleCard
               key={vehicle.id}
-              style={[styles.row, { borderColor: colors.border, backgroundColor: colors.card }]}
-              onPress={() => goToVehicle(vehicle.id)}>
-              <Image source={{ uri: resolveImageUrl(vehicle.images?.[0]) }} style={styles.thumb} contentFit="cover" />
-
-              <View style={styles.info}>
-                <ThemedText numberOfLines={1} style={styles.title}>{vehicle.title}</ThemedText>
-                <ThemedText style={[styles.meta, { color: colors.primary }]}>
-                  {vehicle.brand} {vehicle.model} • {vehicle.year}
-                </ThemedText>
-                <ThemedText style={[styles.meta, { color: colors.icon }]} numberOfLines={1}>
-                  {vehicle.vehicleType || 'Car'} • {vehicle.location || 'Rwanda'}
-                </ThemedText>
-                <ThemedText style={[styles.price, { color: colors.primary }]}>
-                  {displayPrice(Number(vehicle.price) || 0)}
-                </ThemedText>
-              </View>
-
-              <IconSymbol name="chevron.right" size={18} color={colors.icon} />
-            </TouchableOpacity>
+              vehicle={vehicle as any}
+              variant="compact"
+              hideFavorite
+              onPress={() => goToVehicle(vehicle.id)}
+              style={{ marginBottom: 8 }}
+            />
           ))}
 
           {showEmpty && (

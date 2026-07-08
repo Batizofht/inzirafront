@@ -5,6 +5,7 @@ export {
   SellSEO,
   ServicesSEO,
   AboutSEO,
+  InsuranceSEO,
   ContactSEO,
   SupportSEO,
   SearchSEO,

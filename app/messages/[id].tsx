@@ -23,7 +23,7 @@ import {
   type Conversation,
 } from '@/lib/api-messages';
 import { getUserType, type UserType } from '@/lib/userPreference';
-import { fetchMySubscription, hasActiveSubscription, subscribeToPlan } from '@/lib/api-subscriptions';
+
 import { isWeb } from '@/lib/platform';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -61,31 +61,7 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userType, setUserType] = useState<UserType>(null);
-  const [canReply, setCanReply] = useState(true);
-  const [isProcessingSubscription, setIsProcessingSubscription] = useState(false);
-
-  const handleMockSubscriptionPayment = async () => {
-    if (isProcessingSubscription) return;
-
-    try {
-      setIsProcessingSubscription(true);
-      await subscribeToPlan('basic');
-      setCanReply(true);
-      if (!isWeb) {
-        Alert.alert('Payment Successful', 'Subscription activated. You can now reply to messages.');
-      } else {
-        window.alert('Subscription activated. You can now reply to messages.');
-      }
-    } catch (error: any) {
-      if (!isWeb) {
-        Alert.alert('Payment Failed', error?.message || 'Unable to process mock payment.');
-      } else {
-        window.alert(error?.message || 'Unable to process mock payment.');
-      }
-    } finally {
-      setIsProcessingSubscription(false);
-    }
-  };
+  
 
   useEffect(() => {
     loadConversation();
@@ -108,11 +84,6 @@ export default function ChatScreen() {
       ]);
       setUserType(type);
 
-      if (type === 'seller') {
-        const subRes = await fetchMySubscription().catch(() => ({ data: { subscription: null } }));
-        setCanReply(hasActiveSubscription(subRes.data.subscription));
-      }
-
       setConversation(convRes.data.conversation);
       setMessages(convRes.data.messages);
     } catch (err: any) {
@@ -127,18 +98,6 @@ export default function ChatScreen() {
 
   const handleSend = async () => {
     if (!inputText.trim() || !conversation) return;
-
-    if (userType === 'seller' && !canReply) {
-      Alert.alert(
-        'Subscription Required',
-        'Pay RWF 5,000 to view buyer info and reply to messages.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Pay Now', onPress: handleMockSubscriptionPayment },
-        ]
-      );
-      return;
-    }
 
     const content = inputText.trim();
     setInputText('');
@@ -180,14 +139,15 @@ export default function ChatScreen() {
     const isMe = item.senderRole === userType;
     return (
       <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
-        <View style={[styles.messageBubble, {
-          backgroundColor: isMe ? colors.primary : colors.card,
-          borderColor: isMe ? colors.primary : colors.border,
-        }]}>
+        <View style={[
+          styles.messageBubble,
+          isMe ? styles.myBubble : styles.theirBubble,
+          { backgroundColor: isMe ? colors.primary : (isDark ? '#1e293b' : '#ffffff') }
+        ]}>
           <ThemedText style={[styles.messageText, { color: isMe ? '#fff' : colors.text }]}>
             {item.content}
           </ThemedText>
-          <ThemedText style={[styles.messageTime, { color: isMe ? 'rgba(255,255,255,0.7)' : colors.icon }]}>
+          <ThemedText style={[styles.messageTime, { color: isMe ? 'rgba(255,255,255,0.65)' : colors.icon }]}>
             {formatTime(item.createdAt)}
           </ThemedText>
         </View>
@@ -217,14 +177,16 @@ export default function ChatScreen() {
 
   const insets = useSafeAreaInsets()
 
-  // Determine who we're chatting with
+  // Determine who we're chatting with - use conversation data directly (no gates)
   const chatPartner = userType === 'buyer' 
-    ? { name: conversation.sellerName, type: 'Seller' }
-    : { name: conversation.buyerName, type: 'Buyer' };
+    ? { name: conversation.sellerName, phone: conversation.sellerPhone, email: conversation.sellerEmail, type: 'Seller' }
+    : { name: conversation.buyerName, phone: conversation.buyerPhone, email: conversation.buyerEmail, type: 'Buyer' };
+
+  const chatBg = isDark ? '#0f1729' : '#e8eef5';
 
   return (
     <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: colors.background ,paddingTop: insets.top }]}
+      style={[styles.container, { backgroundColor: chatBg, paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
@@ -236,16 +198,23 @@ export default function ChatScreen() {
           </TouchableOpacity>
           
           <View style={styles.headerInfo}>
-            <ThemedText type="defaultSemiBold" style={styles.headerName}>
+            <ThemedText type="defaultSemiBold" style={styles.headerName} numberOfLines={1}>
               {chatPartner.name}
             </ThemedText>
-            <ThemedText style={[styles.headerSubtitle, { color: colors.icon }]}>
-              {chatPartner.type} • {conversation.vehicleTitle}
-            </ThemedText>
+            <View style={styles.headerMetaRow}>
+              <ThemedText style={[styles.headerSubtitle, { color: colors.icon }]} numberOfLines={1}>
+                {chatPartner.email || chatPartner.type}
+              </ThemedText>
+              {chatPartner.email && (
+                <ThemedText style={[styles.headerVehicleRef, { color: colors.icon }]} numberOfLines={1}>
+                  • {conversation.vehicleTitle}
+                </ThemedText>
+              )}
+            </View>
           </View>
 
           <TouchableOpacity 
-            style={styles.vehicleBtn}
+            style={[styles.vehicleBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}
             onPress={() => router.push(`/vehicle/${conversation.vehicleId}`)}
           >
             <IconSymbol name="car.fill" size={20} color={colors.primary} />
@@ -254,7 +223,7 @@ export default function ChatScreen() {
       </View>
 
       {/* Messages */}
-      <View style={[styles.messagesContainer, desktopOuterPadding]}>
+      <View style={[styles.messagesContainer, { backgroundColor: chatBg }, desktopOuterPadding]}>
         <View style={[styles.messagesInner, desktopInnerWidth]}>
           <FlatList
             ref={listRef}
@@ -262,50 +231,30 @@ export default function ChatScreen() {
             renderItem={renderMessage}
             keyExtractor={(item) => item.id}
             contentContainerStyle={[styles.messagesList, isDesktopWeb && styles.webMessagesList]}
-            showsVerticalScrollIndicator={isDesktopWeb}
+            showsVerticalScrollIndicator={false}
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           />
         </View>
       </View>
 
-      {/* Subscription Warning for Seller */}
-      {userType === 'seller' && !canReply && (
-        <View style={desktopOuterPadding}>
-          <View style={[styles.subscriptionBanner, desktopInnerWidth, { backgroundColor: `${colors.primary}15`, borderColor: colors.border }]}> 
-            <IconSymbol name="lock.fill" size={16} color={colors.primary} />
-            <ThemedText style={{ color: colors.text, fontSize: 13, flex: 1 }}>
-              Pay RWF 5,000 to unlock buyer info and reply
-            </ThemedText>
-            <TouchableOpacity 
-              style={[styles.subscribeBtn, { backgroundColor: colors.primary, opacity: isProcessingSubscription ? 0.7 : 1 }]}
-              onPress={handleMockSubscriptionPayment}
-              disabled={isProcessingSubscription}
-            >
-              <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{isProcessingSubscription ? 'Processing...' : 'Pay Now'}</ThemedText>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* Input */}
-      <View style={[styles.inputContainer, desktopOuterPadding, { borderTopColor: colors.border, backgroundColor: colors.background,paddingBottom:insets.bottom }]}>
+      <View style={[styles.inputContainer, desktopOuterPadding, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
         <View style={[styles.inputInner, desktopInnerWidth]}>
           <TextInput
-            style={[styles.input, { backgroundColor: colors.card, color: colors.text }]}
-            placeholder={canReply ? "Type a message..." : "Subscribe to reply..."}
+            style={[styles.input, { backgroundColor: isDark ? '#1e293b' : '#f1f3f5', color: colors.text, borderColor: colors.border }]}
+            placeholder="Type a message..."
             placeholderTextColor={colors.icon}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
-            editable={canReply || userType === 'buyer'}
           />
           <TouchableOpacity 
             style={[styles.sendButton, { 
-              backgroundColor: inputText.trim() && (canReply || userType === 'buyer') ? colors.primary : colors.border 
+              backgroundColor: inputText.trim() ? colors.primary : (isDark ? '#334155' : '#d1d5db')
             }]}
             onPress={handleSend}
-            disabled={!inputText.trim() || (userType === 'seller' && !canReply)}
+            disabled={!inputText.trim()}
           >
             <IconSymbol name="arrow.up" size={20} color="#fff" />
           </TouchableOpacity>
@@ -321,34 +270,43 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingTop: Platform.OS === 'ios' ? 50 : 12,
+    paddingTop: Platform.OS === 'ios' ? 50 : 10,
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
     width: '100%',
   },
   backBtn: {
-    padding: 8,
+    padding: 6,
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 4,
   },
   headerName: {
-    fontSize: 17,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
   },
   headerSubtitle: {
     fontSize: 12,
-    marginTop: 2,
+  },
+  headerVehicleRef: {
+    fontSize: 12,
+    flexShrink: 1,
   },
   vehicleBtn: {
     padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 10,
   },
   messagesContainer: {
     flex: 1,
@@ -358,12 +316,12 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   messagesList: {
-    padding: 16,
-    paddingBottom: 8,
+    padding: 12,
+    paddingBottom: 4,
   },
   messageContainer: {
-    marginBottom: 12,
-    maxWidth: '80%',
+    marginBottom: 6,
+    maxWidth: '78%',
   },
   myMessage: {
     alignSelf: 'flex-end',
@@ -372,70 +330,65 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   messageBubble: {
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  myBubble: {
+    borderBottomRightRadius: 4,
+  },
+  theirBubble: {
+    borderBottomLeftRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   messageText: {
     fontSize: 15,
     lineHeight: 20,
   },
   messageTime: {
-    fontSize: 11,
-    marginTop: 4,
+    fontSize: 10,
+    marginTop: 6,
     alignSelf: 'flex-end',
   },
-  subscriptionBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  subscribeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
   inputContainer: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   inputInner: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 8,
     width: '100%',
-    paddingBottom:10
   },
   input: {
     flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderRadius: 22,
+    minHeight: 42,
+    maxHeight: 100,
+    borderRadius: 21,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
+    borderWidth: 1,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
-        marginBottom:10
   },
   webMessagesList: {
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  webLoadingContainer: {
-    // padding applied dynamically
-  },
+  webLoadingContainer: {},
 });

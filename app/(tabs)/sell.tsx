@@ -24,7 +24,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { fetchMySubscription, hasActiveSubscription as checkActiveSub, subscribeToPlan, payVerificationFee } from '@/lib/api-subscriptions';
+import { pollPaymentUntilResolved, checkCanListVehicle, payListingFee, cancelPayment, fetchConfigPrices, consumeListingCredit } from '@/lib/api-subscriptions';
 
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -36,7 +36,9 @@ import { getAuthUser, logout, updateStoredAuthUser, type AuthUser } from '@/lib/
 import { fetchCategories, type Category } from "@/lib/api-categories";
 import { fetchMyVerificationStatus } from "@/lib/api-verifications";
 import { VEHICLE_BRAND_OPTIONS } from "@/constants/vehicle-brands";
-// import { subscribeToPlan } from '@/lib/api-subscriptions';
+import { PaymentModal } from '@/components/PaymentModal';
+import { PaymentProcessingModal } from '@/components/PaymentProcessingModal';
+import { PaymentExplainerModal } from '@/components/PaymentExplainerModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -207,6 +209,7 @@ export default function SellScreen() {
   const sellContainerMaxWidth = isWebXl ? 980 : isWebLg ? 920 : isWebMd ? 840 : undefined;
   const webHorizontalPadding = isWebXl ? 28 : isWebLg ? 24 : 20;
   const [sellerType, setSellerType] = useState<string>("")
+  const [companyHasSub, setCompanyHasSub] = useState<boolean | null>(null);
 
   // ── Auth & verification ──────────────────────────────────────────────────
   const [userRole, setUserRole] = useState<"buyer" | "seller" | "admin" | "loading">("loading");
@@ -220,6 +223,8 @@ export default function SellScreen() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  // Persisted success confirmation shown after a listing is submitted (instead of a fleeting toast).
+  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const [categories, setCategories] = useState<Category[]>([]);
@@ -249,6 +254,8 @@ export default function SellScreen() {
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
+  const [isBrokered, setIsBrokered] = useState(false);
+  const [providesAssurance, setProvidesAssurance] = useState(false);
 
   // ── Selector states ───────────────────────────────────────────────────────
   const [showColorSelector, setShowColorSelector] = useState(false);
@@ -284,10 +291,25 @@ export default function SellScreen() {
   const bodyTypeTriggerRef = useRef<View>(null);
 
   const [isRequesting, setIsRequesting] = useState(false);
-  const [hasActiveSub, setHasActiveSub] = useState(false);
   const [sellerContact, setSellerContact] = useState<{ phone?: string; email?: string } | null>(null);
   const [phone, setPhone] = useState<string>("")
   const [email, setEmails] = useState<string>("")
+
+  // Payment modal states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // Non-invasive explainer shown BEFORE the real payment modal. It never starts
+  // a payment — accepting it simply opens the existing PaymentModal unchanged.
+  const [showPaymentExplainer, setShowPaymentExplainer] = useState(false);
+  const [showPaymentProcessing, setShowPaymentProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'processing' | 'success' | 'failed'>('processing');
+  const [paymentMessage, setPaymentMessage] = useState('');
+  const [paymentPurpose, setPaymentPurpose] = useState<'verification_fee' | 'listing_fee'>('listing_fee');
+  const [configPrices, setConfigPrices] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchConfigPrices().then(r => setConfigPrices(r.data?.prices || {})).catch(() => {});
+  }, []);
+
   // ── Filtered option lists ─────────────────────────────────────────────────
   const filteredColorOptions = useMemo(() => {
     const q = colorSearch.trim().toLowerCase();
@@ -341,28 +363,16 @@ export default function SellScreen() {
 
 
   useEffect(() => {
-   
+    
     let mounted = true;
     const loadData = async () => {
       try {
       
         const user = await getAuthUser();
 
-        let subActive = false;
-        try {
-          const subRes = await fetchMySubscription();
-          subActive = checkActiveSub(subRes.data?.subscription);
-          if (subActive && mounted) {
-       
-          }
-        } catch {
-          // No subscription or error
-        }
-
         if (mounted) {
        
           setAuthUser(user);
-          setHasActiveSub(subActive);
         }
       } catch (err) {
         console.error('Failed to load vehicle:', err);
@@ -424,7 +434,6 @@ export default function SellScreen() {
         setEmails(user.email || "");
         if (user.role === "seller") {
           setSellerType(user?.sellerType || "");
-          // alert(user?.sellerType)
           setChecking(true);
           try {
             const verification = await fetchMyVerificationStatus();
@@ -440,6 +449,16 @@ export default function SellScreen() {
             setReviewNote("");
           } finally {
             setChecking(false);
+          }
+          // For company sellers, check subscription status up-front so we can
+          // show a proper guard screen instead of silently redirecting on submit.
+          if (user?.sellerType === 'company') {
+            try {
+              const canListRes = await checkCanListVehicle().catch(() => null);
+              setCompanyHasSub(canListRes?.data?.canList ?? null);
+            } catch {
+              setCompanyHasSub(null);
+            }
           }
         } else {
           setVStatus("approved");
@@ -510,59 +529,120 @@ export default function SellScreen() {
     handleSubmit();
   };
   const checkAccountType = async () => {
-
-    if (sellerType === 'individual' && !authUser?.hasPaidVerificationFee) {
-      const activateVerification = async () => {
-        try {
-          setIsRequesting(true);
-          await payVerificationFee();
-          // Update authUser locally AND in AsyncStorage so it persists
-          if (authUser) {
-            const updatedUser = { ...authUser, hasPaidVerificationFee: true };
-            setAuthUser(updatedUser);
-            await updateStoredAuthUser({ hasPaidVerificationFee: true });
-          }
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            window.alert('Payment Successful\n\nOne-time verification fee paid. You can now proceed with verification.');
-          } else {
-            Alert.alert('Payment Successful', 'One-time verification fee paid. You can now proceed with verification.');
-          }
-          router.push("/verify/phone")
-        } catch (err) {
-          const message = err instanceof Error ? err.message : 'Failed to process verification fee payment';
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            window.alert(`Payment Failed\n\n${message}`);
-          } else {
-            Alert.alert('Payment Failed', message);
-          }
-        } finally {
-          setIsRequesting(false);
-        }
-      };
-
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const confirmed = window.confirm('To start selling on Inzira as an individual, pay a one-time verification fee of RWF 10,000 (mock payment). This is paid once and never expires.');
-        if (!confirmed) return;
-        await activateVerification();
-        return;
-      }
-
-      Alert.alert(
-        'One-time Verification Fee',
-        'To start selling on Inzira as an individual, pay a one-time verification fee of RWF 10,000. This is paid once and never expires.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Pay RWF 10,000', onPress: async () => { await activateVerification(); } }
-        ]
-      );
-    } else {
-      router.push("/verify/phone")
-    }
+    router.push("/verify/phone");
   }
+
+  const paymentCancelSignalRef = useRef<{ cancelled: boolean }>({ cancelled: false });
+  const currentReferenceIdRef = useRef<string | null>(null);
+
+  const handlePaymentConfirm = async (phoneNumber: string, planId?: string) => {
+    try {
+      setShowPaymentModal(false);
+      setPaymentStatus('processing');
+      setPaymentMessage('Please approve the payment on your phone...');
+      setShowPaymentProcessing(true);
+      setIsRequesting(true);
+      paymentCancelSignalRef.current.cancelled = false;
+
+      const bundleSize = planId === 'bundle3' ? 3 : 1;
+      const result = await payListingFee(phoneNumber, bundleSize) as any;
+
+      if (result.data?.referenceId) {
+        currentReferenceIdRef.current = result.data.referenceId;
+        const finalStatus = await pollPaymentUntilResolved(result.data.referenceId, {
+          intervalMs: 4000,
+          maxAttempts: 45,
+          cancelSignal: paymentCancelSignalRef.current,
+        });
+
+        if (finalStatus.data.paymentStatus === 'successful') {
+          setPaymentStatus('success');
+          setPaymentMessage('Listing fee paid! You can now submit.');
+
+          setTimeout(() => {
+            setShowPaymentProcessing(false);
+          }, 2000);
+        } else if (finalStatus.data.paymentStatus === 'failed') {
+          setPaymentStatus('failed');
+          setPaymentMessage(finalStatus.data.failureReason || 'Transaction was rejected or failed.');
+
+          setTimeout(() => {
+            setShowPaymentProcessing(false);
+          }, 3000);
+        } else {
+          setPaymentStatus('failed');
+          setPaymentMessage('Payment is still processing. Check your profile later.');
+
+          setTimeout(() => {
+            setShowPaymentProcessing(false);
+          }, 3000);
+        }
+      } else {
+        setPaymentStatus('success');
+        setPaymentMessage('Listing fee paid! You can now submit.');
+
+        setTimeout(() => {
+          setShowPaymentProcessing(false);
+        }, 2000);
+      }
+    } catch (err: any) {
+      setPaymentStatus('failed');
+      setPaymentMessage(err?.message || 'Unable to process listing fee. Please try again.');
+
+      setTimeout(() => {
+        setShowPaymentProcessing(false);
+      }, 3000);
+    } finally {
+      setIsRequesting(false);
+      currentReferenceIdRef.current = null;
+    }
+  };
+
+  const handleDismissPayment = async () => {
+    const refId = currentReferenceIdRef.current;
+    if (refId) {
+      paymentCancelSignalRef.current.cancelled = true;
+      try {
+        await cancelPayment(refId);
+      } catch (_) {
+        // best-effort
+      }
+    }
+    setShowPaymentProcessing(false);
+    setIsRequesting(false);
+  };
   
   // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     try {
+      // Check if seller can list (listing fee or dealership sub)
+      const canListRes = await checkCanListVehicle().catch(() => null);
+      if (canListRes && !canListRes.data.canList) {
+        if (canListRes.data.needsVerificationFee) {
+          Alert.alert(
+            'Verification Required',
+            'Please complete your seller verification before listing a vehicle.',
+            [
+              { text: 'Go to Verify', onPress: () => router.push('/verify/phone' as any) },
+              { text: 'Cancel', style: 'cancel' },
+            ]
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        if (canListRes.data.needsListingFee) {
+          setPaymentPurpose('listing_fee');
+          setShowPaymentExplainer(true);
+          setIsSubmitting(false);
+          return;
+        }
+        if (canListRes.data.reason?.includes('Dealership')) {
+          setCompanyHasSub(false);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       setIsSubmitting(true);
       await createVehicle({
         title: title.trim(), brand: brand.trim(), model: model.trim(), year: year.trim(),
@@ -575,11 +655,18 @@ export default function SellScreen() {
         description: description.trim(), location: location.trim(), images,
         engineSize: engineSize.trim() || undefined, driveType: driveType || undefined,
         vehicleIdentificationDoc: vehicleIdentificationDoc ?? undefined,
-      });
+        isBrokered: authUser?.isBroker ? isBrokered : false,
+        providesAssurance: sellerType === 'company' ? providesAssurance : false,
+      } as any);
+      // Consume one listing credit for individual sellers (must succeed)
+      if (authUser?.sellerType !== 'company') {
+        await consumeListingCredit();
+      }
       const msg = "Listing submitted successfully. It is now under review.";
       setSubmitMessage({ type: "success", text: msg });
-      if (!isWeb) Alert.alert("Submitted!", msg);
-      router.push("/listings");
+      // Show a persisted confirmation (with a clear next step) instead of a
+      // fleeting toast + immediate redirect, so the user knows what happens next.
+      setShowSubmitSuccess(true);
     } catch (err: any) {
       const msg = err?.message ?? "Failed to submit listing. Please try again.";
       if (msg.includes("Invalid or expired session token") || msg.includes("Missing authorization token")) {
@@ -619,14 +706,14 @@ export default function SellScreen() {
 
             <ThemedText type="defaultSemiBold" style={S.guardTitle}>Sell on Inzira</ThemedText>
             <ThemedText style={[S.guardDesc, { color: colors.icon }]}>
-              You currently have a buyer account. To list and sell vehicles, you need a seller account.
+              You currently have a buyer account. Switch your account to seller to list and sell vehicles.
             </ThemedText>
 
             {/* Steps card */}
             <View style={[S.guardStepsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {[
-                { icon: "person.fill", title: "Register a Seller Account", sub: "Sign up with a new email as a seller" },
-                { icon: "message.fill", title: "Verify your email", sub: "Confirm via OTP to activate" },
+                { icon: "person.2.fill", title: "Switch Account Type", sub: "Change to seller from your Profile → Preferences" },
+                { icon: "checkmark.shield.fill", title: "Complete Verification", sub: "Verify your identity to start listing" },
               ].map((item, i, arr) => (
                 <View key={i} style={[S.guardStep, { borderBottomColor: colors.border, borderBottomWidth: i < arr.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
                   <View style={[S.guardStepIconWrap, { backgroundColor: `${colors.primary}12` }]}>
@@ -640,8 +727,8 @@ export default function SellScreen() {
               ))}
             </View>
 
-            <TouchableOpacity style={[S.guardPrimaryBtn, { backgroundColor: colors.primary }]} onPress={() => router.push("/auth/login")}>
-              <ThemedText style={S.guardPrimaryBtnText}>Register as Seller</ThemedText>
+            <TouchableOpacity style={[S.guardPrimaryBtn, { backgroundColor: colors.primary }]} onPress={() => router.push("/(tabs)/profile" as any)}>
+              <ThemedText style={S.guardPrimaryBtnText}>Switch to Seller Account</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity style={[S.guardSecondaryBtn, { borderColor: colors.border }]}
               onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)}>
@@ -735,27 +822,38 @@ export default function SellScreen() {
     );
   }
 
-  // ── Seller – not verified (none) ──────────────────────────────────────────
+  // ── Seller – not verified (none) — individual AND company ──────────────────
   if (userRole === "seller" && authUser && verificationStatus === "none") {
+    const isCompany = sellerType === 'company';
     return (
       <View style={[S.safeArea, { backgroundColor: colors.background }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}30` }]}>
-              <IconSymbol name="person.fill" size={40} color={colors.primary} />
+              <IconSymbol name={isCompany ? "building.2.fill" : "person.fill"} size={40} color={colors.primary} />
             </View>
-            <ThemedText type="defaultSemiBold" style={S.guardTitle}>Seller Verification Required</ThemedText>
+            <ThemedText type="defaultSemiBold" style={S.guardTitle}>
+              {isCompany ? "Business Verification Required" : "Seller Verification Required"}
+            </ThemedText>
             <ThemedText style={[S.guardDesc, { color: colors.icon }]}>
-              To list vehicles for sale, you must complete the seller verification process. This helps keep buyers safe and builds trust on Inzira.
+              {isCompany
+                ? "To list vehicles as a company, you must verify your business. Submit your RDB certificate for review — once approved you can start listing."
+                : "To list vehicles for sale, you must complete the seller verification process. This helps keep buyers safe and builds trust on Inzira."}
             </ThemedText>
 
             {/* Steps card */}
             <View style={[S.guardStepsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {[
-                { icon: "phone.fill", title: "Verify your phone number", sub: "Confirm your primary contact." },
-                { icon: "person.fill", title: "Upload your ID", sub: "National ID, passport, or driving license." },
-                { icon: "camera.fill", title: "Take a verification selfie", sub: "Match your face with your document." },
-              ].map((item, i, arr) => (
+              {(isCompany
+                ? [
+                    { icon: "phone.fill", title: "Verify your phone number", sub: "Confirm your primary contact." },
+                    { icon: "doc.text.fill", title: "Upload your RDB certificate", sub: "Your Rwanda Development Board business registration." },
+                  ]
+                : [
+                    { icon: "phone.fill", title: "Verify your phone number", sub: "Confirm your primary contact." },
+                    { icon: "person.fill", title: "Upload your ID", sub: "National ID, passport, or driving license." },
+                    { icon: "camera.fill", title: "Take a verification selfie", sub: "Match your face with your document." },
+                  ]
+              ).map((item, i, arr) => (
                 <View key={i} style={[S.guardStep, { borderBottomColor: colors.border, borderBottomWidth: i < arr.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
                   <View style={[S.guardStepIconWrap, { backgroundColor: `${colors.primary}12` }]}>
                     <IconSymbol name={item.icon as any} size={18} color={colors.primary} />
@@ -773,6 +871,64 @@ export default function SellScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={[S.guardSecondaryBtn, { borderColor: colors.border }]}
               onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)}>
+              <ThemedText style={[S.guardSecondaryBtnText, { color: colors.text }]}>Go Back</ThemedText>
+            </TouchableOpacity>
+          </View>
+          <WebFooter />
+        </ScrollView>
+
+        <PaymentProcessingModal
+          visible={showPaymentProcessing}
+          status={paymentStatus}
+          message={paymentMessage}
+          onDismiss={handleDismissPayment}
+        />
+      </View>
+    );
+  }
+
+  // ── Company seller – no active subscription ───────────────────────────────
+  if (userRole === "seller" && sellerType === 'company' && companyHasSub === false) {
+    return (
+      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+        <ScrollView contentContainerStyle={S.guardScroll}>
+          <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
+            <View style={[S.guardIconWrap, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.25)' }]}>
+              <IconSymbol name="building.2.fill" size={40} color={colors.primary} />
+            </View>
+            <ThemedText type="defaultSemiBold" style={S.guardTitle}>Dealership Subscription Required</ThemedText>
+            <ThemedText style={[S.guardDesc, { color: colors.icon }]}>
+              To list vehicles as a company seller on Inzira, you need an active dealership subscription. Choose a plan to get started.
+            </ThemedText>
+
+            <View style={[S.guardStepsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {[
+                { icon: "checkmark.circle.fill", title: "Unlimited listings", sub: "List as many vehicles as you want." },
+                { icon: "star.fill", title: "Featured placement", sub: "Your cars appear in the featured carousel." },
+                { icon: "checkmark.shield.fill", title: "Assurance badge", sub: "Show buyers your vehicles are insured." },
+              ].map((item, i, arr) => (
+                <View key={i} style={[S.guardStep, { borderBottomColor: colors.border, borderBottomWidth: i < arr.length - 1 ? StyleSheet.hairlineWidth : 0 }]}>
+                  <View style={[S.guardStepIconWrap, { backgroundColor: `${colors.primary}12` }]}>
+                    <IconSymbol name={item.icon as any} size={18} color={colors.primary} />
+                  </View>
+                  <View style={S.guardStepText}>
+                    <ThemedText style={{ fontSize: 14, fontWeight: "600" }}>{item.title}</ThemedText>
+                    <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 2 }}>{item.sub}</ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[S.guardPrimaryBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(tabs)/profile' as any)}
+            >
+              <ThemedText style={S.guardPrimaryBtnText}>View Subscription Plans</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[S.guardSecondaryBtn, { borderColor: colors.border }]}
+              onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)" as any)}
+            >
               <ThemedText style={[S.guardSecondaryBtnText, { color: colors.text }]}>Go Back</ThemedText>
             </TouchableOpacity>
           </View>
@@ -1035,6 +1191,88 @@ export default function SellScreen() {
                       value={description} onChangeText={setDescription} />
                   </Field>
                 </FormCard>
+
+                {authUser?.isBroker && (
+                  <FormCard colors={colors}>
+                    <Field label="Is this a brokered listing?">
+                      <View style={[S.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <TouchableOpacity
+                          style={[S.segmentOption, !isBrokered && { backgroundColor: colors.primary }]}
+                          onPress={() => setIsBrokered(false)}
+                        >
+                          <IconSymbol name="person.fill" size={16} color={!isBrokered ? '#fff' : colors.icon} />
+                          <ThemedText style={[S.segmentText, { color: !isBrokered ? '#fff' : colors.text }]}>
+                            Not Brokered
+                          </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[S.segmentOption, isBrokered && { backgroundColor: colors.primary }]}
+                          onPress={() => setIsBrokered(true)}
+                        >
+                          <IconSymbol name="building.2.fill" size={16} color={isBrokered ? '#fff' : colors.icon} />
+                          <ThemedText style={[S.segmentText, { color: isBrokered ? '#fff' : colors.text }]}>
+                            Brokered
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </Field>
+                  </FormCard>
+                )}
+
+                {sellerType === 'company' && (
+                  <FormCard colors={colors}>
+                    {/* Header row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                      <View style={[S.sectionIconBadge, { backgroundColor: 'rgba(22,163,74,0.12)' }]}>
+                        <IconSymbol name="checkmark.shield.fill" size={20} color="#16A34A" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <ThemedText style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>
+                          Vehicle Assurance
+                        </ThemedText>
+                        <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 1, lineHeight: 16 }}>
+                          Indicate if your company provides insurance or warranty for this vehicle.
+                        </ThemedText>
+                      </View>
+                    </View>
+                    <Field label="Do you provide assurance/insurance?">
+                      <View style={[S.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <TouchableOpacity
+                          style={[S.segmentOption, !providesAssurance && { backgroundColor: colors.primary }]}
+                          onPress={() => setProvidesAssurance(false)}
+                        >
+                          <IconSymbol name="xmark.circle.fill" size={16} color={!providesAssurance ? '#fff' : colors.icon} />
+                          <ThemedText style={[S.segmentText, { color: !providesAssurance ? '#fff' : colors.text }]}>
+                            No
+                          </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[S.segmentOption, providesAssurance && { backgroundColor: '#16A34A' }]}
+                          onPress={() => {
+                            setProvidesAssurance(true);
+                            const warning =
+                              'By enabling assurance, your company commits to honor the insurance or warranty for this vehicle. Buyers will be able to contact you on WhatsApp about it. Only enable this if it is accurate.';
+                            if (!isWeb) Alert.alert('Attention', warning);
+                            else setSubmitMessage({ type: 'error', text: warning });
+                          }}
+                        >
+                          <IconSymbol name="checkmark.shield.fill" size={16} color={providesAssurance ? '#fff' : colors.icon} />
+                          <ThemedText style={[S.segmentText, { color: providesAssurance ? '#fff' : colors.text }]}>
+                            Yes, assured
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </Field>
+                    {providesAssurance && (
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 4, padding: 10, backgroundColor: 'rgba(22,163,74,0.08)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(22,163,74,0.2)' }}>
+                        <IconSymbol name="info.circle.fill" size={14} color="#16A34A" style={{ marginTop: 1 }} />
+                        <ThemedText style={{ fontSize: 12, color: '#166534', flex: 1, lineHeight: 17 }}>
+                          A "Chat on WhatsApp" button will be visible on your listing. Buyers will contact you directly about the assurance.
+                        </ThemedText>
+                      </View>
+                    )}
+                  </FormCard>
+                )}
               </>
             )}
 
@@ -1386,8 +1624,58 @@ export default function SellScreen() {
         </Modal>
       )}
 
-      {/* Start Verification Button */}
-      {/* <Button title="Start Verification" onPress={handleStartVerification} disabled={isVerifying} /> */}
+      {/* Payment Modals */}
+      <PaymentExplainerModal
+        visible={showPaymentExplainer}
+        kind="listing_fee"
+        onClose={() => setShowPaymentExplainer(false)}
+        onAccept={() => { setShowPaymentExplainer(false); setShowPaymentModal(true); }}
+      />
+      <PaymentModal
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onConfirm={handlePaymentConfirm}
+        title="Listing Fee"
+        description="Pay the listing fee via MoMo to list your vehicle. Single listing = 1 credit, Bundle of 3 = 3 credits."
+        amount={Number(configPrices['listing_fee_single'] ?? 0)}
+        currency="RWF"
+        defaultPhoneNumber={phone || authUser?.phone || ''}
+        plans={[
+          { id: 'single', name: 'Single Listing', price: Number(configPrices['listing_fee_single'] ?? 0) },
+          { id: 'bundle3', name: 'Bundle of 3', price: Number(configPrices['listing_fee_bundle_3'] ?? 0) },
+        ]}
+      />
+
+      <PaymentProcessingModal
+        visible={showPaymentProcessing}
+        status={paymentStatus}
+        message={paymentMessage}
+        onDismiss={handleDismissPayment}
+      />
+
+      {/* Post-submit confirmation */}
+      <Modal visible={showSubmitSuccess} transparent animationType="fade" onRequestClose={() => setShowSubmitSuccess(false)}>
+        <View style={S.successOverlay}>
+          <View style={[S.successCard, { backgroundColor: colors.background }]}>
+            <View style={[S.successIconCircle, { backgroundColor: `${colors.primary}18` }]}>
+              <IconSymbol name="checkmark.circle.fill" size={48} color={colors.primary} />
+            </View>
+            <ThemedText style={S.successTitle}>Listing submitted</ThemedText>
+            <ThemedText style={[S.successBody, { color: colors.icon }]}>
+              Your vehicle is now under review. We'll send you a notification and an email once it's approved. You can track its status anytime under "My Listings".
+            </ThemedText>
+            <TouchableOpacity
+              style={[S.successPrimaryBtn, { backgroundColor: colors.primary }]}
+              onPress={() => { setShowSubmitSuccess(false); router.push("/listings"); }}
+            >
+              <ThemedText style={S.successPrimaryBtnText}>View my listings</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={S.successSecondaryBtn} onPress={() => setShowSubmitSuccess(false)}>
+              <ThemedText style={[S.successSecondaryBtnText, { color: colors.icon }]}>Close</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -1409,6 +1697,25 @@ const S = StyleSheet.create({
 
   // Card
   card: { borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, padding: 20, marginBottom: 16 },
+
+  // Switch toggle
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 4,
+    gap: 4,
+  },
+  segmentOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 9,
+  },
+  segmentText: { fontSize: 14, fontWeight: '600' },
 
   // Section head
   sectionHeadRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
@@ -1473,6 +1780,17 @@ const S = StyleSheet.create({
   guardPrimaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   guardSecondaryBtn: { height: 52, borderRadius: 12, borderWidth: 1, justifyContent: "center", alignItems: "center", width: "100%", maxWidth: 340 },
   guardSecondaryBtnText: { fontSize: 14 },
+
+  // Post-submit success
+  successOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 20 },
+  successCard: { width: "100%", maxWidth: 400, borderRadius: 16, padding: 24, alignItems: "center" },
+  successIconCircle: { width: 84, height: 84, borderRadius: 42, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  successTitle: { fontSize: 20, fontWeight: "800", marginBottom: 10, textAlign: "center" },
+  successBody: { fontSize: 14, lineHeight: 21, textAlign: "center", marginBottom: 22 },
+  successPrimaryBtn: { height: 50, borderRadius: 12, justifyContent: "center", alignItems: "center", width: "100%", marginBottom: 8 },
+  successPrimaryBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  successSecondaryBtn: { height: 44, justifyContent: "center", alignItems: "center", width: "100%" },
+  successSecondaryBtnText: { fontSize: 14, fontWeight: "600" },
   statusPill: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100, borderWidth: 1, marginBottom: 24 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   rejectionCard: { width: "100%", borderRadius: 12, borderWidth: 1.5, padding: 16, marginBottom: 24 },

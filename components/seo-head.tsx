@@ -127,7 +127,7 @@ export function LocalBusinessStructuredData({
 export function generateSEOMeta({
   title,
   description,
-  image = 'https://inzira.co/og-image.jpg',
+  image = 'https://inzira.co/og-image.png',
   url = 'https://inzira.co',
 }: {
   title: string;

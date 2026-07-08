@@ -180,7 +180,6 @@ const SELLER_SERVICES = [
   { icon: 'person.2.fill', title: 'Buyer Requests', description: 'View and manage all buyers interested in your vehicles. Respond to inquiries and track engagement through your seller dashboard.' },
   { icon: 'chart.bar.fill', title: 'Listing Analytics', description: 'View statistics such as views, inquiries, and interest levels for each listing. Use data-driven insights to optimize your pricing and presentation.' },
   { icon: 'doc.text.fill', title: 'Seller Dashboard', description: 'Get an overview of all active listings, buyer inquiries, deal requests, and transaction history in one comprehensive dashboard.' },
-  { icon: 'star.fill', title: 'Subscription Access', description: 'Subscribe to premium plans to unlock full buyer details, featured placements, and advanced analytics for maximum selling potential.' },
   { icon: 'creditcard.fill', title: 'Commission System', description: 'Transparent commission structure for completed deals. We only charge when you successfully sell through our platform.' },
 ];
 

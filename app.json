@@ -2,7 +2,7 @@
   "expo": {
     "name": "inzira",
     "slug": "inzira",
-    "version": "1.0.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/images/THELOG.png",
     "scheme": "inzira",
@@ -28,7 +28,8 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.inzira.inzira",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 8
     },
     "web": {
       "output": "static",

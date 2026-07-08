@@ -33,7 +33,7 @@ export function PageHead({
   description,
   keywords,
   author = 'Inzira',
-  image = 'https://inzira.co/og-image.jpg',
+  image = 'https://inzira.co/og-image.png',
   url,
   type = 'website',
   noIndex = false,
@@ -157,6 +157,15 @@ export const SupportSEO = () => (
   />
 );
 
+export const InsuranceSEO = () => (
+  <PageHead
+    title="Vehicle Insurance - Protect Your Car in Rwanda | Inzira"
+    description="Get comprehensive vehicle insurance coverage in Rwanda. Third party, comprehensive, and third party+ options available. Protect your investment with trusted partners through Inzira."
+    keywords="vehicle insurance rwanda, car insurance kigali, comprehensive coverage, third party insurance, inzira insurance"
+    url="https://inzira.co/insurance"
+  />
+);
+
 export const LoginSEO = () => (
   <PageHead
     title="Sign In - Access Your Inzira Account"
@@ -197,7 +206,7 @@ export const VehicleSEO = ({
 }) => {
   const seoTitle = `${year} ${brand} ${model} - $${price.toLocaleString()} | Inzira`;
   const seoDescription = description || `Buy ${year} ${brand} ${model} for $${price.toLocaleString()}. Verified listing on Inzira - Rwanda's #1 Verified Car Marketplace.`;
-  const seoImage = image || 'https://inzira.co/og-image.jpg';
+  const seoImage = image || 'https://inzira.co/og-image.png';
 
   return (
     <PageHead

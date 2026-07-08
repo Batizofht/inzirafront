@@ -3,6 +3,7 @@ export default {
     tabs: {
       home: 'Home',
       explore: 'Explore',
+      buy: 'Buy',
       sell: 'Sell',
       messages: 'Messages',
       favorites: 'Favorites',

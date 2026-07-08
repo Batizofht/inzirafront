@@ -1,26 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, TextInput, Modal, Pressable, useWindowDimensions } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, TextInput, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import { Colors } from '@/constants/theme';
+import { Colors, Elevation, Radius } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VehicleCard } from '@/components/vehicle-card';
 import { RangeSlider } from '@/components/ui/range-slider';
-import { fetchVehiclesByCategory } from '@/lib/api-vehicles';
+import { fetchVehiclesByCategory, fetchBrandsWithImages, fetchBodyTypes } from '@/lib/api-vehicles';
 import { fetchFavorites, addFavorite, removeFavorite } from '@/lib/api-favorites';
-import { fetchMySubscription, hasActiveSubscription as checkActiveSub } from '@/lib/api-subscriptions';
 import { getAuthUser } from '@/lib/userPreference';
 import type { Vehicle } from '@/types/vehicle';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { resolveImageUrl } from '@/lib/image-url';
+import { getUsageStatusColor } from '@/lib/usage-status';
 import { CategorySEO } from '@/components/page-meta';
 import { displayPrice, getPriceFilters, formatFilterPrice, getCurrentCurrencySymbol, getCurrencyPreference, type CurrencyCode } from '@/lib/currencyConverter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://bonetsell.onrender.com/api/v1';
+const SEO_API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.inzira.co/api/v1';
 
 export async function generateStaticParams(): Promise<Array<{ slug: string }>> {
   try {
@@ -90,6 +91,13 @@ type UsageStatusFilter = (typeof USAGE_STATUS_FILTERS)[number];
 type PriceFilterId = 'under_500k' | '500k_2m' | '2m_5m' | '5m_10m' | '10m_20m' | 'under_15k' | '15k_30k' | '30k_50k' | '50k_plus';
 type SortOptionId = (typeof SORT_OPTIONS)[number]['id'];
 
+const IMAGE_COUNT_LIMIT = 10;
+
+const getImageCount = (images: string[] | undefined): number => {
+  if (!images || !Array.isArray(images)) return 0;
+  return Math.min(images.length, IMAGE_COUNT_LIMIT);
+};
+
 const parsePrice = (price: string | number) => {
   if (typeof price === 'number') {
     return Number.isFinite(price) ? Math.round(price) : 0;
@@ -157,11 +165,12 @@ export default function CategoryScreen() {
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUsageStatuses, setSelectedUsageStatuses] = useState<UsageStatusFilter[]>([]);
   const [selectedPriceFilters, setSelectedPriceFilters] = useState<PriceFilterId[]>([]);
   const [currentCurrency, setCurrentCurrency] = useState<CurrencyCode>('RWF');
-  const [customMinPrice, setCustomMinPrice] = useState(0); // Start at 0 (no filter)
+  const [customMinPrice, setCustomMinPrice] = useState(0);
   const [customMaxPrice, setCustomMaxPrice] = useState(MAX_PRICE_RWF);
   const [priceFilters, setPriceFilters] = useState(() => getPriceFilters('RWF'));
   const [selectedModelTypes, setSelectedModelTypes] = useState<string[]>([]);
@@ -171,33 +180,82 @@ export default function CategoryScreen() {
   const [showSortSheet, setShowSortSheet] = useState(false);
   const [selectedSort, setSelectedSort] = useState<SortOptionId>('newest');
   const [showLoginToast, setShowLoginToast] = useState(false);
-  const [hasActiveSub, setHasActiveSub] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
+  const [availableBodyTypes, setAvailableBodyTypes] = useState<string[]>([]);
+  const pageRef = useRef(1);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loginRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loginToastHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const pageTitle = CATEGORY_TITLE[slug ?? ''] ?? (slug ? slug.charAt(0).toUpperCase() + slug.slice(1) : 'Category');
 
+  const buildFilterParams = () => {
+    const hasCustomRange = customMinPrice > 0 || customMaxPrice < MAX_PRICE_RWF;
+    let minP: number | undefined;
+    let maxP: number | undefined;
+    if (hasCustomRange) {
+      if (customMinPrice > 0) minP = customMinPrice;
+      if (customMaxPrice < MAX_PRICE_RWF) maxP = customMaxPrice;
+    } else if (selectedPriceFilters.length > 0) {
+      const ranges = priceFilters.filter((f) => selectedPriceFilters.includes(f.id));
+      if (ranges.length) {
+        minP = Math.min(...ranges.map((r) => r.rawRWFMin));
+        maxP = Math.max(...ranges.map((r) => r.rawRWFMax));
+      }
+    }
+    return {
+      status: 'active',
+      sort: selectedSort,
+      q: searchQuery.trim() || undefined,
+      brand: selectedBrands.length ? selectedBrands : undefined,
+      color: selectedColors.length ? selectedColors : undefined,
+      usageStatus: selectedUsageStatuses.length ? selectedUsageStatuses : undefined,
+      bodyType: selectedModelTypes.length ? selectedModelTypes : undefined,
+      minPrice: minP,
+      maxPrice: maxP,
+    };
+  };
+
+  const fetchPage = async (targetPage: number, append: boolean) => {
+    if (targetPage === 1) setIsLoading(true);
+    else setIsLoadingMore(true);
+    try {
+      const res = await fetchVehiclesByCategory(slug, { ...buildFilterParams(), page: targetPage, limit: 20 });
+      const newVehicles = res.data.vehicles;
+      setAllVehicles((prev) => (append ? [...prev, ...newVehicles] : newVehicles));
+      setTotal(res.data.total ?? newVehicles.length);
+      setHasMore(res.data.hasMore ?? false);
+      pageRef.current = targetPage;
+    } catch (err) {
+      console.error('Failed to load category data:', err);
+    } finally {
+      if (targetPage === 1) setIsLoading(false);
+      else setIsLoadingMore(false);
+    }
+  };
+
+  // Initial load: page 1 + metadata
   useEffect(() => {
     let mounted = true;
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [vehiclesRes, favoritesRes] = await Promise.all([
-          fetchVehiclesByCategory(slug, { status: 'active' }),
-          fetchFavorites().catch(() => ({ data: { favorites: [] } }))
+        const [vehiclesRes, favoritesRes, brandsRes, bodyTypesRes] = await Promise.all([
+          fetchVehiclesByCategory(slug, { status: 'active', page: 1, limit: 20, sort: 'newest' }),
+          fetchFavorites().catch(() => ({ data: { favorites: [] } })),
+          fetchBrandsWithImages().catch(() => ({ data: { brands: [] } })),
+          fetchBodyTypes().catch(() => ({ data: { bodyTypes: [] } })),
         ]);
-        // Check subscription status
-        let subActive = false;
-        try {
-          const subRes = await fetchMySubscription();
-          subActive = checkActiveSub(subRes.data?.subscription);
-        } catch {
-          // No subscription
-        }
         if (mounted) {
           setAllVehicles(vehiclesRes.data.vehicles);
+          setTotal(vehiclesRes.data.total ?? vehiclesRes.data.vehicles.length);
+          setHasMore(vehiclesRes.data.hasMore ?? false);
+          pageRef.current = 1;
           setFavoriteIds(favoritesRes.data.favorites.map((f: any) => f.vehicleId));
-          setHasActiveSub(subActive);
+          setAvailableBrands(brandsRes.data.brands.map((b: any) => b.name));
+          setAvailableBodyTypes(bodyTypesRes.data.bodyTypes.map((b: any) => b.name));
         }
       } catch (err) {
         console.error('Failed to load category data:', err);
@@ -248,82 +306,32 @@ export default function CategoryScreen() {
     }
   };
 
-  const brandFilters = useMemo(() => {
-    const values = new Set<string>();
-    allVehicles.forEach((vehicle) => values.add(vehicle.brand));
-    return Array.from(values).sort();
-  }, [allVehicles]);
+  // Re-fetch page 1 when filters or sort change
+  const filterDeps = [selectedSort, selectedUsageStatuses, selectedPriceFilters, selectedModelTypes, selectedColors, selectedBrands, customMinPrice, customMaxPrice];
+  useEffect(() => {
+    if (!isLoading) fetchPage(1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, filterDeps);
 
-  const modelTypeFilters = useMemo(() => {
-    const values = new Set<string>();
-    allVehicles.forEach((vehicle) => {
-      values.add(vehicle.vehicleType);
-      values.add(vehicle.model);
-    });
-    return Array.from(values);
-  }, [allVehicles]);
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      if (!isLoading) fetchPage(1, false);
+    }, 500);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-  const colorFilters = useMemo(() => {
-    const values = new Set<string>();
-    allVehicles.forEach((vehicle) => {
-      if (vehicle.color) {
-        values.add(vehicle.color);
-      }
-    });
-    return Array.from(values);
-  }, [allVehicles]);
+  const brandFilters = availableBrands;
+  const colorFilters = Object.keys(COLOR_MAP);
+  const modelTypeFilters = availableBodyTypes;
 
-  const filteredVehicles = useMemo(() => {
-    const loweredQuery = searchQuery.trim().toLowerCase();
-    // Has custom range if user moved min above 0 or max below max
-    const hasCustomRange = customMinPrice > 0 || customMaxPrice < MAX_PRICE_RWF;
-
-    const baseFiltered = allVehicles.filter((vehicle) => {
-      const usageOk = selectedUsageStatuses.length === 0 || selectedUsageStatuses.includes(vehicle.usageStatus as UsageStatusFilter);
-
-      const vehiclePrice = parsePrice(vehicle.price);
-      // Price filtering: use custom range if set, otherwise use price filter chips
-      const priceOk = hasCustomRange
-        ? (vehiclePrice >= customMinPrice && vehiclePrice <= customMaxPrice)
-        : (selectedPriceFilters.length === 0 ||
-           priceFilters.filter((item) => selectedPriceFilters.includes(item.id)).some(
-             (range) => vehiclePrice >= range.rawRWFMin && vehiclePrice < range.rawRWFMax
-           ));
-
-      const modelTypeOk =
-        selectedModelTypes.length === 0 || (vehicle.model && selectedModelTypes.includes(vehicle.model)) || (vehicle.vehicleType && selectedModelTypes.includes(vehicle.vehicleType));
-
-      const queryOk =
-        loweredQuery.length === 0 ||
-        vehicle.title.toLowerCase().includes(loweredQuery) ||
-        vehicle.model.toLowerCase().includes(loweredQuery) ||
-        vehicle.brand.toLowerCase().includes(loweredQuery);
-
-      const colorOk = selectedColors.length === 0 || (vehicle.color ? selectedColors.includes(vehicle.color) : false);
-
-      const brandOk = selectedBrands.length === 0 || selectedBrands.includes(vehicle.brand);
-
-      return usageOk && priceOk && modelTypeOk && queryOk && colorOk && brandOk;
-    });
-
-    const sorted = [...baseFiltered].sort((a, b) => {
-      if (selectedSort === 'price_high_low') return parsePrice(b.price) - parsePrice(a.price);
-      if (selectedSort === 'price_low_high') return parsePrice(a.price) - parsePrice(b.price);
-      if (selectedSort === 'title_az') return a.title.localeCompare(b.title);
-      if (selectedSort === 'year_new_old') return parseYear(b.year) - parseYear(a.year);
-      if (selectedSort === 'year_old_new') return parseYear(a.year) - parseYear(b.year);
-      if (selectedSort === 'rwanda_entry_new') {
-        const aRwandaScore = a.usageStatus === 'Used In Rwanda' ? 1 : 0;
-        const bRwandaScore = b.usageStatus === 'Used In Rwanda' ? 1 : 0;
-        if (aRwandaScore !== bRwandaScore) return bRwandaScore - aRwandaScore;
-        return parseYear(b.year) - parseYear(a.year);
-      }
-
-      return parseYear(b.year) - parseYear(a.year);
-    });
-
-    return sorted;
-  }, [searchQuery, selectedUsageStatuses, selectedPriceFilters, customMinPrice, customMaxPrice, selectedModelTypes, selectedColors, selectedBrands, selectedSort, allVehicles, priceFilters]);
+  const handleScroll = ({ nativeEvent }: { nativeEvent: any }) => {
+    const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+    if (hasMore && !isLoadingMore && layoutMeasurement.height + contentOffset.y >= contentSize.height - 150) {
+      fetchPage(pageRef.current + 1, true);
+    }
+  };
 
   const goToVehicle = (id: string) => {
     const href = `/vehicle/${id}` as any;
@@ -420,7 +428,7 @@ export default function CategoryScreen() {
   const skeletonSoft = isDark ? '#111827' : '#F3F4F6';
   const selectedSortLabel = SORT_OPTIONS.find((option) => option.id === selectedSort)?.label ?? 'Newest Listed';
   const skeletonLineStyle = styles.skeletonLine as any;
-  const vehicles = filteredVehicles;
+  const vehicles = allVehicles;
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -450,7 +458,7 @@ export default function CategoryScreen() {
                 <View style={[styles.webActiveBadge, { backgroundColor: `${colors.primary}18` }]}>
                   <ThemedText style={[styles.webActiveBadgeText, { color: colors.primary }]}>{activeDesktopFilterCount} active</ThemedText>
                 </View>
-                <ThemedText style={[styles.webVehicleCountText, { color: colors.icon }]}>{vehicles.length} vehicle(s)</ThemedText>
+                <ThemedText style={[styles.webVehicleCountText, { color: colors.icon }]}>{total} vehicle(s)</ThemedText>
               </View>
 
               {/* Usage Status */}
@@ -578,9 +586,9 @@ export default function CategoryScreen() {
             </ScrollView>
           </View>
           <View style={styles.webMainContent}>
-            <ScrollView showsVerticalScrollIndicator={isDesktopWeb} contentContainerStyle={[styles.webResultsContent, { paddingHorizontal: is2Xl ? 300 : isXl ? 160 : isLg ? 80 : 40 }]}>
+            <ScrollView showsVerticalScrollIndicator={isDesktopWeb} contentContainerStyle={[styles.webResultsContent, { paddingHorizontal: is2Xl ? 300 : isXl ? 160 : isLg ? 80 : 40 }]} onScroll={handleScroll} scrollEventThrottle={16}>
               {/* Search Header - Inside ScrollView */}
-              <View style={[styles.webSearchHeader, { borderBottomColor: "colors.border", backgroundColor: colors.background, paddingBottom: 16, marginBottom: 16 }]}>
+              <View style={[styles.webSearchHeader, { borderBottomColor: colors.border, backgroundColor: colors.background, paddingBottom: 16, marginBottom: 16 }]}>
                 <ThemedText type="defaultSemiBold" style={[styles.webPageTitle, { color: colors.text }]}>{pageTitle}</ThemedText>
                 <View style={[styles.webSearchContainer, { backgroundColor: colors.background, borderColor: colors.border }]}>
                   <IconSymbol name="magnifyingglass" size={20} color={colors.icon} />
@@ -593,7 +601,7 @@ export default function CategoryScreen() {
                   />
                 </View>
                 <View style={styles.webSortRow}>
-                  <ThemedText style={{ color: colors.icon }}>{filteredVehicles.length} results</ThemedText>
+                  <ThemedText style={{ color: colors.icon }}>{total} results</ThemedText>
                   <TouchableOpacity style={[styles.webSortBtn, { borderColor: colors.border }]} onPress={() => setShowSortSheet(true)}>
                     <ThemedText style={{ fontSize: 14 }}>{selectedSortLabel}</ThemedText>
                     <IconSymbol name="chevron.down" size={16} color={colors.icon} />
@@ -615,43 +623,24 @@ export default function CategoryScreen() {
                         </View>
                       </View>
                     ))
-                  : filteredVehicles.map((vehicle) => (
-                      <TouchableOpacity key={vehicle.id} style={[styles.webResultCard, { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => goToVehicle(vehicle.id)}>
-                        <View style={styles.webImageContainer}>
-                          <Image source={{ uri: resolveImageUrl(vehicle.images?.[0]) }} style={styles.webResultImage} contentFit="cover" />
-                          <TouchableOpacity
-                            style={[styles.webFavoriteBtn, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)' }]}
-                            onPress={() => handleToggleFavorite(vehicle.id)}
-                          >
-                            <IconSymbol name="heart.fill" size={18} color={isFavorited(vehicle.id) ? '#EF4444' : colors.icon} />
-                          </TouchableOpacity>
-                        </View>
-                        <View style={styles.webResultInfo}>
-                          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
-                            <ThemedText style={styles.webVehicleTitle} numberOfLines={2}>{vehicle.title}</ThemedText>
-                            {(vehicle.verificationStatus === 'approved' || vehicle.sellerTier === 'trusted' || vehicle.sellerTier === 'dealer_pro') && (
-                              <View style={{ marginTop: 2, backgroundColor: '#3B82F6', borderRadius: 8, width: 14, height: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
-                                <IconSymbol name="checkmark" size={10} color="#fff" />
-                              </View>
-                            )}
-                          </View>
-                          <ThemedText style={[styles.webUsageStatus, { color: colors.primary }]}>{vehicle.usageStatus}</ThemedText>
-                          {hasActiveSub && (
-                            <ThemedText style={{ color: colors.icon, fontSize: 12 }} numberOfLines={1}>
-                              {vehicle.sellerName || 'Unknown Seller'}
-                            </ThemedText>
-                          )}
-                          <ThemedText style={[styles.webVehiclePrice, { color: colors.text }]}>{displayPrice(parsePrice(vehicle.price))}</ThemedText>
-                          <View style={styles.webVehicleSpecs}>
-                            <ThemedText style={[styles.webSpecText, { color: colors.icon }]}>{vehicle.mileage}</ThemedText>
-                            <View style={[styles.webSpecDot, { backgroundColor: colors.border }]} />
-                            <ThemedText style={[styles.webSpecText, { color: colors.icon }]}>{vehicle.vehicleType || 'Car'}</ThemedText>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
+                  : vehicles.map((vehicle) => (
+                      <VehicleCard
+                        key={vehicle.id}
+                        vehicle={vehicle}
+                        variant="grid"
+                        isFavorited={isFavorited(vehicle.id)}
+                        onPress={() => goToVehicle(vehicle.id)}
+                        onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                        style={styles.webResultCard}
+                      />
                     ))}
               </View>
-              {!isLoading && filteredVehicles.length === 0 && (
+              {isLoadingMore && (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              )}
+              {!isLoading && !isLoadingMore && vehicles.length === 0 && (
                 <View style={styles.webEmptyState}>
                   <ThemedText style={{ color: colors.icon }}>No vehicles match your filters.</ThemedText>
                 </View>
@@ -668,11 +657,11 @@ export default function CategoryScreen() {
               </TouchableOpacity>
               <View>
                 <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{pageTitle}</ThemedText>
-                <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{vehicles.length} vehicle(s)</ThemedText>
+                <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{total} vehicle(s)</ThemedText>
               </View>
               <View style={styles.backBtn} />
             </View>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} onScroll={handleScroll} scrollEventThrottle={16}>
      
 
             {/* Search Container - Inside ScrollView */}
@@ -702,7 +691,7 @@ export default function CategoryScreen() {
             </View>
 
             <View style={styles.sortInfoRow}>
-              <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{vehicles.length} result(s)</ThemedText>
+              <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{total} result(s)</ThemedText>
               <ThemedText style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{selectedSortLabel}</ThemedText>
             </View>
 
@@ -720,45 +709,21 @@ export default function CategoryScreen() {
                     </View>
                   ))
                 : vehicles.map((vehicle) => (
-                    <TouchableOpacity key={vehicle.id} style={[styles.card, { borderColor: colors.border, backgroundColor: colors.background }]} onPress={() => goToVehicle(vehicle.id)}>
-                      <View style={styles.imageWrap}>
-                        <Image source={{ uri: resolveImageUrl(vehicle.images?.[0]) }} style={styles.image} contentFit="cover" />
-                        <TouchableOpacity
-                          style={[styles.favoriteBtn, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)' }]}
-                          onPress={() => handleToggleFavorite(vehicle.id)}>
-                          <IconSymbol name="heart.fill" size={16} color={isFavorited(vehicle.id) ? '#EF4444' : colors.icon} />
-                        </TouchableOpacity>
-                      </View>
-
-                      <View style={styles.info}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <ThemedText type="defaultSemiBold" numberOfLines={2} style={{ flex: 1 }}>{vehicle.title}</ThemedText>
-                          {(vehicle.verificationStatus === 'approved' || vehicle.sellerTier === 'trusted' || vehicle.sellerTier === 'dealer_pro') && (
-                            <View style={{ marginLeft: 6, backgroundColor: '#3B82F6', borderRadius: 10, width: 16, height: 16, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                              <IconSymbol name="checkmark" size={12} color="#fff" />
-                            </View>
-                          )}
-                        </View>
-                        <ThemedText style={{ color: colors.primary, fontSize: 11, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' }}>
-                          {vehicle.usageStatus}
-                        </ThemedText>
-                        {hasActiveSub && (
-                          <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 4 }} numberOfLines={1}>
-                            {vehicle.sellerName || 'Unknown Seller'}
-                          </ThemedText>
-                        )}
-                        <ThemedText style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 8 }}>{displayPrice(parsePrice(vehicle.price))}</ThemedText>
-
-                        <View style={styles.metaRow}>
-                          <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{vehicle.mileage}</ThemedText>
-                          <ThemedText style={{ color: colors.icon, fontSize: 12 }}> • {vehicle.fuelType}</ThemedText>
-                          <ThemedText style={{ color: colors.icon, fontSize: 12 }}> • {vehicle.location}</ThemedText>
-                        </View>
-                      </View>
-                    </TouchableOpacity>
+                    <VehicleCard
+                      key={vehicle.id}
+                      vehicle={vehicle}
+                      variant="grid"
+                      isFavorited={isFavorited(vehicle.id)}
+                      onPress={() => goToVehicle(vehicle.id)}
+                      onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                    />
                   ))}
-
-              {!isLoading && filteredVehicles.length === 0 && (
+              {isLoadingMore && (
+                <View style={{ paddingVertical: 24, alignItems: 'center', width: '100%' }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                </View>
+              )}
+              {!isLoading && !isLoadingMore && vehicles.length === 0 && (
                 <View style={styles.emptyState}>
                   <ThemedText style={{ color: colors.icon }}>No vehicles match the selected filters.</ThemedText>
                 </View>
@@ -982,7 +947,7 @@ export default function CategoryScreen() {
             </ScrollView>
 
             <TouchableOpacity style={[styles.applyBtn, { backgroundColor: colors.primary, marginBottom:insets.bottom }]} onPress={() => setShowFilterSheet(false)}>
-              <ThemedText style={styles.applyBtnText}>Show {vehicles.length} vehicles</ThemedText>
+              <ThemedText style={styles.applyBtnText}>Show {total} vehicles</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -1111,17 +1076,13 @@ const styles = StyleSheet.create({
   },
   toastCard: {
     minHeight: 48,
-    borderRadius: 14,
+    borderRadius: Radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Elevation.raised,
   },
   toastText: {
     color: '#FFFFFF',
@@ -1217,25 +1178,59 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.lg,
     overflow: 'hidden',
+    ...Elevation.card,
   },
   imageWrap: {
     position: 'relative',
     width: '100%',
     height: 180,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: '100%',
   },
+  cardUsageBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  cardUsageBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  verifiedBadge: {
+    backgroundColor: '#3B82F6',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    flexShrink: 0,
+  },
   favoriteBtn: {
     position: 'absolute',
     top: 10,
     right: 10,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1257,12 +1252,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheetContainer: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
     maxHeight: '82%',
+    ...Elevation.raised,
   },
   sheetHandle: {
     alignSelf: 'center',
@@ -1344,11 +1340,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   sheetChipActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Elevation.flat,
   },
   priceRangeCard: {
     borderWidth: 1,
@@ -1522,17 +1514,57 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 24,
   },
+  soldOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 5,
+  },
+  soldOverlayText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 4,
+    transform: [{ rotate: '-20deg' }],
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 8,
+  },
+  imageCountBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    zIndex: 3,
+  },
+  imageCountText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
   webResultCard: {
     width: '31%',
     minWidth: 280,
-    borderRadius: 16,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
+    ...Elevation.card,
   },
   webImageContainer: {
     position: 'relative',
     height: 200,
     width: '100%',
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    overflow: 'hidden',
   },
   webResultImage: {
     width: '100%',
@@ -1540,46 +1572,47 @@ const styles = StyleSheet.create({
   },
   webFavoriteBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   webResultInfo: {
     padding: 12,
-    gap: 4,
+    gap: 5,
   },
   webVehicleTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 20,
     flex: 1,
   },
   webUsageStatus: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   webVehiclePrice: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginTop: 2,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   webVehicleSpecs: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   webSpecText: {
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '500',
   },
   webSpecDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginHorizontal: 8,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    marginHorizontal: 7,
   },
   webEmptyState: {
     width: '100%',
@@ -1600,17 +1633,13 @@ const styles = StyleSheet.create({
     width: '31%',
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 10,
+    borderRadius: Radius.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   webChipActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Elevation.flat,
   },
   colorCirclesWrap: {
     flexDirection: 'row',
@@ -1639,14 +1668,10 @@ const styles = StyleSheet.create({
   },
   webSortDropdown: {
     width: 400,
-    borderRadius: 16,
+    borderRadius: Radius.xl,
     borderWidth: 1,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...Elevation.raised,
   },
   webSortHeader: {
     flexDirection: 'row',
@@ -1690,11 +1715,12 @@ const styles = StyleSheet.create({
   },
   // Mobile Sort Sheet Styles
   sortSheetContainer: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
+    ...Elevation.raised,
   },
   sortSheetHeader: {
     flexDirection: 'row',

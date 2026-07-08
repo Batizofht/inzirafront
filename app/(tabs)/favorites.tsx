@@ -1,8 +1,9 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
-import { Colors } from '@/constants/theme';
+import { Colors, Elevation, Radius } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { VehicleCard } from '@/components/vehicle-card';
 import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { useCallback, useState, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { fetchFavorites, removeFavorite, type Favorite } from '@/lib/api-favorit
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { resolveImageUrl } from '@/lib/image-url';
+import { getUsageStatusColor } from '@/lib/usage-status';
 import { displayPrice } from '@/lib/currencyConverter';
 
 export default function FavoritesScreen() {
@@ -81,7 +83,7 @@ export default function FavoritesScreen() {
           style={[
             styles.card,
             isDesktopWeb && [styles.webCard, { width: cardWidth as any }],
-            { backgroundColor: colors.background, borderColor: colors.border },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
           <View style={[styles.imageContainer, { backgroundColor: skeletonSoft }]}>
@@ -169,35 +171,17 @@ export default function FavoritesScreen() {
             {favorites.map((favorite) => {
               const vehicle = favorite.vehicle!;
               return (
-              <TouchableOpacity key={favorite.id} style={[styles.card, isDesktopWeb && [styles.webCard, { width: cardWidth as any }], { backgroundColor: colors.background, borderColor: colors.border }]} onPress={() => goToVehicle(vehicle.id)}>
-                <View style={styles.imageContainer}>
-                  <Image source={{ uri: resolveImageUrl(vehicle.images?.[0] || (vehicle as any).image) }} style={styles.image} contentFit="cover" />
-                  <TouchableOpacity
-                    style={[styles.removeBtn, { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.8)' }]}
-                    onPress={() => handleToggleFavorite(vehicle.id)}>
-                    <IconSymbol name="heart.fill" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.info}>
-                  <View style={styles.titleRow}>
-                    <ThemedText style={styles.vehicleTitle} numberOfLines={2}>{vehicle.title}</ThemedText>
-                    <ThemedText style={[styles.vehiclePrice, { color: colors.text }]}>{displayPrice(Number(vehicle.price) || 0)}</ThemedText>
-                  </View>
-                  <ThemedText style={[styles.usageStatus, { color: colors.primary }]}>{(vehicle as any).usageStatus || ''}</ThemedText>
-                  
-                  <View style={styles.vehicleMeta}>
-                    <ThemedText style={[styles.metaText, { color: colors.icon }]}>{vehicle.fuelType}</ThemedText>
-                    <View style={[styles.metaDot, { backgroundColor: colors.icon }]} />
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <IconSymbol name="location.fill" size={12} color={colors.icon} style={{ marginRight: 4 }} />
-                      <ThemedText style={[styles.metaText, { color: colors.icon }]} numberOfLines={1}>{vehicle.location}</ThemedText>
-                    </View>
-                  </View>
-                  
-                  
-                </View>
-              </TouchableOpacity>
-            );})}
+                <VehicleCard
+                  key={favorite.id}
+                  vehicle={vehicle}
+                  variant="grid"
+                  isFavorited
+                  onPress={() => goToVehicle(vehicle.id)}
+                  onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                  style={isDesktopWeb ? { width: cardWidth as any } : undefined}
+                />
+              );
+            })}
           </View>
         )}
         </View>
@@ -250,32 +234,51 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   card: {
-    borderRadius: 12,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
+    ...Elevation.card,
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
     height: 180,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: '100%',
   },
+  usageBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  usageBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   removeBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
   },
   info: {
-    padding: 10,
-    gap: 3,
+    padding: 12,
+    gap: 5,
   },
   titleRow: {
     flexDirection: 'row',
@@ -284,15 +287,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   vehicleTitle: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    marginRight: 8,
-    lineHeight: 19,
-  },
-  vehiclePrice: {
     fontSize: 15,
     fontWeight: '700',
+    lineHeight: 19,
+    letterSpacing: -0.2,
+  },
+  vehiclePrice: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   usageStatus: {
     fontSize: 10,
@@ -305,13 +308,15 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   metaText: {
-    fontSize: 11,
+    fontSize: 12,
+    fontWeight: '500',
   },
   metaDot: {
     width: 3,
     height: 3,
     borderRadius: 1.5,
     marginHorizontal: 6,
+    opacity: 0.5,
   },
   footer: {
     flexDirection: 'row',
@@ -325,20 +330,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   contactButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: Radius.md + 2,
   },
   contactButtonText: {
     color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 40,
+    paddingVertical: 32,
     marginTop: -50,
   },
   emptyIconBg: {
@@ -350,19 +356,22 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 19,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    textAlign: 'center',
     marginBottom: 8,
   },
   loginButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 13,
+    borderRadius: Radius.md + 2,
   },
   loginButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
+    letterSpacing: -0.2,
   },
   skeletonLine: {
     borderRadius: 6,

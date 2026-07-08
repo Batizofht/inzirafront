@@ -22,7 +22,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 
 import { Image } from "expo-image";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 import { router } from "expo-router";
 
@@ -50,6 +50,8 @@ import {
   UserType,
   getAuthUser,
   getSellerVerificationStatus,
+  updateStoredAuthUser,
+  switchAccountRole,
   type AuthUser,
 } from "@/lib/userPreference";
 
@@ -64,8 +66,12 @@ import {
 import {
   fetchMySubscription,
   hasActiveSubscription,
-  subscribeToPlan,
+  dealershipSubscribe,
+  activateDealershipTrial,
   getSubscriptionRemainingDays,
+  pollPaymentUntilResolved,
+  cancelPayment,
+  fetchConfigPrices,
   type Subscription,
 } from "@/lib/api-subscriptions";
 
@@ -77,6 +83,10 @@ import {
 } from "@/lib/api-contact-requests";
 
 import { startConversation, fetchConversations, type Conversation } from "@/lib/api-messages";
+import { PaymentModal } from '@/components/PaymentModal';
+import { PaymentProcessingModal } from '@/components/PaymentProcessingModal';
+import { PaymentExplainerModal } from '@/components/PaymentExplainerModal';
+
 
 import type { Vehicle } from "@/types/vehicle";
 
@@ -111,9 +121,7 @@ export default function ProfileScreen() {
   useEffect(() => {
     async function fetchSellerType() {
       const user = await getAuthUser();
-      if (user?.role === 'seller') {
-        setSellerType(user.sellerType || 'individual');
-      }
+      setSellerType(user?.sellerType ?? null);
     }
     fetchSellerType();
   }, []);
@@ -124,7 +132,7 @@ export default function ProfileScreen() {
     }
   }, []);
 
-  const { logout } = useAuth();
+  const { logout, refreshUser } = useAuth();
 
   const theme = useResolvedTheme();
 
@@ -191,6 +199,9 @@ export default function ProfileScreen() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isProcessingSubscription, setIsProcessingSubscription] =
     useState(false);
+  const [hasListingCredit, setHasListingCredit] = useState(false);
+  const [listingCredits, setListingCredits] = useState(0);
+  const [hasPaidVerificationFee, setHasPaidVerificationFee] = useState(false);
 
   const [myVehicles, setMyVehicles] = useState<Vehicle[]>([]);
 
@@ -211,6 +222,10 @@ export default function ProfileScreen() {
   const [sellerVerificationStatus, setSellerVerificationStatus] = useState<
     "pending" | "approved" | "rejected" | null
   >(null);
+
+  const [showRoleSwitchModal, setShowRoleSwitchModal] = useState(false);
+  const [roleSwitchSellerType, setRoleSwitchSellerType] = useState<'individual' | 'company'>('individual');
+  const [isSwitchingRole, setIsSwitchingRole] = useState(false);
 
   const errorColor = isDark ? "#FCA5A5" : "#DC2626";
 
@@ -257,6 +272,7 @@ export default function ProfileScreen() {
   }, [isLoadingVehicles]);
 
   const loadSellerData = async () => {
+  
     try {
       setIsLoadingVehicles(true);
       console.log("Loading seller data...");
@@ -264,7 +280,9 @@ export default function ProfileScreen() {
       const [vehiclesRes, subRes] = await Promise.all([
         fetchMyVehicles(),
 
-        fetchMySubscription().catch(() => ({ data: { subscription: null } })),
+        fetchMySubscription().catch(() => ({
+          data: { subscription: null, hasPaidVerificationFee: false, hasListingCredit: false, listingCredits: 0 },
+        })),
       ]);
 
       console.log("Vehicles response:", vehiclesRes);
@@ -273,7 +291,13 @@ export default function ProfileScreen() {
 
       setMyVehicles(vehiclesRes.data.vehicles);
       setHasSub(hasActiveSubscription(subRes.data.subscription));
+      
       setSubscription(subRes.data.subscription);
+      // alert(subRes.data.subscription)
+      console.log(">>>>>>>>>>>>>>",subRes.data.subscription)
+      setHasListingCredit(!!subRes.data?.hasListingCredit);
+      setListingCredits(subRes.data?.listingCredits || 0);
+      setHasPaidVerificationFee(!!subRes.data?.hasPaidVerificationFee);
 
       loadContactRequests();
     } catch (err) {
@@ -287,6 +311,7 @@ export default function ProfileScreen() {
       setIsLoadingVehicles(false);
     }
   };
+
 
   const handleMarkVehicleSold = async (vehicleId: string) => {
     const markAsSold = async () => {
@@ -330,42 +355,112 @@ export default function ProfileScreen() {
     }
   };
   const insets = useSafeAreaInsets();
-  const handleMockSubscriptionPayment = async (planId: string = 'basic_weekly') => {
+  
+  // Payment modal states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  // Non-invasive explainer shown BEFORE the real payment modal (does not start a payment).
+  const [showPaymentExplainer, setShowPaymentExplainer] = useState(false);
+  const [showPaymentProcessing, setShowPaymentProcessing] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'processing' | 'success' | 'failed'>('processing');
+  const [paymentMessage, setPaymentMessage] = useState('');
+  const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<string>('dealership_monthly');
+  const [configPrices, setConfigPrices] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetchConfigPrices().then(r => setConfigPrices(r.data?.prices || {})).catch(() => {});
+  }, []);
+
+  const openSubscriptionModal = async (planId: string = 'dealership_monthly') => {
     if (isProcessingSubscription) return;
 
-    Alert.alert(
-      "Subscription Payment",
-      "Choose a plan to view buyer contact details:",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Weekly RWF 5,000",
-          onPress: async () => {
-            try {
-              setIsProcessingSubscription(true);
-              await subscribeToPlan('basic_weekly');
-              setHasSub(true);
-              setIsProcessingSubscription(false);
-              Alert.alert(
-                "Payment Successful",
-                "Weekly subscription activated. You can now view contacts and reply.",
-              );
-              loadSellerData();
-            } catch (error: any) {
-              setIsProcessingSubscription(false);
-              Alert.alert(
-                "Payment Failed",
-                error?.message || "Unable to process subscription payment.",
-              );
-            }
-          },
-        },
-        {
-          text: "View All Plans",
-          onPress: () => router.push('/subscription'),
-        },
-      ],
-    );
+    setSelectedPlanForPayment(planId);
+    // Show the explainer first; accepting it opens the existing PaymentModal unchanged.
+    setShowPaymentExplainer(true);
+  };
+
+  const paymentCancelSignalRef = useRef<{ cancelled: boolean }>({ cancelled: false });
+  const currentReferenceIdRef = useRef<string | null>(null);
+
+  const handlePaymentConfirm = async (phoneNumber: string, planId?: string) => {
+    try {
+      setShowPaymentModal(false);
+      setPaymentStatus('processing');
+      setPaymentMessage('Please approve the payment on your phone...');
+      setShowPaymentProcessing(true);
+      setIsProcessingSubscription(true);
+      paymentCancelSignalRef.current.cancelled = false;
+
+      const result = await dealershipSubscribe(planId || selectedPlanForPayment, phoneNumber) as any;
+
+      if (result.data?.referenceId) {
+        currentReferenceIdRef.current = result.data.referenceId;
+        const finalStatus = await pollPaymentUntilResolved(result.data.referenceId, {
+          intervalMs: 4000,
+          maxAttempts: 45,
+          cancelSignal: paymentCancelSignalRef.current,
+        });
+
+        if (finalStatus.data.paymentStatus === 'successful') {
+          setPaymentStatus('success');
+          setPaymentMessage('Subscription activated! You can now view contacts and reply.');
+          setHasSub(true);
+          loadSellerData();
+          setTimeout(() => setShowPaymentProcessing(false), 2000);
+        } else if (finalStatus.data.paymentStatus === 'failed') {
+          setPaymentStatus('failed');
+          setPaymentMessage(finalStatus.data.failureReason || 'Payment was rejected or failed');
+          setTimeout(() => setShowPaymentProcessing(false), 3000);
+        } else {
+          setPaymentStatus('failed');
+          setPaymentMessage('Payment timeout - still processing');
+          setTimeout(() => setShowPaymentProcessing(false), 3000);
+        }
+      } else if (result.data?.subscription) {
+        setPaymentStatus('success');
+        setPaymentMessage('Subscription activated successfully!');
+        setHasSub(true);
+        loadSellerData();
+        setTimeout(() => setShowPaymentProcessing(false), 2000);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to process payment';
+      setPaymentStatus('failed');
+      setPaymentMessage(message);
+      setTimeout(() => setShowPaymentProcessing(false), 3000);
+    } finally {
+      setIsProcessingSubscription(false);
+      currentReferenceIdRef.current = null;
+    }
+  };
+
+  const handleDismissPayment = async () => {
+    const refId = currentReferenceIdRef.current;
+    if (refId) {
+      paymentCancelSignalRef.current.cancelled = true;
+      try {
+        await cancelPayment(refId);
+      } catch (_) {
+        // best-effort
+      }
+    }
+    setShowPaymentProcessing(false);
+    setIsProcessingSubscription(false);
+  };
+
+  const handleActivateTrial = async () => {
+    if (isProcessingSubscription) return;
+    try {
+      setIsProcessingSubscription(true);
+      const res = await activateDealershipTrial();
+      setSubscription(res.data.subscription);
+      setHasSub(true);
+      if (!isWeb) Alert.alert('Trial Activated', 'Your 2-month free trial is now active!');
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to activate trial';
+      if (!isWeb) Alert.alert('Error', msg);
+    } finally {
+      setIsProcessingSubscription(false);
+    }
   };
 
   const handleOpenDeleteModal = (vehicle: Vehicle) => {
@@ -397,10 +492,11 @@ export default function ProfileScreen() {
       setMyVehicles((prev) => prev.filter((v) => v.id !== vehicleToDelete.id));
 
       handleCloseDeleteModal();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to delete vehicle:", err);
 
-      alert("Failed to delete vehicle. Please try again.");
+      const message = err?.message || "Failed to delete vehicle.";
+      alert(message);
     } finally {
       setIsDeleting(false);
     }
@@ -584,6 +680,47 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleSwitchRole = async (targetRole: 'buyer' | 'seller', newSellerType?: 'individual' | 'company') => {
+    try {
+      setIsSwitchingRole(true);
+      const result = await switchAccountRole(targetRole, newSellerType);
+      const updatedUser = result.data?.user;
+      if (updatedUser) {
+        await updateStoredAuthUser({ role: updatedUser.role, sellerType: updatedUser.sellerType ?? null });
+        await refreshUser();
+      }
+      setShowRoleSwitchModal(false);
+      await checkAuthStatus();
+      const msg = targetRole === 'seller'
+        ? 'Account switched to seller. Complete verification to start listing.'
+        : 'Account switched to buyer.';
+      if (isWeb && typeof window !== 'undefined') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Done', msg);
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to switch account type';
+      if (isWeb && typeof window !== 'undefined') window.alert(`Error\n\n${msg}`);
+      else Alert.alert('Error', msg);
+    } finally {
+      setIsSwitchingRole(false);
+    }
+  };
+
+  const handleBecomeSeller = () => {
+    const tracked = authUser?.sellerType;
+    // Returning seller: sellerType already set from their previous seller account
+    if (tracked === 'company') {
+      handleSwitchRole('seller', 'company');
+    } else if (tracked === 'individual') {
+      handleSwitchRole('seller', 'individual');
+    } else {
+      // First-time seller: sellerType is null, show picker modal
+      setShowRoleSwitchModal(true);
+    }
+  };
+
   const themeModeLabel =
     selectedThemeMode === "system"
       ? "System"
@@ -721,7 +858,7 @@ export default function ProfileScreen() {
   {authUser?.fullName || "Seller"}{authUser?.sellerType ? ` - ${authUser.sellerType === 'company' ? 'Business' : 'Individual'}` : ''}
 </ThemedText>
 
-                {/* Green name indicator for individual sellers who paid verification fee */}
+                {/* Green name indicator for individual sellers who paid Credits Fee */}
                 {authUser?.sellerType === 'individual' && authUser?.hasPaidVerificationFee && (
                   <View style={[styles.verifiedBadge, { backgroundColor: '#16A34A15', borderColor: '#16A34A40', marginTop: 4 }]}>
                     <IconSymbol name="checkmark.seal.fill" size={10} color="#16A34A" />
@@ -890,34 +1027,90 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Subscription Status */}
-            {hasSub && subscription && (
+            {/* Subscription Status - Dealership */}
+            {authUser?.sellerType === 'company' && (
               <View
                 style={[
                   styles.subscriptionStatusCard,
                   {
-                    backgroundColor: `${colors.primary}15`,
+                    backgroundColor: hasSub ? `${colors.primary}15` : `${colors.card}`,
                     borderColor: colors.border,
                   },
                 ]}
               >
                 <View style={styles.subscriptionStatusRow}>
                   <IconSymbol
-                    name="checkmark.seal.fill"
+                    name={hasSub ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"}
                     size={20}
-                    color={colors.primary}
+                    color={hasSub ? colors.primary : colors.icon}
                   />
                   <View style={styles.subscriptionStatusText}>
                     <ThemedText
                       style={{ color: colors.text, fontWeight: "600" }}
                     >
-                      Viewing Subscription Active
+                      {hasSub ? 'Dealership Subscription Active' : 'No Active Subscription'}
                     </ThemedText>
-                    <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-                      {getSubscriptionRemainingDays(subscription)} days
-                      remaining (expires{" "}
-                      {new Date(subscription.expiresAt).toLocaleDateString()})
+                    {hasSub && subscription ? (
+                      <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                        {subscription.status === 'trial' ? 'Free trial — ' : ''}{getSubscriptionRemainingDays(subscription)} days remaining (expires{' '}
+                        {new Date(subscription.expiresAt).toLocaleDateString()})
+                      </ThemedText>
+                    ) : (
+                      <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                        {subscription?.status === 'expired'
+                          ? 'Your subscription has ended. Subscribe to continue listing.'
+                          : 'Subscribe to list unlimited cars and get a verified business badge.'}
+                      </ThemedText>
+                    )}
+                  </View>
+                </View>
+                {!hasSub && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <TouchableOpacity
+                      style={[styles.approveButton, { backgroundColor: colors.primary, flex: 1, opacity: isProcessingSubscription ? 0.6 : 1 }]}
+                      onPress={() => openSubscriptionModal('dealership_monthly')}
+                      disabled={isProcessingSubscription}
+                    >
+                      <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Subscribe Monthly</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.rejectButton, { borderColor: colors.border, flex: 1, opacity: isProcessingSubscription ? 0.6 : 1 }]}
+                      onPress={() => openSubscriptionModal('dealership_annual')}
+                      disabled={isProcessingSubscription}
+                    >
+                      <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 12 }}>Subscribe Annual</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Listing Credits - Individual Seller */}
+            {authUser?.sellerType !== 'company' && (
+              <View style={[styles.subscriptionStatusCard, { backgroundColor: `${colors.primary}10`, borderColor: colors.border }]}>
+                <View style={styles.subscriptionStatusRow}>
+                  <IconSymbol name="creditcard.fill" size={20} color={colors.primary} />
+                  <View style={styles.subscriptionStatusText}>
+                    <ThemedText style={{ color: colors.text, fontWeight: "600" }}>
+                      {hasPaidVerificationFee ? 'Credits Fee Paid' : 'Credits Fee Required'}
                     </ThemedText>
+                    <ThemedText style={{ color: colors.icon, fontSize: 13, marginTop: 2 }}>
+                      {hasListingCredit
+                        ? `${listingCredits} listing credit${listingCredits !== 1 ? 's' : ''} available`
+                        : 'No listing credits. Purchase a listing fee to list your vehicle by adding your first listing.'}
+                    </ThemedText>
+                    {hasListingCredit && listingCredits > 0 && (
+                      <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
+                        <View style={[styles.creditBadge, { backgroundColor: colors.primary }]}>
+                          <ThemedText style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                            {listingCredits}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 1 }}>
+                          listing credit{listingCredits !== 1 ? 's' : ''} remaining
+                        </ThemedText>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
@@ -1177,9 +1370,16 @@ export default function ProfileScreen() {
                           />
 
                           <View style={styles.carInfo}>
-                            <ThemedText style={styles.carTitle}>
-                              {vehicle.brand} {vehicle.model}
-                            </ThemedText>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <ThemedText style={[styles.carTitle, { flex: 1 }]}>
+                                {vehicle.brand} {vehicle.model}
+                              </ThemedText>
+                              {vehicle.isBrokered && (
+                                <View style={{ backgroundColor: '#8B5CF6', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                  <ThemedText style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>B</ThemedText>
+                                </View>
+                              )}
+                            </View>
 
                             <ThemedText
                               style={[
@@ -1381,10 +1581,17 @@ export default function ProfileScreen() {
                               contentFit="cover"
                             />
                             <View style={styles.carInfo}>
-                              <ThemedText style={styles.carTitle}>
-                                {vehicle.title ||
-                                  `${vehicle.brand} ${vehicle.model}`}
-                              </ThemedText>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <ThemedText style={[styles.carTitle, { flex: 1 }]}>
+                                  {vehicle.title ||
+                                    `${vehicle.brand} ${vehicle.model}`}
+                                </ThemedText>
+                                {vehicle.isBrokered && (
+                                  <View style={{ backgroundColor: '#8B5CF6', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                    <ThemedText style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>B</ThemedText>
+                                  </View>
+                                )}
+                              </View>
                               <ThemedText
                                 style={[
                                   styles.carPrice,
@@ -1551,10 +1758,17 @@ export default function ProfileScreen() {
                             />
 
                             <View style={styles.carInfo}>
-                              <ThemedText style={styles.carTitle}>
-                                {vehicle.title ||
-                                  `${vehicle.brand} ${vehicle.model}`}
-                              </ThemedText>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <ThemedText style={[styles.carTitle, { flex: 1 }]}>
+                                  {vehicle.title ||
+                                    `${vehicle.brand} ${vehicle.model}`}
+                                </ThemedText>
+                                {vehicle.isBrokered && (
+                                  <View style={{ backgroundColor: '#8B5CF6', borderRadius: 8, width: 16, height: 16, justifyContent: 'center', alignItems: 'center' }}>
+                                    <ThemedText style={{ color: '#fff', fontSize: 8, fontWeight: '700' }}>B</ThemedText>
+                                  </View>
+                                )}
+                              </View>
 
                               <ThemedText
                                 style={[
@@ -1690,57 +1904,6 @@ export default function ProfileScreen() {
                         </ThemedText>
                       </TouchableOpacity>
 
-                      {/* Subscription Banner */}
-                      {!hasSub && (
-                        <View
-                          style={[
-                            styles.subscriptionBanner,
-                            {
-                              backgroundColor: `${colors.primary}15`,
-                              borderColor: colors.border,
-                              marginBottom: 16,
-                            },
-                          ]}
-                        >
-                          <IconSymbol
-                            name="exclamationmark.triangle.fill"
-                            size={20}
-                            color={colors.primary}
-                          />
-                          <View style={styles.subscriptionBannerContent}>
-                            <ThemedText
-                              style={{ color: colors.text, fontWeight: "600" }}
-                            >
-                              Subscription Required
-                            </ThemedText>
-                            <ThemedText
-                              style={{ color: colors.icon, fontSize: 13 }}
-                            >
-                              Subscribe weekly or monthly to view buyer contact details
-                            </ThemedText>
-                          </View>
-                          <TouchableOpacity
-                            style={[
-                              styles.approveButton,
-                              {
-                                backgroundColor: colors.primary,
-                                opacity: isProcessingSubscription ? 0.7 : 1,
-                              },
-                            ]}
-                            onPress={handleMockSubscriptionPayment}
-                            disabled={isProcessingSubscription}
-                          >
-                            <ThemedText
-                              style={{ color: "#fff", fontWeight: "600" }}
-                            >
-                              {isProcessingSubscription
-                                ? "Processing..."
-                                : "Subscribe"}
-                            </ThemedText>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-
                       {/* Selected Vehicle Header */}
                       {(() => {
                         const vehicleRequests = contactRequests.filter(
@@ -1838,7 +2001,7 @@ export default function ProfileScreen() {
                           >
                             <View style={styles.requestHeader}>
                               <ThemedText style={styles.requestUser}>
-                                {hasSub ? request.buyerName : "••••••••"}
+                                {request.buyerName || "Buyer"}
                               </ThemedText>
                               <View
                                 style={[
@@ -1880,9 +2043,7 @@ export default function ProfileScreen() {
                                   !hasSub && styles.blurredInfoText,
                                 ]}
                               >
-                                {hasSub
-                                  ? `"${request.message}"`
-                                  : '"••••••••••••••••"'}
+                                {request.message ? `"${request.message}"` : null}
                               </ThemedText>
                             )}
 
@@ -1896,8 +2057,8 @@ export default function ProfileScreen() {
                             </ThemedText>
 
                             {/* Contact & Chat */}
-                            {hasSub ? (
-                              <View style={{ marginTop: 12, gap: 8 }}>
+                            <View style={{ marginTop: 12, gap: 8 }}>
+                              {(request as any).buyerPhone ? (
                                 <View
                                   style={[
                                     styles.contactInfoBox,
@@ -1915,51 +2076,29 @@ export default function ProfileScreen() {
                                       fontWeight: "600",
                                     }}
                                   >
-                                    {request.buyerPhone || "+250 788 XXX XXX"}
+                                    {(request as any).buyerPhone}
                                   </ThemedText>
                                 </View>
-                                <TouchableOpacity
-                                  style={[
-                                    styles.approveButton,
-                                    { backgroundColor: colors.primary },
-                                  ]}
-                                  onPress={() => handleStartChat(request.vehicleId, request.buyerId)}
-                                >
-                                  <IconSymbol
-                                    name="message.fill"
-                                    size={16}
-                                    color="#fff"
-                                  />
-                                  <ThemedText
-                                    style={{ color: "#fff", fontWeight: "600" }}
-                                  >
-                                    Chat with Buyer
-                                  </ThemedText>
-                                </TouchableOpacity>
-                              </View>
-                            ) : (
-                              <View
+                              ) : null}
+                              <TouchableOpacity
                                 style={[
-                                  styles.lockedContactBox,
-                                  {
-                                    backgroundColor: colors.background,
-                                    borderColor: colors.border,
-                                    marginTop: 12,
-                                  },
+                                  styles.approveButton,
+                                  { backgroundColor: colors.primary },
                                 ]}
+                                onPress={() => handleStartChat(request.vehicleId, request.buyerId)}
                               >
                                 <IconSymbol
-                                  name="lock.fill"
+                                  name="message.fill"
                                   size={16}
-                                  color={colors.icon}
+                                  color="#fff"
                                 />
                                 <ThemedText
-                                  style={{ color: colors.icon, fontSize: 13 }}
+                                  style={{ color: "#fff", fontWeight: "600" }}
                                 >
-                                  Pay to view contact & chat
+                                  Chat with Buyer
                                 </ThemedText>
-                              </View>
-                            )}
+                              </TouchableOpacity>
+                            </View>
 
                             {/* Action Buttons for Pending */}
                             {request.status === "pending" && (
@@ -2369,8 +2508,44 @@ export default function ProfileScreen() {
                       title="Help & Support"
                       colors={colors}
                       onPress={() => router.push("/contact")}
+                      isLast
                     />
                   </View>
+
+                  {/* Account Type Switch */}
+                  {authUser?.role !== 'admin' && (
+                    <>
+                      <ThemedText style={[styles.menuSectionTitle, { color: colors.icon, marginTop: 20 }]}>
+                        Account Type
+                      </ThemedText>
+                      <View style={[styles.menuCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        {(() => {
+                          const accountAgeMs = authUser?.createdAt ? Date.now() - new Date(authUser.createdAt).getTime() : Infinity;
+                          const daysRemaining = accountAgeMs < 2 * 86400000
+                            ? Math.ceil((2 * 86400000 - accountAgeMs) / 86400000)
+                            : 0;
+                          if (daysRemaining > 0) {
+                            return (
+                              <View style={{ padding: 16 }}>
+                                <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                                  Account switching available in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}.
+                                </ThemedText>
+                              </View>
+                            );
+                          }
+                          return (
+                            <MenuItem
+                              icon="person.2.fill"
+                              title="Switch to Buyer Account"
+                              colors={colors}
+                              onPress={() => setShowRoleSwitchModal(true)}
+                              isLast
+                            />
+                          );
+                        })()}
+                      </View>
+                    </>
+                  )}
 
                   {/* Logout Button inside Preferences tab */}
                   <TouchableOpacity
@@ -2669,7 +2844,51 @@ export default function ProfileScreen() {
         </Modal>
 
         {/* Delete Confirmation Modal */}
+            <PaymentModal
+        visible={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onConfirm={handlePaymentConfirm}
+        title="Dealership Subscription"
+        description="Pay via Mobile Money to activate your dealership subscription"
+        amount={Number(
+          selectedPlanForPayment === 'dealership_annual'
+            ? configPrices['dealership_annual_price']
+            : configPrices['dealership_monthly_price']
+        ) || 0}
+        currency="RWF"
+        defaultPhoneNumber={authUser?.phone || ''}
+        initialPlanId={selectedPlanForPayment}
+        plans={[
+          { id: 'dealership_monthly', name: 'Monthly', price: Number(configPrices['dealership_monthly_price'] ?? 0) },
+          { id: 'dealership_annual', name: 'Annual', price: Number(configPrices['dealership_annual_price'] ?? 0) },
+        ]}
+      />
+      
+      <PaymentProcessingModal
+        visible={showPaymentProcessing}
+        status={paymentStatus}
+        message={paymentMessage}
+        onDismiss={handleDismissPayment}
+      />
 
+       {/* Payment Modals */}
+      <PaymentExplainerModal
+        visible={showPaymentExplainer}
+        kind="subscription"
+        amountLabel={
+          (selectedPlanForPayment === 'dealership_annual'
+            ? configPrices['dealership_annual_price']
+            : configPrices['dealership_monthly_price'])
+            ? `RWF ${Number(
+                selectedPlanForPayment === 'dealership_annual'
+                  ? configPrices['dealership_annual_price']
+                  : configPrices['dealership_monthly_price']
+              ).toLocaleString()}`
+            : undefined
+        }
+        onClose={() => setShowPaymentExplainer(false)}
+        onAccept={() => { setShowPaymentExplainer(false); setShowPaymentModal(true); }}
+      />
         <Modal
           transparent
           animationType="fade"
@@ -2778,6 +2997,36 @@ export default function ProfileScreen() {
               </View>
             </View>
           </View>
+        </Modal>
+
+        {/* Role Switch Modal */}
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showRoleSwitchModal}
+          onRequestClose={() => !isSwitchingRole && setShowRoleSwitchModal(false)}
+        >
+          <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
+            <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
+              <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Switch to Buyer Account</ThemedText>
+              <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 20, textAlign: 'center' }}>
+                Your listings will remain saved. You can switch back to seller at any time.
+              </ThemedText>
+              <TouchableOpacity
+                style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
+                onPress={() => handleSwitchRole('buyer')}
+                disabled={isSwitchingRole}
+              >
+                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
+                  {isSwitchingRole ? 'Switching...' : 'Confirm — Switch to Buyer'}
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ padding: 16, alignItems: 'center' }} onPress={() => setShowRoleSwitchModal(false)} disabled={isSwitchingRole}>
+                <ThemedText style={{ color: colors.icon }}>Cancel</ThemedText>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
         </Modal>
       </View>
     );
@@ -3258,8 +3507,44 @@ export default function ProfileScreen() {
                     title="Help & Support"
                     colors={colors}
                     onPress={() => router.push("/contact")}
+                    isLast
                   />
                 </View>
+
+                {/* Account Type Switch */}
+                {authUser?.role !== 'admin' && (
+                  <>
+                    <ThemedText style={[styles.menuSectionTitle, { color: colors.icon, marginTop: 20 }]}>
+                      Account Type
+                    </ThemedText>
+                    <View style={[styles.menuCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                      {(() => {
+                        const accountAgeMs = authUser?.createdAt ? Date.now() - new Date(authUser.createdAt).getTime() : Infinity;
+                        const daysRemaining = accountAgeMs < 2 * 86400000
+                          ? Math.ceil((2 * 86400000 - accountAgeMs) / 86400000)
+                          : 0;
+                        if (daysRemaining > 0) {
+                          return (
+                            <View style={{ padding: 16 }}>
+                              <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                                Account switching available in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}.
+                              </ThemedText>
+                            </View>
+                          );
+                        }
+                        return (
+                          <MenuItem
+                            icon="person.2.fill"
+                            title="Become a Seller"
+                            colors={colors}
+                            onPress={handleBecomeSeller}
+                            isLast
+                          />
+                        );
+                      })()}
+                    </View>
+                  </>
+                )}
 
                 {/* Logout Button inside Preferences tab */}
                 <TouchableOpacity
@@ -3465,6 +3750,60 @@ export default function ProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+ 
+  
+      {/* Role Switch Modal (Buyer → Seller) */}
+      <Modal
+        transparent
+        animationType="slide"
+        visible={showRoleSwitchModal}
+        onRequestClose={() => !isSwitchingRole && setShowRoleSwitchModal(false)}
+      >
+        <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
+          <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+            <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Become a Seller</ThemedText>
+            <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 16, textAlign: 'center' }}>
+              What type of seller are you? 
+            </ThemedText>
+
+            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginBottom: 20 }}>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', borderColor: roleSwitchSellerType === 'individual' ? colors.primary : colors.border, backgroundColor: roleSwitchSellerType === 'individual' ? `${colors.primary}15` : colors.card }}
+                onPress={() => setRoleSwitchSellerType('individual')}
+              >
+                <IconSymbol name="person.fill" size={24} color={roleSwitchSellerType === 'individual' ? colors.primary : colors.icon} />
+                <ThemedText style={{ fontWeight: '600', marginTop: 8, color: roleSwitchSellerType === 'individual' ? colors.primary : colors.text }}>Individual</ThemedText>
+                <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 4, textAlign: 'center' }}>Sell your own cars</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', borderColor: roleSwitchSellerType === 'company' ? colors.primary : colors.border, backgroundColor: roleSwitchSellerType === 'company' ? `${colors.primary}15` : colors.card }}
+                onPress={() => setRoleSwitchSellerType('company')}
+              >
+                <IconSymbol name="building.2.fill" size={24} color={roleSwitchSellerType === 'company' ? colors.primary : colors.icon} />
+                <ThemedText style={{ fontWeight: '600', marginTop: 8, color: roleSwitchSellerType === 'company' ? colors.primary : colors.text }}>Business</ThemedText>
+                <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 4, textAlign: 'center' }}>Dealership / company</ThemedText>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
+              onPress={() => handleSwitchRole('seller', roleSwitchSellerType)}
+              disabled={isSwitchingRole}
+            >
+              <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
+                {isSwitchingRole ? 'Switching...' : 'Confirm — Become a Seller'}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={{ padding: 16, alignItems: 'center' }} onPress={() => setShowRoleSwitchModal(false)} disabled={isSwitchingRole}>
+              <ThemedText style={{ color: colors.icon }}>Cancel</ThemedText>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+
+    
     </View>
   );
 }
@@ -3717,6 +4056,13 @@ const styles = StyleSheet.create({
   },
   subscriptionStatusText: {
     flex: 1,
+  },
+  creditBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   statsContainer: {
@@ -4463,6 +4809,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
 
     marginBottom: 10,
+    textAlign:"center"
   },
 
   sheetItem: {
@@ -4563,6 +4910,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     marginBottom: 20,
+
+    marginTop:20
   },
 
   webLogoutButton: {

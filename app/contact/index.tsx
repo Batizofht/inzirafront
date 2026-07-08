@@ -11,6 +11,7 @@ import { WebFooter } from '@/components/web-footer';
 import { ContactSEO } from '@/components/page-meta';
 import { createContactMessage } from '@/lib/api-contact-messages';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function ContactScreen() {
   useEffect(() => {
@@ -37,6 +38,15 @@ export default function ContactScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const insets = useSafeAreaInsets()
+  const params = useLocalSearchParams();
+
+  // Pre-fill subject from URL params (e.g. from insurance page)
+  useEffect(() => {
+    const subjectParam = typeof params.subject === 'string' ? params.subject : '';
+    if (subjectParam && !subject) {
+      setSubject(subjectParam);
+    }
+  }, [params.subject]);
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);

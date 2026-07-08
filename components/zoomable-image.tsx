@@ -1,12 +1,18 @@
-import { useRef } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, PanResponder, StyleSheet, View, Platform } from 'react-native';
 import { Image } from 'expo-image';
 
 interface Props {
   uri: string;
+  /** Lets callers signal which image is shown so internal zoom can reset on change. */
+  resetKey?: string | number;
 }
 
-export function ZoomableImage({ uri }: Props) {
+/**
+ * Pinch-to-zoom on native (PanResponder), wheel / double-click on desktop web,
+ * and touch-pinch on mobile web browsers (iOS Safari, Chrome Android).
+ */
+export function ZoomableImage({ uri, resetKey }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -23,6 +29,21 @@ export function ZoomableImage({ uri }: Props) {
 
   const lastDistance = useRef<number | null>(null);
   const lastTap = useRef(0);
+
+  // Web uses plain state-driven transforms
+  const [webScale, setWebScale] = useState(1);
+  const webScaleRef = useRef(1);
+  webScaleRef.current = webScale;
+  // Tracks the pinch gesture start values for mobile-web touch events
+  const webPinchRef = useRef<{ initialDist: number; initialScale: number } | null>(null);
+
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+
+  // Reset zoom whenever the displayed image changes
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey);
+    if (webScale !== 1) setWebScale(1);
+  }
 
   const resetZoom = () => {
     savedScale.current = 1;
@@ -45,19 +66,18 @@ export function ZoomableImage({ uri }: Props) {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      // Prevent parent Pressable/ScrollView from stealing touches
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponderCapture: (_, gs) =>
         savedScale.current > 1 || Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2,
+      // Don't yield the gesture once we've claimed it — prevents outer Pressable from stealing
+      onPanResponderTerminationRequest: () => false,
 
       onPanResponderGrant: () => {
-        // Snapshot committed values as the base for this gesture's deltas
         baseScale.current = savedScale.current;
         baseX.current = savedX.current;
         baseY.current = savedY.current;
         lastDistance.current = null;
 
-        // Double-tap detection
         const now = Date.now();
         if (now - lastTap.current < 280) {
           resetZoom();
@@ -67,9 +87,7 @@ export function ZoomableImage({ uri }: Props) {
 
       onPanResponderMove: (e, gs) => {
         const touches = e.nativeEvent.touches;
-
         if (touches.length === 2) {
-          // ── PINCH ──────────────────────────────────────────────────────────
           const dist = getDistance(touches);
           if (lastDistance.current !== null) {
             const ratio = dist / lastDistance.current;
@@ -79,21 +97,17 @@ export function ZoomableImage({ uri }: Props) {
           }
           lastDistance.current = dist;
         } else if (touches.length === 1 && savedScale.current > 1) {
-          // ── PAN (only while zoomed in) ──────────────────────────────────
-          // gs.dx / gs.dy are deltas from THIS gesture's start — add to base
           translateX.setValue(baseX.current + gs.dx);
           translateY.setValue(baseY.current + gs.dy);
         }
       },
 
       onPanResponderRelease: (_, gs) => {
-        // Commit final position
         if (savedScale.current > 1) {
           savedX.current = baseX.current + gs.dx;
           savedY.current = baseY.current + gs.dy;
         }
         lastDistance.current = null;
-        // Snap back if barely zoomed
         if (savedScale.current < 1.08) resetZoom();
       },
 
@@ -106,6 +120,51 @@ export function ZoomableImage({ uri }: Props) {
       },
     })
   ).current;
+
+  // ── Web: wheel + double-click + mobile-browser touch pinch ──────────────────
+  if (Platform.OS === 'web') {
+    const getWebTouchDist = (touches: any) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    const webHandlers: any = {
+      // Desktop: mouse wheel zoom
+      onWheel: (e: any) => {
+        e.preventDefault?.();
+        setWebScale((s) => Math.min(Math.max(s + (e.deltaY < 0 ? 0.2 : -0.2), 1), 5));
+      },
+      // Desktop: double-click toggle
+      onDoubleClick: () => setWebScale((s) => (s > 1 ? 1 : 2.5)),
+      // Mobile browser: touch pinch zoom
+      onTouchStart: (e: any) => {
+        if (e.touches.length === 2) {
+          webPinchRef.current = {
+            initialDist: getWebTouchDist(e.touches),
+            initialScale: webScaleRef.current,
+          };
+        }
+      },
+      onTouchMove: (e: any) => {
+        if (e.touches.length === 2 && webPinchRef.current) {
+          e.preventDefault?.();
+          const ratio = getWebTouchDist(e.touches) / webPinchRef.current.initialDist;
+          setWebScale(Math.min(Math.max(webPinchRef.current.initialScale * ratio, 1), 5));
+        }
+      },
+      onTouchEnd: () => { webPinchRef.current = null; },
+      style: { cursor: webScale > 1 ? 'zoom-out' : 'zoom-in', touchAction: 'none' },
+    };
+
+    return (
+      <View style={styles.container} {...webHandlers}>
+        <View style={[styles.inner, { transform: [{ scale: webScale }] }]}>
+          <Image source={{ uri }} style={styles.image} contentFit="contain" />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>

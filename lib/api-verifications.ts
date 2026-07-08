@@ -1,63 +1,86 @@
 import { apiRequest } from './api-client';
 import { isWeb } from './platform';
 
-export type SellerVerificationPayload = {
+// Individual seller verification payload
+export type IndividualVerificationPayload = {
   phoneNumber: string;
   phoneVerified: boolean;
   idType: 'national_id' | 'passport' | 'driving_license';
   idFrontImage: string;
-  idBackImage?: string;
   selfieImage: string;
 };
+
+// Business seller verification payload
+export type BusinessVerificationPayload = {
+  phoneNumber: string;
+  phoneVerified: boolean;
+  rdbCertificate: string;
+};
+
+export type SellerVerificationPayload = IndividualVerificationPayload | BusinessVerificationPayload;
 
 export type SellerVerificationRecord = {
   id: string;
   sellerId: string;
   phoneNumber: string;
   phoneVerified: boolean;
-  idType: 'national_id' | 'passport' | 'driving_license';
-  idFrontImage: string;
-  idBackImage?: string | null;
-  selfieImage: string;
+  // Individual fields
+  idType?: 'national_id' | 'passport' | 'driving_license' | null;
+  idFrontImage?: string | null;
+  selfieImage?: string | null;
+  // Business fields
+  rdbCertificate?: string | null;
+  // Common
   status: 'pending' | 'approved' | 'rejected';
   reviewNote?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
 
-export async function submitSellerVerification(payload: SellerVerificationPayload): Promise<SellerVerificationRecord> {
+const appendImageField = async (
+  formData: FormData,
+  field: string,
+  uri?: string,
+) => {
+  if (!uri) return;
+  const filename = uri.split('/').pop() || `${field}.jpg`;
+  if (isWeb) {
+    try {
+      const res = await fetch(uri);
+      const blob = await res.blob();
+      const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
+      (formData as any).append(field, file);
+      return;
+    } catch {
+      // fallback below
+    }
+  }
+  const fileAny: any = { uri, name: filename, type: 'image/jpeg' };
+  (formData as any).append(field, fileAny);
+};
+
+export async function submitSellerVerification(
+  payload: SellerVerificationPayload,
+): Promise<SellerVerificationRecord> {
   const formData = new FormData();
 
   formData.append('phoneNumber', payload.phoneNumber);
   formData.append('phoneVerified', payload.phoneVerified ? 'true' : 'false');
-  formData.append('idType', payload.idType);
 
-  const appendImageField = async (field: 'idFrontImage' | 'idBackImage' | 'selfieImage', uri?: string) => {
-    if (!uri) return;
+  if ('rdbCertificate' in payload) {
+    // Business seller — no sellerType sent, backend reads from user record
+    await appendImageField(formData, 'rdbCertificate', payload.rdbCertificate);
+  } else {
+    // Individual seller
+    formData.append('idType', payload.idType);
+    await appendImageField(formData, 'idFrontImage', payload.idFrontImage);
+    await appendImageField(formData, 'selfieImage', payload.selfieImage);
+  }
 
-    const filename = uri.split('/').pop() || `${field}.jpg`;
-
-    if (isWeb) {
-      try {
-        const res = await fetch(uri);
-        const blob = await res.blob();
-        const file = new File([blob], filename, { type: blob.type || 'image/jpeg' });
-        (formData as any).append(field, file);
-        return;
-      } catch {
-        // Fallback: append as-is, though server may ignore it
-      }
-    }
-
-    const fileAny: any = { uri, name: filename, type: 'image/jpeg' };
-    (formData as any).append(field, fileAny);
-  };
-
-  await appendImageField('idFrontImage', payload.idFrontImage);
-  await appendImageField('idBackImage', payload.idBackImage);
-  await appendImageField('selfieImage', payload.selfieImage);
-
-  const response = await apiRequest<{ status: number; data: { verification: SellerVerificationRecord } }>('/verification', {
+  const response = await apiRequest<{
+    status: number;
+    data: { verification: SellerVerificationRecord };
+  }>('/verification', {
     method: 'POST',
     auth: true,
     body: formData,
@@ -68,7 +91,10 @@ export async function submitSellerVerification(payload: SellerVerificationPayloa
 }
 
 export async function fetchMyVerificationStatus(): Promise<SellerVerificationRecord | null> {
-  const response = await apiRequest<{ status: number; data: { verification: SellerVerificationRecord | null } }>('/verification/me', {
+  const response = await apiRequest<{
+    status: number;
+    data: { verification: SellerVerificationRecord | null };
+  }>('/verification/me', {
     method: 'GET',
     auth: true,
   });
@@ -76,7 +102,9 @@ export async function fetchMyVerificationStatus(): Promise<SellerVerificationRec
   return response.data.verification;
 }
 
-export async function sendPhoneOtpViaEmail(phone: string): Promise<{ status: number; message: string }> {
+export async function sendPhoneOtpViaEmail(
+  phone: string,
+): Promise<{ status: number; message: string }> {
   return apiRequest('/verification/phone/send-otp', {
     method: 'POST',
     auth: true,
@@ -84,7 +112,10 @@ export async function sendPhoneOtpViaEmail(phone: string): Promise<{ status: num
   });
 }
 
-export async function verifyPhoneOtp(phone: string, otp: string): Promise<{ status: number; message: string }> {
+export async function verifyPhoneOtp(
+  phone: string,
+  otp: string,
+): Promise<{ status: number; message: string }> {
   return apiRequest('/verification/phone/verify-otp', {
     method: 'POST',
     auth: true,

@@ -269,7 +269,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
           <View style={styles.heroTag}>
             <ThemedText style={styles.heroTagText}>The Verified Car Marketplace</ThemedText>
           </View>
-        
+
         </View>
 
         <View style={styles.heroRight}>
@@ -302,33 +302,36 @@ export function HeroSection({ categories }: HeroSectionProps) {
         ]}
       >
         {/* Category Tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[styles.categoryTabs, { borderBottomColor: colors.border }]}
-        >
-          {categoryTabs.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              onPress={() => setSelectedCategory(cat)}
-              style={[
-                styles.categoryTab,
-                selectedCategory === cat && {
-                  borderBottomColor: colors.primary,
-                },
-              ]}
-            >
-              <ThemedText
+        <View style={{ position: 'relative' }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryTabs}
+          >
+            {categoryTabs.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
                 style={[
-                  styles.categoryTabText,
-                  { color: selectedCategory === cat ? colors.primary : colors.text },
+                  styles.categoryTab,
+                  selectedCategory === cat && {
+                    borderBottomColor: colors.primary,
+                  },
                 ]}
               >
-                {cat}
-              </ThemedText>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+                <ThemedText
+                  style={[
+                    styles.categoryTabText,
+                    { color: selectedCategory === cat ? colors.primary : colors.text },
+                  ]}
+                >
+                  {cat}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <View style={[styles.tabsDivider, { backgroundColor: colors.border }]} />
+        </View>
 
         {/* Search Inputs Row */}
         <View style={[styles.inputsRow, { borderBottomColor: colors.border }]}>
@@ -343,16 +346,17 @@ export function HeroSection({ categories }: HeroSectionProps) {
                 {
                   borderColor: (showBrandDropdown || (selectedBrand && selectedBrand !== "")) ? colors.primary : colors.border,
                   backgroundColor: colors.background,
-                  borderWidth: (showBrandDropdown || (selectedBrand && selectedBrand !== "")) ? 2 : 1
+                  borderWidth: (showBrandDropdown || (selectedBrand && selectedBrand !== "")) ? 1.5 : 1
                 },
               ]}
               onPress={openBrandDropdown}
               activeOpacity={0.85}
             >
-              <ThemedText style={[styles.inputLabel, { color: colors.icon }]}>
+              <ThemedText style={[styles.inputLabel, { color: (showBrandDropdown || selectedBrand) ? colors.primary : colors.icon }]}>
                 Brand
               </ThemedText>
               <View style={styles.inputValueRow}>
+                <IconSymbol name="car.fill" size={14} color={selectedBrand ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
                 <ThemedText style={[styles.inputValue, { color: selectedBrand ? colors.text : colors.icon }]} numberOfLines={1}>
                   {selectedBrand || "All brands"}
                 </ThemedText>
@@ -372,18 +376,18 @@ export function HeroSection({ categories }: HeroSectionProps) {
                 {
                   borderColor: (showModelDropdown || (selectedModel && selectedBrand !== "")) ? colors.primary : colors.border,
                   backgroundColor: colors.background,
-                  opacity: selectedBrand ? 1 : 0.5,
-                  borderWidth: (showModelDropdown || (selectedModel && selectedBrand !== "")) ? 2 : 1
+                  borderWidth: (showModelDropdown || (selectedModel && selectedBrand !== "")) ? 1.5 : 1
                 },
               ]}
               onPress={openModelDropdown}
               activeOpacity={selectedBrand ? 0.85 : 1}
               disabled={!selectedBrand}
             >
-              <ThemedText style={[styles.inputLabel, { color: colors.icon }]}>
+              <ThemedText style={[styles.inputLabel, { color: (showModelDropdown || selectedModel) ? colors.primary : colors.icon }]}>
                 Model
               </ThemedText>
               <View style={styles.inputValueRow}>
+                <IconSymbol name="list.bullet" size={14} color={selectedModel ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
                 <ThemedText style={[styles.inputValue, { color: selectedModel ? colors.text : colors.icon }]} numberOfLines={1}>
                   {isLoadingModels
                     ? "Loading..."
@@ -405,17 +409,17 @@ export function HeroSection({ categories }: HeroSectionProps) {
                 {
                   borderColor: (showMileageDropdown || selectedMileage !== "Any") ? colors.primary : colors.border,
                   backgroundColor: colors.background,
-                  borderWidth: (showMileageDropdown || selectedMileage !== "Any") ? 2 : 1,
-                  opacity: selectedMileage === "Any" ? 0.5 : 1,
+                  borderWidth: (showMileageDropdown || selectedMileage !== "Any") ? 1.5 : 1,
                 },
               ]}
               onPress={openMileageDropdown}
               activeOpacity={0.85}
             >
-              <ThemedText style={[styles.inputLabel, { color: colors.icon }]}>
+              <ThemedText style={[styles.inputLabel, { color: (showMileageDropdown || selectedMileage !== "Any") ? colors.primary : colors.icon }]}>
                 Mileage
               </ThemedText>
               <View style={styles.inputValueRow}>
+                <IconSymbol name="gauge" size={14} color={selectedMileage !== "Any" ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
                 <ThemedText style={[styles.inputValue, { color: selectedMileage !== "Any" ? colors.text : colors.icon }]} numberOfLines={1}>
                   {selectedMileage}
                 </ThemedText>
@@ -430,7 +434,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
               styles.searchButton,
               {
                 backgroundColor: colors.primary,
-                opacity: isSearching ? 0.8 : 1,
+                opacity: isSearching ? 0.6 : 1,
               },
             ]}
             onPress={goToExplore}
@@ -460,7 +464,6 @@ export function HeroSection({ categories }: HeroSectionProps) {
               style={[
                 styles.dropdownSearch,
                 {
-                  borderColor: colors.border,
                   backgroundColor: colors.background,
                 },
               ]}
@@ -481,7 +484,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
             </View>
             <ScrollView
               style={styles.dropdownList}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
             >
               <TouchableOpacity
                 style={[
@@ -543,7 +546,6 @@ export function HeroSection({ categories }: HeroSectionProps) {
               style={[
                 styles.dropdownSearch,
                 {
-                  borderColor: colors.border,
                   backgroundColor: colors.background,
                 },
               ]}
@@ -564,7 +566,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
             </View>
             <ScrollView
               style={styles.dropdownList}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true}
             >
               <TouchableOpacity
                 style={[
@@ -623,7 +625,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
           () => setShowMileageDropdown(false),
           <ScrollView
             style={styles.dropdownList}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           >
             {MILEAGE_OPTIONS.map((mileage) => (
               <TouchableOpacity
@@ -789,45 +791,58 @@ const styles = StyleSheet.create({
   categoryTabs: {
     flexDirection: "row",
     gap: 4,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
+    paddingBottom: 0,
   },
   categoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderBottomWidth: 2,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    paddingBottom: 12,
+    borderBottomWidth: 2.5,
     borderBottomColor: "transparent",
-    marginRight: 8,
+    marginRight: 4,
   },
   categoryTabText: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  tabsDivider: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    width: "100%",
   },
   inputsRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 12,
-    marginTop: 16,
-    paddingBottom: 20,
+    gap: 16,
+    marginTop: 20,
+    paddingBottom: 24,
     borderBottomWidth: 1,
   },
   inputWrapper: {
     position: "relative",
   },
   input: {
-
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    height: 56,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    height: 62,
     justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: "500",
-    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: "700",
+    marginBottom: 5,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   inputValueRow: {
     flexDirection: "row",
@@ -843,54 +858,64 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderRadius: 10,
-    height: 56,
+    gap: 10,
+    paddingHorizontal: 28,
+    paddingVertical: 18,
+    borderRadius: 12,
+    height: 62,
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
   },
   searchButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "700",
+    letterSpacing: 0.3,
   },
   dropdown: {
     position: "absolute",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowRadius: 28,
+    elevation: 24,
     zIndex: 1000,
-    maxHeight: 350,
+    maxHeight: 380,
+    overflow: "hidden",
   },
   dropdownSearch: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    margin: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
+    gap: 10,
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 0,
   },
   dropdownSearchInput: {
     flex: 1,
     fontSize: 14,
     padding: 0,
-  },
+    outlineStyle: "none",
+  } as any,
   dropdownList: {
-    maxHeight: 280,
+    maxHeight: 300,
   },
   dropdownItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderBottomWidth: 0,
   },
   browseSection: {
     marginTop: 16,
