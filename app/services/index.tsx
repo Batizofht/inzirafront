@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +12,11 @@ import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { ServicesSEO } from '@/components/page-meta';
 
+const BUYER_ICONS = ['magnifyingglass', 'checkmark.shield.fill', 'doc.text.magnifyingglass', 'photo.stack', 'message.fill', 'handshake.fill', 'heart.fill', 'person.fill'];
+const SELLER_ICONS = ['plus.circle.fill', 'camera.fill', 'square.and.pencil', 'person.2.fill', 'chart.bar.fill', 'doc.text.fill', 'creditcard.fill'];
+const PREMIUM_ICONS = ['star.fill', 'checkmark.seal.fill', 'arrow.up.circle.fill', 'megaphone.fill'];
+const STEP_ICONS = ['person.crop.circle.badge.plus', 'line.3.horizontal.decrease.circle.fill', 'message.badge.fill', 'handshake.fill', 'checkmark.circle.fill'];
+
 export default function ServicesScreen() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -18,8 +24,13 @@ export default function ServicesScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
+  const buyerServices = t('legal.services.buyerServices', { returnObjects: true }) as { title: string; description: string }[];
+  const sellerServices = t('legal.services.sellerServices', { returnObjects: true }) as { title: string; description: string }[];
+  const premiumServices = t('legal.services.premiumServices', { returnObjects: true }) as { title: string; description: string; price: string }[];
+  const steps = t('legal.services.steps', { returnObjects: true }) as { title: string; outcome: string; description: string }[];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints
@@ -48,23 +59,23 @@ export default function ServicesScreen() {
           />
           <View style={styles.heroContent}>
             <View style={styles.heroTag}>
-              <ThemedText style={styles.heroTagText}>What We Offer</ThemedText>
+              <ThemedText style={styles.heroTagText}>{t('legal.services.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>Our Services</ThemedText>
+            <ThemedText style={styles.heroTitle}>{t('legal.services.heroTitle')}</ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              Everything you need to buy, sell, and maintain your vehicle
+              {t('legal.services.heroSubtitle')}
             </ThemedText>
           </View>
         </View>
 
         {/* Main Services */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>For Buyers</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.services.forBuyers')}</ThemedText>
           <View style={[styles.servicesGrid, isDesktopWeb && styles.webServicesGrid]}>
-            {BUYER_SERVICES.map((service, index) => (
+            {buyerServices.map((service, index) => (
               <View key={index} style={[styles.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.serviceIcon, { backgroundColor: `${colors.primary}15` }]}>
-                  <IconSymbol name={service.icon} size={28} color={colors.primary} />
+                  <IconSymbol name={BUYER_ICONS[index] as any} size={28} color={colors.primary} />
                 </View>
                 <ThemedText style={styles.serviceTitle}>{service.title}</ThemedText>
                 <ThemedText style={[styles.serviceDesc, { color: colors.icon }]}>{service.description}</ThemedText>
@@ -74,12 +85,12 @@ export default function ServicesScreen() {
         </View>
 
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>For Sellers</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.services.forSellers')}</ThemedText>
           <View style={[styles.servicesGrid, isDesktopWeb && styles.webServicesGrid]}>
-            {SELLER_SERVICES.map((service, index) => (
+            {sellerServices.map((service, index) => (
               <View key={index} style={[styles.serviceCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.serviceIcon, { backgroundColor: `${colors.primary}15` }]}>
-                  <IconSymbol name={service.icon} size={28} color={colors.primary} />
+                  <IconSymbol name={SELLER_ICONS[index] as any} size={28} color={colors.primary} />
                 </View>
                 <ThemedText style={styles.serviceTitle}>{service.title}</ThemedText>
                 <ThemedText style={[styles.serviceDesc, { color: colors.icon }]}>{service.description}</ThemedText>
@@ -90,13 +101,13 @@ export default function ServicesScreen() {
 
         {/* Premium Services */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Premium Services</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.services.premiumTitle')}</ThemedText>
           <View style={[styles.premiumCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {PREMIUM_SERVICES.map((service, index) => (
-              <View key={index} style={[styles.premiumItem, { borderBottomColor: colors.border }, index === PREMIUM_SERVICES.length - 1 && { borderBottomWidth: 0 }]}>
+            {premiumServices.map((service, index) => (
+              <View key={index} style={[styles.premiumItem, { borderBottomColor: colors.border }, index === premiumServices.length - 1 && { borderBottomWidth: 0 }]}>
                 <View style={styles.premiumLeft}>
                   <View style={[styles.premiumIcon, { backgroundColor: `${colors.primary}15` }]}>
-                    <IconSymbol name={service.icon} size={24} color={colors.primary} />
+                    <IconSymbol name={PREMIUM_ICONS[index] as any} size={24} color={colors.primary} />
                   </View>
                   <View>
                     <ThemedText style={styles.premiumTitle}>{service.title}</ThemedText>
@@ -111,19 +122,19 @@ export default function ServicesScreen() {
 
         {/* How It Works */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>How It Works</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.services.howItWorksTitle')}</ThemedText>
           <ThemedText style={[styles.sectionSubtitle, { color: colors.icon }]}>
-            A simple step-by-step journey from discovery to a secure transaction.
+            {t('legal.services.howItWorksSubtitle')}
           </ThemedText>
           <View style={styles.stepsContainer}>
-            {STEPS.map((step, index) => (
+            {steps.map((step, index) => (
               <View key={index} style={[styles.stepItem, { backgroundColor: colors.card, borderColor: colors.border }]}> 
                 <View style={styles.stepHeader}>
                   <View style={[styles.stepNumber, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}50` }]}> 
                     <ThemedText style={[styles.stepNumberText, { color: colors.primary }]}>{index + 1}</ThemedText>
                   </View>
                   <View style={[styles.stepIconWrap, { backgroundColor: `${colors.primary}15` }]}> 
-                    <IconSymbol name={step.icon} size={18} color={colors.primary} />
+                    <IconSymbol name={STEP_ICONS[index] as any} size={18} color={colors.primary} />
                   </View>
                 </View>
                 <View style={styles.stepContent}>
@@ -146,14 +157,14 @@ export default function ServicesScreen() {
             onPress={() => router.push('/explore')}
           >
             <IconSymbol name="magnifyingglass" size={20} color="#fff" />
-            <ThemedText style={styles.ctaText}>Find Your Car</ThemedText>
+            <ThemedText style={styles.ctaText}>{t('legal.services.findYourCar')}</ThemedText>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.secondaryCta, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={() => router.push('/sell')}
           >
             <IconSymbol name="plus.circle.fill" size={20} color={colors.primary} />
-            <ThemedText style={[styles.secondaryCtaText, { color: colors.text }]}>Sell Your Car</ThemedText>
+            <ThemedText style={[styles.secondaryCtaText, { color: colors.text }]}>{t('legal.services.sellYourCar')}</ThemedText>
           </TouchableOpacity>
         </View>
         <WebFooter />
@@ -161,67 +172,6 @@ export default function ServicesScreen() {
     </View>
   );
 }
-
-const BUYER_SERVICES = [
-  { icon: 'magnifyingglass', title: 'Vehicle Browsing', description: 'Browse thousands of verified listings across all vehicle categories including cars, motorcycles, electric vehicles, hybrids, and conventional fuel vehicles. Filter by brand, model, price, location, and vehicle type.' },
-  { icon: 'checkmark.shield.fill', title: 'Category Filters', description: 'Advanced filtering system to find exactly what you need. Filter by vehicle type (car, motorcycle, hybrid, electric), fuel type (petrol, diesel, hybrid, electric), status (brand new, imported used, used in Rwanda), and more.' },
-  { icon: 'doc.text.magnifyingglass', title: 'Detailed Specifications', description: 'View complete vehicle information including brand, model, year, fuel type, mileage, transmission type, price, and comprehensive descriptions with multiple high-quality images.' },
-  { icon: 'photo.stack', title: 'Image Gallery', description: 'See multiple photos showing different angles of the vehicle - front, back, interior, sides - giving you a complete visual understanding before making contact.' },
-  { icon: 'message.fill', title: 'Contact Sellers', description: 'Send requests to communicate with sellers directly through our platform. Once accepted, engage in real-time chat to negotiate and ask questions about the vehicle.' },
-  { icon: 'handshake.fill', title: 'Deal Proposals', description: 'Propose offers to sellers through our deal management system. Accept, reject, or negotiate offers until you reach an agreement that works for both parties.' },
-  { icon: 'heart.fill', title: 'Favorite Listings', description: 'Save vehicles for later viewing. Build your shortlist and compare options before making your final decision.' },
-  { icon: 'person.fill', title: 'Profile Management', description: 'Manage your account information, preferences, and communication history all in one place. Track your deal requests and favorite listings.' },
-];
-
-const SELLER_SERVICES = [
-  { icon: 'plus.circle.fill', title: 'Vehicle Listing', description: 'Add vehicles for sale with full details including title, brand, model, year, vehicle type, fuel type, status, mileage, transmission, price, and comprehensive descriptions.' },
-  { icon: 'camera.fill', title: 'Image Upload', description: 'Upload multiple images of the vehicle (front, back, interior, sides) to give buyers a complete visual understanding of your listing.' },
-  { icon: 'square.and.pencil', title: 'Listing Management', description: 'Edit, update, or remove vehicle listings at any time. Keep your inventory current with real-time updates and status changes.' },
-  { icon: 'person.2.fill', title: 'Buyer Requests', description: 'View and manage all buyers interested in your vehicles. Respond to inquiries and track engagement through your seller dashboard.' },
-  { icon: 'chart.bar.fill', title: 'Listing Analytics', description: 'View statistics such as views, inquiries, and interest levels for each listing. Use data-driven insights to optimize your pricing and presentation.' },
-  { icon: 'doc.text.fill', title: 'Seller Dashboard', description: 'Get an overview of all active listings, buyer inquiries, deal requests, and transaction history in one comprehensive dashboard.' },
-  { icon: 'creditcard.fill', title: 'Commission System', description: 'Transparent commission structure for completed deals. We only charge when you successfully sell through our platform.' },
-];
-
-const PREMIUM_SERVICES = [
-  { icon: 'star.fill', title: 'Featured Listing', description: 'Get 5x more visibility with top placement in search results and featured sections across the platform', price: '$9.99/mo' },
-  { icon: 'checkmark.seal.fill', title: 'Seller Verification', description: 'Get verified badge to increase buyer trust and close deals faster', price: '$19.99' },
-  { icon: 'arrow.up.circle.fill', title: 'Priority Support', description: 'Jump to the front of the queue with 24/7 priority customer support', price: '$4.99/mo' },
-  { icon: 'megaphone.fill', title: 'Promoted Listings', description: 'Your listings appear in special promotional banners and email campaigns', price: '$14.99/mo' },
-];
-
-const STEPS = [
-  {
-    icon: 'person.crop.circle.badge.plus',
-    title: 'Create Account',
-    outcome: 'Get a verified profile ready for buying or selling.',
-    description: 'Sign up as a buyer or seller with your phone number in seconds. Select your role to unlock personalized features.'
-  },
-  {
-    icon: 'line.3.horizontal.decrease.circle.fill',
-    title: 'Browse or List',
-    outcome: 'Discover matches faster with smart filters and rich listings.',
-    description: 'Search for your dream vehicle using advanced filters, or list your vehicle with detailed specifications and photos.'
-  },
-  {
-    icon: 'message.badge.fill',
-    title: 'Connect & Chat',
-    outcome: 'Speak directly and clarify details before any commitment.',
-    description: 'Send contact requests to sellers or respond to buyer inquiries. Our chat system enables real-time communication.'
-  },
-  {
-    icon: 'handshake.fill',
-    title: 'Propose & Negotiate',
-    outcome: 'Reach mutually fair terms using structured deal flows.',
-    description: 'Make deal proposals, negotiate terms, and reach agreements through our secure deal management system.'
-  },
-  {
-    icon: 'checkmark.circle.fill',
-    title: 'Complete Transaction',
-    outcome: 'Close the deal with confidence and platform support.',
-    description: 'Meet, inspect the vehicle, and complete the sale securely with our transaction monitoring and support.'
-  },
-];
 
 const styles = StyleSheet.create({
   safeArea: {

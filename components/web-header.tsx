@@ -15,10 +15,12 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Link, router, usePathname } from "expo-router";
 import { isWeb } from "@/lib/platform";
 import { useTranslation } from "react-i18next";
+import { changeLanguage } from "@/i18n";
 import { Image } from "expo-image";
 import { useAuth } from "@/context/AuthContext";
 import { fetchUnreadMessagesCount } from "@/lib/api-messages";
 import { fetchUnreadNotificationsCount } from "@/lib/api-notifications";
+import { OnboardingHint } from "@/components/onboarding-hint";
 
 const LOGO_IMAGE = require("@/assets/images/Logo.png");
 
@@ -130,47 +132,47 @@ function MobileWebLink({
 }
 
 const CENTER_NAV_ITEMS = [
-  { label: "Buy a car", path: "/explore", icon: "magnifyingglass" },
-  { label: "Brands", path: "/brands", icon: "directions-car" },
+  { key: "buyACar", path: "/explore", icon: "magnifyingglass" },
+  { key: "brands", path: "/brands", icon: "directions-car" },
 ];
 
 const BUYING_MENU = {
   cars: [
-    { label: "New cars for sale", path: "/explore?usage=Brand%20New" },
-    { label: "Used cars for sale", path: "/explore?usage=Imported%20Used" },
-    { label: "Certified pre-owned cars for sale", path: "/explore?usage=Used%20In%20Rwanda" },
-    { label: "Search cars", path: "/search" },
-    { label: "Buy vehicle insurance", path: "/insurance" },
+    { key: "newCars", path: "/explore?usage=Brand%20New" },
+    { key: "usedCars", path: "/explore?usage=Imported%20Used" },
+    { key: "certifiedCars", path: "/explore?usage=Used%20In%20Rwanda" },
+    { key: "searchCars", path: "/search" },
+    { key: "buyInsurance", path: "/insurance" },
   ],
   bodyType: [
-    { label: "SUVs & Crossovers", path: "/explore?typebodies=SUVs" },
-    { label: "Trucks", path: "/explore?typebodies=Trucks" },
-    { label: "Sedans", path: "/explore?typebodies=Sedans" },
-    { label: "Coupes", path: "/explore?typebodies=Coupes" },
-    { label: "Minivans", path: "/explore?typebodies=Minivans" },
-    { label: "Hatchbacks", path: "/explore?typebodies=Hatchbacks" },
-    { label: "Convertibles", path: "/explore?typebodies=Convertibles" },
-    { label: "Station wagons", path: "/explore?typebodies=Station%20Wagons" },
+    { key: "suvs", path: `/explore?typebodies=${encodeURIComponent("SUVs & Crossovers")}` },
+    { key: "trucks", path: "/explore?typebodies=Trucks" },
+    { key: "sedans", path: "/explore?typebodies=Sedans" },
+    { key: "coupes", path: "/explore?typebodies=Coupes" },
+    { key: "minivans", path: "/explore?typebodies=Minivans" },
+    { key: "hatchbacks", path: "/explore?typebodies=Hatchbacks" },
+    { key: "convertibles", path: "/explore?typebodies=Convertibles" },
+    { key: "stationWagons", path: `/explore?typebodies=${encodeURIComponent("Station wagons")}` },
   ],
   otherVehicles: [
-    { label: "Bus", path: "/category/Bus" },
-    { label: "Truck", path: "/category/Truck" },
+    { key: "bus", path: "/category/Bus" },
+    { key: "truck", path: "/category/Truck" },
    
   ],
 };
 
 const SELLING_MENU = {
   sell: [
-    { label: "Sell My Car", path: "/sell" },
-    { label: "My Listings", path: "/listings" },
+    { key: "sellMyCar", path: "/sell" },
+    { key: "myListings", path: "/listings" },
   ],
   otherVehicles: BUYING_MENU.otherVehicles,
 };
 
 const MORE_NAV_ITEMS = [
-  { label: "About", path: "/about", icon: "book.fill" },
-  { label: "Services", path: "/services", icon: "bolt.fill" },
-  { label: "Contact", path: "/contact", icon: "envelope.fill" },
+  { key: "about", path: "/about", icon: "book.fill" },
+  { key: "services", path: "/services", icon: "bolt.fill" },
+  { key: "contact", path: "/contact", icon: "envelope.fill" },
 ];
 
 const LANGUAGES = [
@@ -327,12 +329,21 @@ export function WebHeader() {
                 color={colors.text}
               />
             </WebLink>
-            <TouchableOpacity
-              style={styles.menuButton}
-              onPress={() => setMobileMenuOpen(true)}
-            >
-              <IconSymbol name="list" size={28} color={colors.text} />
-            </TouchableOpacity>
+            <View style={{ position: "relative", zIndex: 999999 }}>
+              <TouchableOpacity
+                style={styles.menuButton}
+                onPress={() => setMobileMenuOpen(true)}
+              >
+                <IconSymbol name="list" size={28} color={colors.text} />
+              </TouchableOpacity>
+              <OnboardingHint
+                id="nav-help"
+                text={t("header.navHelpHint")}
+                icon="list"
+                placement="bottom"
+                align="right"
+              />
+            </View>
           </View>
         </View>
 
@@ -384,7 +395,7 @@ export function WebHeader() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                       <IconSymbol name="magnifyingglass" size={22} color={showBuyingDropdown ? colors.primary : colors.icon} />
                       <ThemedText style={[styles.menuItemText, { color: showBuyingDropdown ? colors.primary : colors.text }]}>
-                        Buy a Car
+                        {t('header.buying')}
                       </ThemedText>
                     </View>
                     <IconSymbol name={showBuyingDropdown ? "chevron.down" : "chevron.right"} size={18} color={colors.icon} />
@@ -392,14 +403,14 @@ export function WebHeader() {
                   {showBuyingDropdown && (
                     <View style={{ paddingLeft: 38, gap: 2 }}>
                       {BUYING_MENU.cars.map((item) => (
-                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
-                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        <MobileWebLink key={item.key} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{t(`header.nav.${item.key}`)}</ThemedText>
                         </MobileWebLink>
                       ))}
-                      <ThemedText style={[styles.menuSubHeader, { color: colors.icon }]}>By Body Type</ThemedText>
+                      <ThemedText style={[styles.menuSubHeader, { color: colors.icon }]}>{t('header.byBodyType')}</ThemedText>
                       {BUYING_MENU.bodyType.map((item) => (
-                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
-                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        <MobileWebLink key={item.key} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{t(`header.nav.${item.key}`)}</ThemedText>
                         </MobileWebLink>
                       ))}
                     </View>
@@ -413,7 +424,7 @@ export function WebHeader() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
                       <IconSymbol name="plus.circle.fill" size={22} color={showSellingDropdown ? colors.primary : colors.icon} />
                       <ThemedText style={[styles.menuItemText, { color: showSellingDropdown ? colors.primary : colors.text }]}>
-                        Selling
+                        {t('header.selling')}
                       </ThemedText>
                     </View>
                     <IconSymbol name={showSellingDropdown ? "chevron.down" : "chevron.right"} size={18} color={colors.icon} />
@@ -421,8 +432,8 @@ export function WebHeader() {
                   {showSellingDropdown && (
                     <View style={{ paddingLeft: 38, gap: 2 }}>
                       {SELLING_MENU.sell.map((item) => (
-                        <MobileWebLink key={item.label} href={item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
-                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{item.label}</ThemedText>
+                        <MobileWebLink key={item.key} href={!user && item.path === "/sell" ? "/auth/register?role=seller" : item.path} onNavigate={() => setMobileMenuOpen(false)} style={styles.menuSubItem}>
+                          <ThemedText style={[styles.menuSubItemText, { color: colors.text }]}>{t(`header.${item.key}`)}</ThemedText>
                         </MobileWebLink>
                       ))}
                     </View>
@@ -431,7 +442,7 @@ export function WebHeader() {
                   <MobileWebLink href="/brands" onNavigate={() => setMobileMenuOpen(false)}
                     style={[styles.menuItem, isActive("/brands") && { backgroundColor: `${colors.primary}15` }]}>
                     <IconSymbol name="car.fill" size={22} color={isActive("/brands") ? colors.primary : colors.icon} />
-                    <ThemedText style={[styles.menuItemText, { color: isActive("/brands") ? colors.primary : colors.text }]}>Brands</ThemedText>
+                    <ThemedText style={[styles.menuItemText, { color: isActive("/brands") ? colors.primary : colors.text }]}>{t('header.brands')}</ThemedText>
                   </MobileWebLink>
                 </View>
 
@@ -450,7 +461,7 @@ export function WebHeader() {
                     >
                       <IconSymbol name={item.icon as any} size={22} color={isActive(item.path) ? colors.primary : colors.icon} />
                       <ThemedText style={[styles.menuItemText, { color: isActive(item.path) ? colors.primary : colors.text }]}>
-                        {item.label}
+                        {t(`header.${item.key}`)}
                       </ThemedText>
                     </MobileWebLink>
                   ))}
@@ -612,7 +623,7 @@ export function WebHeader() {
                           },
                         ]}
                       >
-                        Sign In / Profile
+                        {t('header.signInProfile')}
                       </ThemedText>
                     </MobileWebLink>
                   </View>
@@ -624,7 +635,7 @@ export function WebHeader() {
 
                 {/* Sell Button */}
                 <MobileWebLink
-                  href="/sell"
+                  href={!user ? "/auth/register?role=seller" : "/sell"}
                   onNavigate={() => setMobileMenuOpen(false)}
                   style={[
                     styles.sellMenuButton,
@@ -633,7 +644,7 @@ export function WebHeader() {
                 >
                   <IconSymbol name="plus.circle.fill" size={22} color="#fff" />
                   <ThemedText style={styles.sellMenuButtonText}>
-                    Sell My Car
+                    {t('header.sellMyCar')}
                   </ThemedText>
                 </MobileWebLink>
               </ScrollView>
@@ -710,15 +721,24 @@ export function WebHeader() {
             </WebLink>
 
             {/* Sell Button */}
-            <WebLink
-              href="/sell"
-              style={[
-                styles.compactSellButton,
-                { backgroundColor: colors.primary },
-              ]}
-            >
-              <IconSymbol name="plus.circle.fill" size={16} color="#fff" />
-            </WebLink>
+            <View style={{ position: "relative", zIndex: 999999 }}>
+              <WebLink
+                href={!user ? "/auth/register?role=seller" : "/sell"}
+                style={[
+                  styles.compactSellButton,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <IconSymbol name="plus.circle.fill" size={16} color="#fff" />
+              </WebLink>
+              <OnboardingHint
+                id="nav-sell-compact"
+                text={t("header.sellHint")}
+                icon="plus.circle.fill"
+                placement="bottom"
+                align="right"
+              />
+            </View>
           </View>
         </View>
 
@@ -789,7 +809,7 @@ export function WebHeader() {
                           },
                         ]}
                       >
-                        {item.label}
+                        {t(`header.${item.key}`)}
                       </ThemedText>
                     </MobileWebLink>
                   ))}
@@ -827,7 +847,7 @@ export function WebHeader() {
                           },
                         ]}
                       >
-                        {item.label}
+                        {t(`header.${item.key}`)}
                       </ThemedText>
                     </MobileWebLink>
                   ))}
@@ -893,7 +913,7 @@ export function WebHeader() {
                       { color: showBuyingDropdown ? colors.primary : colors.text },
                     ]}
                   >
-                    Buying
+                    {t('header.buying')}
                   </ThemedText>
                   <IconSymbol
                     name={showBuyingDropdown ? "chevron.up" : "chevron.down"}
@@ -913,48 +933,48 @@ export function WebHeader() {
                   pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Cars</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.cars')}</ThemedText>
                     {BUYING_MENU.cars.map((item) => (
                       <WebLink
-                        key={item.label}
+                        key={item.key}
                         href={item.path}
                         onNavigate={() => setShowBuyingDropdown(false)}
                         style={styles.megaItem}
                       >
                         <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                          {item.label}
+                          {t(`header.nav.${item.key}`)}
                         </ThemedText>
                       </WebLink>
                     ))}
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Browse by body type</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.browseByBodyType')}</ThemedText>
                     {BUYING_MENU.bodyType.map((item) => (
                       <WebLink
-                        key={item.label}
+                        key={item.key}
                         href={item.path}
                         onNavigate={() => setShowBuyingDropdown(false)}
                         style={styles.megaItem}
                       >
                         <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                          {item.label}
+                          {t(`header.nav.${item.key}`)}
                         </ThemedText>
                       </WebLink>
                     ))}
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Other vehicles</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.otherVehicles')}</ThemedText>
                     {BUYING_MENU.otherVehicles.map((item) => (
                       <WebLink
-                        key={item.label}
+                        key={item.key}
                         href={item.path}
                         onNavigate={() => setShowBuyingDropdown(false)}
                         style={styles.megaItem}
                       >
                         <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                          {item.label}
+                          {t(`header.nav.${item.key}`)}
                         </ThemedText>
                       </WebLink>
                     ))}
@@ -987,7 +1007,7 @@ export function WebHeader() {
                       { color: showSellingDropdown ? colors.primary : colors.text },
                     ]}
                   >
-                    Selling
+                    {t('header.selling')}
                   </ThemedText>
                   <IconSymbol
                     name={showSellingDropdown ? "chevron.up" : "chevron.down"}
@@ -1007,18 +1027,25 @@ export function WebHeader() {
                   pointerEvents="auto"
                 >
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Sell</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.sell')}</ThemedText>
                     {SELLING_MENU.sell.map((item) => {
-                      const targetHref = !user && item.path !== "/sell" ? "/auth/login" : item.path;
+                      let targetHref: string;
+                      if (!user && item.path === "/sell") {
+                        targetHref = "/auth/register?role=seller";
+                      } else if (!user) {
+                        targetHref = "/auth/login";
+                      } else {
+                        targetHref = item.path;
+                      }
                       return (
                         <WebLink
-                          key={item.label}
+                          key={item.key}
                           href={targetHref}
                           onNavigate={() => setShowSellingDropdown(false)}
                           style={styles.megaItem}
                         >
                           <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                            {item.label}
+                            {t(`header.${item.key}`)}
                           </ThemedText>
                         </WebLink>
                       );
@@ -1026,16 +1053,16 @@ export function WebHeader() {
                   </View>
 
                   <View style={styles.megaColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Other vehicles</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.otherVehicles')}</ThemedText>
                     {SELLING_MENU.otherVehicles.map((item) => (
                       <WebLink
-                        key={item.label}
+                        key={item.key}
                         href={item.path}
                         onNavigate={() => setShowSellingDropdown(false)}
                         style={styles.megaItem}
                       >
                         <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                          {item.label}
+                          {t(`header.nav.${item.key}`)}
                         </ThemedText>
                       </WebLink>
                     ))}
@@ -1061,7 +1088,7 @@ export function WebHeader() {
                   { color: isActive("/brands") ? colors.primary : colors.text },
                 ]}
               >
-                Brands
+                {t('header.brands')}
               </ThemedText>
             </WebLink>
 
@@ -1088,7 +1115,7 @@ export function WebHeader() {
                       { color: showMoreDropdown ? colors.primary : colors.text },
                     ]}
                   >
-                    Company
+                    {t('header.company')}
                   </ThemedText>
                   <IconSymbol
                     name={showMoreDropdown ? "chevron.up" : "chevron.down"}
@@ -1108,7 +1135,7 @@ export function WebHeader() {
                   {...(isWeb ? { onMouseLeave: () => setShowMoreDropdown(false) } as any : {})}
                 >
                   <View style={styles.companyColumn}>
-                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>Company</ThemedText>
+                    <ThemedText style={[styles.megaTitle, { color: colors.primary }]}>{t('header.company')}</ThemedText>
                     {MORE_NAV_ITEMS.map((item) => (
                       <WebLink
                         key={item.path}
@@ -1123,7 +1150,7 @@ export function WebHeader() {
                             color={colors.icon}
                           />
                           <ThemedText style={[styles.megaItemText, { color: colors.text }]}>
-                            {item.label}
+                            {t(`header.${item.key}`)}
                           </ThemedText>
                         </View>
                       </WebLink>
@@ -1231,13 +1258,13 @@ export function WebHeader() {
 
               <WebLink href="/auth/login" style={styles.loginLink}>
                 <ThemedText style={[styles.loginText, { color: colors.text }]}>
-                  Log in / Sign up
+                  {t('header.loginSignup')}
                 </ThemedText>
               </WebLink>
             </>
           )}
 
-          <View style={styles.langContainer}>
+          <View style={styles.langContainer} ref={langWrapperRef} collapsable={false}>
             <TouchableOpacity
               style={[styles.langButtonPill, { borderColor: colors.border }]}
               onPress={() => {
@@ -1275,7 +1302,7 @@ export function WebHeader() {
                           i18n.language === lang.code && styles.langOptionActive,
                         ]}
                         onPress={() => {
-                          i18n.changeLanguage(lang.code);
+                          changeLanguage(lang.code);
                           setShowLangDropdown(false);
                         }}
                         activeOpacity={0.85}
@@ -1296,13 +1323,22 @@ export function WebHeader() {
           </View>
 
           {/* Sell My Car Button */}
-          <WebLink
-            href="/sell"
-            style={[styles.sellButton, { backgroundColor: colors.primary }]}
-          >
-            <IconSymbol name="plus.circle.fill" size={18} color="#fff" />
-            <ThemedText style={styles.sellButtonText}>Sell My Car</ThemedText>
-          </WebLink>
+          <View style={{ position: "relative", zIndex: 999999 }}>
+            <WebLink
+              href={!user ? "/auth/register?role=seller" : "/sell"}
+              style={[styles.sellButton, { backgroundColor: colors.primary }]}
+            >
+              <IconSymbol name="plus.circle.fill" size={18} color="#fff" />
+              <ThemedText style={styles.sellButtonText}>{t('header.sellMyCar')}</ThemedText>
+            </WebLink>
+            <OnboardingHint
+              id="nav-sell-desktop"
+              text={t("header.sellHint")}
+              icon="plus.circle.fill"
+              placement="bottom"
+              align="right"
+            />
+          </View>
         </View>
       </View>
     );
@@ -1356,6 +1392,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     height: 64,
+    position: "relative",
+    zIndex: 999999,
   },
   compactLogoSection: {
     position: "absolute",
@@ -1384,7 +1422,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     height: 76,
     position: "relative",
-    zIndex: 1000,
+    zIndex: 999999,
   },
   leftGroup: {
     flexDirection: "row",
@@ -1697,6 +1735,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     height: 56,
+    position: "relative",
+    zIndex: 999999,
   },
   menuButton: {
     padding: 8,

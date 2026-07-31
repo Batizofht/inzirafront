@@ -81,8 +81,8 @@ export function LocalBusinessStructuredData({
   name = 'Inzira',
   description = "Rwanda's #1 Verified Car Marketplace",
   url = 'https://inzira.co',
-  telephone = '+250788378766',
-  email = 'support@inzira.co',
+  telephone = '+250788307583',
+  email = 'info@inzira.co',
   address = { city: 'Kigali', country: 'Rwanda' },
 }: LocalBusinessStructuredDataProps) {
   const structuredData = {

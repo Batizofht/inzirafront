@@ -18,8 +18,8 @@ export default {
       recentlyAdded: 'Iziherutse Kongerwamo',
       accountType: 'Umuguzi/Umugurisha',
       soldBought: 'Izo Naguze & Nagurishije',
-      customOrderTitle: 'Tegeka Imodoka Yawe',
-      customOrderSubtitle: 'Bon amahugurwa + ibyifuzo byihariye bigufasha',
+      customOrderTitle: 'Saba Imodoka Ukwiye',
+      customOrderSubtitle: 'Itsinda ryacu rizakubonera imodoka ihuye n\'ibyo ukeneye',
     },
     explore: {
       title: 'Shakisha',

@@ -1,4 +1,5 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -28,6 +29,7 @@ export default function HistoryScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -52,7 +54,7 @@ export default function HistoryScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <IconSymbol name="chevron.left" size={24} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>My Sold & Bought</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('legal.history.title')}</ThemedText>
         </View>
       </View>
 
@@ -61,12 +63,12 @@ export default function HistoryScreen() {
         contentContainerStyle={[styles.scrollContent, isDesktopWeb && styles.webScrollContent]}>
         {isLoading ? (
           <View style={styles.emptyState}>
-            <ThemedText style={{ color: colors.icon }}>Loading...</ThemedText>
+            <ThemedText style={{ color: colors.icon }}>{t('legal.history.loading')}</ThemedText>
           </View>
         ) : transactions.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="car.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
-            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>No transaction history found.</ThemedText>
+            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>{t('legal.history.noHistory')}</ThemedText>
           </View>
         ) : (
           transactions.map((item) => (

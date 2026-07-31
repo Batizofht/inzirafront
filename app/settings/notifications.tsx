@@ -10,15 +10,15 @@ import { isWeb } from '@/lib/platform';
 import { getMyNotificationSettings, updateMyNotificationSettings } from '@/lib/api-notifications';
 
 export default function SettingsNotificationsScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'Notification Settings | Inzira';
-    }
-  }, []);
-
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('settings.notificationsPageTitle');
+    }
+  }, [t]);
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with contact/sell)
@@ -82,12 +82,12 @@ export default function SettingsNotificationsScreen() {
         showsVerticalScrollIndicator={isDesktopWeb} 
         contentContainerStyle={[styles.scrollContent, isDesktopWeb && [styles.webScrollContent, { paddingHorizontal: webPaddingHorizontal }]]}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Preferences</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.preferences')}</ThemedText>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
               <View style={styles.rowText}>
-                <ThemedText style={styles.label}>Push Notifications</ThemedText>
-                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>Receive alerts on your device</ThemedText>
+                <ThemedText style={styles.label}>{t('settings.pushNotifications')}</ThemedText>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('settings.pushNotificationsDesc')}</ThemedText>
               </View>
               {isLoaded ? (
                 <TouchableOpacity 
@@ -103,8 +103,8 @@ export default function SettingsNotificationsScreen() {
             </View>
             <View style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
               <View style={styles.rowText}>
-                <ThemedText style={styles.label}>Email Notifications</ThemedText>
-                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>Receive updates via email</ThemedText>
+                <ThemedText style={styles.label}>{t('settings.emailNotifications')}</ThemedText>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('settings.emailNotificationsDesc')}</ThemedText>
               </View>
               {isLoaded ? (
                 <TouchableOpacity 
@@ -120,8 +120,8 @@ export default function SettingsNotificationsScreen() {
             </View>
             <View style={styles.row}>
               <View style={styles.rowText}>
-                <ThemedText style={styles.label}>Marketing & Promos</ThemedText>
-                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>Receive offers and news</ThemedText>
+                <ThemedText style={styles.label}>{t('settings.marketingPromos')}</ThemedText>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('settings.marketingPromosDesc')}</ThemedText>
               </View>
               {isLoaded ? (
                 <TouchableOpacity 

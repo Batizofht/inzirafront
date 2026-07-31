@@ -45,11 +45,16 @@ export type CreateVehiclePayload = {
   location: string;
   images: string[];
   engineSize?: string;
+  batteryRange?: string;
   driveType?: string;
   vehicleIdentificationDoc?: string;
   isBrokered?: boolean;
   providesAssurance?: boolean;
   status?: "active" | "pending" | "sold" | "rejected";
+  /** Total units (business sellers listing several identical cars). */
+  quantity?: number;
+  /** Optional per-colour breakdown for multi-unit listings. */
+  colorLabels?: { color: string; count: number }[];
 };
 
 export async function fetchVehicles(filters?: {
@@ -194,9 +199,12 @@ export async function createVehicle(
   formData.append("description", payload.description);
   formData.append("location", payload.location);
   if (payload.engineSize) formData.append("engineSize", payload.engineSize);
+  if (payload.batteryRange) formData.append("batteryRange", payload.batteryRange);
   if (payload.driveType) formData.append("driveType", payload.driveType);
   if (payload.isBrokered) formData.append("isBrokered", "true");
   if (payload.providesAssurance) formData.append("providesAssurance", "true");
+  if (payload.quantity != null) formData.append("quantity", String(payload.quantity));
+  if (payload.colorLabels) formData.append("colorLabels", JSON.stringify(payload.colorLabels));
 
   // Handle images - prefer file-based uploads, keep base64 as fallback
   if (payload.images && payload.images.length > 0) {
@@ -335,9 +343,12 @@ export async function updateVehicle(
       formData.append("description", payload.description);
     if (payload.location) formData.append("location", payload.location);
     if (payload.engineSize) formData.append("engineSize", payload.engineSize);
+    if (payload.batteryRange) formData.append("batteryRange", payload.batteryRange);
     if (payload.driveType) formData.append("driveType", payload.driveType);
     if (payload.isBrokered !== undefined) formData.append("isBrokered", String(payload.isBrokered));
     if (payload.providesAssurance !== undefined) formData.append("providesAssurance", String(payload.providesAssurance));
+    if (payload.quantity != null) formData.append("quantity", String(payload.quantity));
+    if (payload.colorLabels) formData.append("colorLabels", JSON.stringify(payload.colorLabels));
 
     // Handle images - append new uploads and keep existing file paths
     if (payload.images && payload.images.length > 0) {
@@ -496,9 +507,12 @@ export async function updateVehicle(
       formData.append("description", payload.description);
     if (payload.location) formData.append("location", payload.location);
     if (payload.engineSize) formData.append("engineSize", payload.engineSize);
+    if (payload.batteryRange) formData.append("batteryRange", payload.batteryRange);
     if (payload.driveType) formData.append("driveType", payload.driveType);
     if (payload.isBrokered !== undefined) formData.append("isBrokered", String(payload.isBrokered));
     if (payload.providesAssurance !== undefined) formData.append("providesAssurance", String(payload.providesAssurance));
+    if (payload.quantity != null) formData.append("quantity", String(payload.quantity));
+    if (payload.colorLabels) formData.append("colorLabels", JSON.stringify(payload.colorLabels));
     const docUri = payload.vehicleIdentificationDoc;
     try {
       if (docUri.startsWith("data:image/")) {
@@ -566,6 +580,22 @@ export async function deleteVehicle(
   return apiRequest(`/vehicles/${id}`, {
     method: "DELETE",
     auth: true,
+  });
+}
+
+/**
+ * Seller-only manual stock reduction. Decrements remaining by one (and the
+ * given colour's count when supplied). Backend auto-marks the listing sold at
+ * 0 remaining. Returns the updated vehicle.
+ */
+export async function reduceVehicleStock(
+  id: string,
+  color?: string,
+): Promise<VehicleDetailResponse> {
+  return apiRequest(`/vehicles/${id}/reduce-stock`, {
+    method: "POST",
+    auth: true,
+    body: color ? { color } : {},
   });
 }
 

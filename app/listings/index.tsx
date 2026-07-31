@@ -13,16 +13,30 @@ import type { Vehicle } from '@/types/vehicle';
 import { isWeb } from '@/lib/platform';
 import { resolveImageUrl } from '@/lib/image-url';
 
-export default function ListingsScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'My Listings | Inzira';
-    }
-  }, []);
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  active: 'listings.statusActive',
+  pending: 'listings.statusPending',
+  rejected: 'listings.statusRejected',
+  sold: 'listings.statusSold',
+  sold_out: 'listings.statusSold',
+};
 
+export default function ListingsScreen() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('listings.pageTitle');
+    }
+  }, [t]);
+
+  // Localized status badge label — falls back to the raw status for unknown values.
+  const statusLabel = (status: string) => {
+    const key = STATUS_LABEL_KEYS[String(status || '').toLowerCase()];
+    return key ? t(key) : status;
+  };
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   const isWebMd = isWeb && width >= 768 && width < 1024;
@@ -87,7 +101,7 @@ export default function ListingsScreen() {
       handleCloseDeleteModal();
     } catch (err) {
       console.error('Failed to delete vehicle:', err);
-      alert('Failed to delete vehicle. Please try again.');
+      alert(t('listings.failedDelete'));
     } finally {
       setIsDeleting(false);
     }
@@ -127,14 +141,14 @@ export default function ListingsScreen() {
           ]}>
           {isLoading ? (
             <View style={styles.emptyState}>
-              <ThemedText style={{ color: colors.icon }}>Loading...</ThemedText>
+              <ThemedText style={{ color: colors.icon }}>{t('listings.loading')}</ThemedText>
             </View>
           ) : listings.length === 0 ? (
             <View style={styles.emptyState}>
               <IconSymbol name="car.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
-              <ThemedText style={{ color: colors.icon, fontSize: 16 }}>You have no active listings.</ThemedText>
+              <ThemedText style={{ color: colors.icon, fontSize: 16 }}>{t('listings.noListings')}</ThemedText>
               <TouchableOpacity style={[styles.createButton, { backgroundColor: colors.primary }]} onPress={() => router.push('/sell')}>
-                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Create Listing</ThemedText>
+                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('listings.createListing')}</ThemedText>
               </TouchableOpacity>
             </View>
           ) : (
@@ -178,7 +192,7 @@ export default function ListingsScreen() {
                                  listing.status === 'pending' ? '#F59E0B' : colors.primary,
                           textTransform: 'uppercase',
                         }]}>
-                          {listing.status}
+                          {statusLabel(listing.status)}
                         </ThemedText>
                       </View>
                     </View>
@@ -188,7 +202,7 @@ export default function ListingsScreen() {
                     <View style={styles.rejectedNote}>
                       <IconSymbol name="exclamationmark.triangle.fill" size={14} color="#DC2626" />
                       <ThemedText style={styles.rejectedText}>
-                        {listing.rejectionReason ? `Rejected: ${listing.rejectionReason}` : 'This listing was rejected. Tap to review and resubmit.'}
+                        {listing.rejectionReason ? t('listings.rejectedPrefix', { reason: listing.rejectionReason }) : t('listings.rejectedDefault')}
                       </ThemedText>
                     </View>
                   )}
@@ -196,18 +210,18 @@ export default function ListingsScreen() {
                   {listing.status === 'pending' && (
                     <View style={styles.pendingNote}>
                       <IconSymbol name="clock.fill" size={14} color="#F59E0B" />
-                      <ThemedText style={styles.pendingText}>Awaiting admin approval</ThemedText>
+                      <ThemedText style={styles.pendingText}>{t('listings.awaitingApproval')}</ThemedText>
                     </View>
                   )}
                   
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <IconSymbol name="person.fill" size={14} color={colors.icon} style={styles.statIcon} />
-                      <ThemedText style={[styles.statText, { color: colors.icon }]}>{listing.views || 0} Views</ThemedText>
+                      <ThemedText style={[styles.statText, { color: colors.icon }]}>{t('listings.views', { count: listing.views || 0 })}</ThemedText>
                     </View>
                     <View style={styles.statItem}>
                       <IconSymbol name="message.fill" size={14} color={colors.icon} style={styles.statIcon} />
-                      <ThemedText style={[styles.statText, { color: colors.icon }]}>{listing.inquiries || 0} Inquiries</ThemedText>
+                      <ThemedText style={[styles.statText, { color: colors.icon }]}>{t('listings.inquiries', { count: listing.inquiries || 0 })}</ThemedText>
                     </View>
                   </View>
                 </View>
@@ -229,15 +243,15 @@ export default function ListingsScreen() {
           <View style={[styles.modalContainer, { backgroundColor: colors.background, maxWidth: modalMaxWidth }]}>
             <View style={styles.modalHeader}>
               <IconSymbol name="exclamationmark.triangle.fill" size={48} color="#DC2626" />
-              <ThemedText type="defaultSemiBold" style={styles.modalTitle}>Delete Listing</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.modalTitle}>{t('listings.deleteTitle')}</ThemedText>
               <ThemedText style={[styles.modalSubtitle, { color: colors.icon }]}>
-                This action cannot be undone. To confirm, please type the car name below.
+                {t('listings.deleteDesc')}
               </ThemedText>
             </View>
 
             <View style={styles.modalContent}>
               <ThemedText style={[styles.carNameLabel, { color: colors.text }]}>
-                Car name to delete:
+                {t('listings.carNameToDelete')}
               </ThemedText>
               <ThemedText type="defaultSemiBold" style={[styles.carNameToConfirm, { color: colors.primary }]}>
                 {vehicleToDelete?.title}
@@ -249,7 +263,7 @@ export default function ListingsScreen() {
                   borderColor: confirmText && confirmText !== vehicleToDelete?.title ? '#DC2626' : colors.border,
                   color: colors.text 
                 }]}
-                placeholder="Type car name here"
+                placeholder={t('listings.typeCarName')}
                 placeholderTextColor={colors.icon}
                 value={confirmText}
                 onChangeText={setConfirmText}
@@ -258,7 +272,7 @@ export default function ListingsScreen() {
               />
               
               {confirmText && confirmText !== vehicleToDelete?.title && (
-                <ThemedText style={styles.errorText}>Car name doesn't match</ThemedText>
+                <ThemedText style={styles.errorText}>{t('listings.nameMismatch')}</ThemedText>
               )}
             </View>
 
@@ -268,7 +282,7 @@ export default function ListingsScreen() {
                 onPress={handleCloseDeleteModal}
                 disabled={isDeleting}
               >
-                <ThemedText style={{ fontWeight: '600' }}>Cancel</ThemedText>
+                <ThemedText style={{ fontWeight: '600' }}>{t('listings.cancel')}</ThemedText>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -280,7 +294,7 @@ export default function ListingsScreen() {
                 disabled={confirmText !== vehicleToDelete?.title || isDeleting}
               >
                 <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
-                  {isDeleting ? 'Deleting...' : 'Delete'}
+                  {isDeleting ? t('listings.deleting') : t('listings.delete')}
                 </ThemedText>
               </TouchableOpacity>
             </View>

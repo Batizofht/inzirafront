@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -8,6 +9,7 @@ import { WebFooter } from '@/components/web-footer';
 
 export default function PressScreen() {
   useEffect(() => { if (typeof document !== 'undefined') document.title = 'Press | Inzira'; }, []);
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -18,19 +20,19 @@ export default function PressScreen() {
     <View style={[styles.safe, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.content, isDesktopWeb && { maxWidth: maxW, alignSelf: 'center' }]}>
-          <ThemedText style={styles.title}>Press</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: colors.icon }]}>Latest news and announcements</ThemedText>
+          <ThemedText style={styles.title}>{t('legal.press.title')}</ThemedText>
+          <ThemedText style={[styles.subtitle, { color: colors.icon }]}>{t('legal.press.subtitle')}</ThemedText>
 
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <ThemedText style={[styles.date, { color: colors.icon }]}>May 2025</ThemedText>
-            <ThemedText style={styles.cardTitle}>Introducing Inzira — The New Car Marketplace in Rwanda</ThemedText>
+            <ThemedText style={[styles.date, { color: colors.icon }]}>{t('legal.press.date')}</ThemedText>
+            <ThemedText style={styles.cardTitle}>{t('legal.press.cardTitle')}</ThemedText>
             <ThemedText style={[styles.cardBody, { color: colors.icon }]}>
-              Bonet Elite Services Ltd is proud to announce the launch of Inzira, Rwanda's first fully verified digital vehicle marketplace. Inzira connects buyers and sellers through a secure platform with identity verification, real-time messaging, and mobile money payments via MTN MoMo. The platform supports cars, motorcycles, trucks, electric vehicles, and commercial vehicles — serving both individual sellers and dealerships across Rwanda.
+              {t('legal.press.cardBody')}
             </ThemedText>
           </View>
 
           <ThemedText style={[styles.contactNote, { color: colors.icon }]}>
-            For press inquiries, contact press@inzira.co
+            {t('legal.press.contactNote')}
           </ThemedText>
         </View>
         <WebFooter />

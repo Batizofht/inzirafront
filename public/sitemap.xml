@@ -21,6 +21,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://inzira.co/brands</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://inzira.co/services</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -36,6 +41,71 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://inzira.co/verification-process</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/buyer-protection</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/how-we-verify</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/insurance</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/safety</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/help</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/guidelines</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/careers</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/press</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/accessibility</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/cookies</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
     <loc>https://inzira.co/auth/login</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
@@ -46,140 +116,38 @@
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://inzira.co/vehicle/94867c7a-7a25-41b1-a399-c1c7cb3d95d6</loc>
-    <lastmod>2026-06-28T13:46:20.117Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <loc>https://inzira.co/category/Petrol Car</loc>
+    <lastmod>2026-07-24T06:29:11.222Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://inzira.co/vehicle/8cebe96f-e683-40e9-a09a-e8eed117f435</loc>
-    <lastmod>2026-06-23T19:33:03.791Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/46e35ec7-5f41-44bd-ba39-fb2efb881dd0</loc>
-    <lastmod>2026-06-28T06:26:58.588Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/75805e03-2c14-4228-9fe6-e18769fd06cf</loc>
-    <lastmod>2026-06-28T14:55:41.322Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/9e9263c7-c5c6-42b6-843e-6ae6573acfa5</loc>
-    <lastmod>2026-06-22T10:50:11.574Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/fe6ea64b-29da-4786-a6e6-7c7b8f0c855b</loc>
-    <lastmod>2026-06-23T15:32:52.055Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/89d634c8-9c4f-4f32-b7e2-e5c3a711f674</loc>
-    <lastmod>2026-06-22T22:48:50.978Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/1e603250-441b-4313-91de-c5a64f6ae7af</loc>
-    <lastmod>2026-06-28T14:55:58.697Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/607c734a-79a2-4788-b118-7ef5f2b114ae</loc>
-    <lastmod>2026-06-28T14:38:25.344Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/77c16ac8-8fde-40b1-ad62-bacffc1d3b83</loc>
-    <lastmod>2026-06-22T10:50:54.256Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/a6b25588-77c7-4d19-a293-c575d48bb2d9</loc>
-    <lastmod>2026-06-22T10:51:01.442Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/0c3047d0-d847-4d2e-80db-b411d4a35e8f</loc>
-    <lastmod>2026-06-22T23:20:55.359Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/69a521c1-f1cf-4147-a268-0e111aa425e2</loc>
-    <lastmod>2026-06-22T10:51:18.661Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/ccc933eb-dad1-4d82-b6f5-e815fd63c2fb</loc>
-    <lastmod>2026-06-22T22:49:39.469Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/cf56a3ec-cc3d-4427-bee6-494142d7a0df</loc>
-    <lastmod>2026-06-22T10:52:07.706Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/498db82a-084a-473d-8b6c-e8c1b47f7bfa</loc>
-    <lastmod>2026-06-22T10:52:13.309Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/0946bf55-03c0-4915-9623-e78bda2e4909</loc>
-    <lastmod>2026-06-22T10:52:19.232Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/3247b79e-9b1e-41b1-b6ce-03eb9e657c91</loc>
-    <lastmod>2026-06-22T10:52:28.788Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/015e7eeb-c7c2-47fb-857d-b6f6fc42be11</loc>
-    <lastmod>2026-06-22T10:54:39.895Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/vehicle/82536537-0d42-4ff1-8f3c-e1fb84da8279</loc>
-    <lastmod>2026-06-22T10:54:47.140Z</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://inzira.co/category/Full Electric car</loc>
-    <lastmod>2026-06-17T08:09:24.806Z</lastmod>
+    <loc>https://inzira.co/category/Diessel Car</loc>
+    <lastmod>2026-07-30T21:52:16.823Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://inzira.co/category/Hybrid Car</loc>
-    <lastmod>2026-06-17T08:09:46.408Z</lastmod>
+    <lastmod>2026-07-30T21:52:32.308Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://inzira.co/category/Petrol Car</loc>
-    <lastmod>2026-06-17T08:08:10.272Z</lastmod>
+    <loc>https://inzira.co/category/Electric car</loc>
+    <lastmod>2026-07-30T21:52:44.525Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/category/Motorcycle</loc>
+    <lastmod>2026-07-30T21:54:05.614Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://inzira.co/category/Electric Motorcycle</loc>
+    <lastmod>2026-07-30T21:54:59.293Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>

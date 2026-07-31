@@ -29,7 +29,8 @@ import { getAuthUser, logout } from "@/lib/userPreference";
 import { fetchCategories, type Category } from "@/lib/api-categories";
 import { Image } from "expo-image";
 import { resolveImageUrl } from "@/lib/image-url";
-import { VEHICLE_BRAND_OPTIONS } from "@/constants/vehicle-brands";
+import { VEHICLE_BRAND_OPTIONS, filterBrandGroups } from "@/constants/vehicle-brands";
+import { Toast } from "@/components/Toast";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,19 @@ const COLOR_DOTS: Record<string, string> = {
 const FUEL_TYPE_OPTIONS = [
   "Petrol","Diesel","Hybrid","Electric","CNG","LPG",
 ] as const;
+
+// Fuel type icons mapping - using the same custom image assets as sell.tsx
+const FUEL_TYPE_ICONS: Record<string, any> = {
+  Electric: require('@/assets/customericons/chargingelectric.png'),
+  Hybrid: require('@/assets/customericons/hybrid.png'),
+  Diesel: require('@/assets/customericons/diesel.png'),
+  Petrol: require('@/assets/customericons/petrol-pump.png'),
+  CNG: "cloud.fill", // Fallback to SF Symbol for CNG/LPG
+  LPG: "cloud.fill",
+};
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 1990 + 1 }, (_, i) => String(CURRENT_YEAR - i));
 
 const TRANSMISSION_OPTIONS = [
   "Automatic","Manual","Semi-Automatic","CVT",
@@ -224,6 +238,7 @@ export default function EditVehicleScreen() {
   }, []);
 
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width, height } = useWindowDimensions();
@@ -254,9 +269,15 @@ export default function EditVehicleScreen() {
   const [color, setColor] = useState("");
   const [transmission, setTransmission] = useState("");
   const [engineSize, setEngineSize] = useState("");
+  const [batteryRange, setBatteryRange] = useState("");
   const [driveType, setDriveType] = useState("");
   const [bodyType, setBodyType] = useState("");
   const [vehicleIdentificationDoc, setVehicleIdentificationDoc] = useState<string | null>(null);
+  const [sellerType, setSellerType] = useState<'individual' | 'company' | undefined>(undefined);
+
+  const [showYearSelector, setShowYearSelector] = useState(false);
+  const [yearDropdownPos, setYearDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const yearTriggerRef = useRef<View>(null);
 
   const [showFuelTypeSelector, setShowFuelTypeSelector] = useState(false);
   const [fuelTypeDropdownPos, setFuelTypeDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -278,11 +299,19 @@ export default function EditVehicleScreen() {
   const [status, setStatus] = useState("");
   const [mileage, setMileage] = useState("");
   const [price, setPrice] = useState("");
+  const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  // ── Inventory (business sellers only, UI/local-storage feature) ────────────
+  const [quantity, setQuantity] = useState("");
+  const [differentColors, setDifferentColors] = useState(false);
+  const [colorLabels, setColorLabels] = useState<{ color: string; count: string }[]>([
+    { color: "", count: "" },
+  ]);
   const [images, setImages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [toast, setToast] = useState<{ title: string; body?: string; icon?: string } | null>(null);
   const [showColorSelector, setShowColorSelector] = useState(false);
   const [colorSearch, setColorSearch] = useState("");
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -309,10 +338,10 @@ export default function EditVehicleScreen() {
     return !query ? categories : categories.filter((cat) => cat.name.toLowerCase().includes(query));
   }, [categorySearch, categories]);
 
-  const filteredBrands = useMemo(() => {
-    const query = brandSearch.trim().toLowerCase();
-    return !query ? VEHICLE_BRAND_OPTIONS : VEHICLE_BRAND_OPTIONS.filter((o) => o.toLowerCase().includes(query));
-  }, [brandSearch]);
+  // Brands grouped by origin for the picker. Stored value is still the plain
+  // brand name — grouping is display-only.
+  const filteredBrandGroups = useMemo(() => filterBrandGroups(brandSearch), [brandSearch]);
+  const hasBrandResults = useMemo(() => filteredBrandGroups.length > 0, [filteredBrandGroups]);
 
   const filteredBodyTypes = useMemo(() => {
     const query = bodyTypeSearch.trim().toLowerCase();
@@ -368,6 +397,9 @@ export default function EditVehicleScreen() {
   const openBrandSelector = () => { setBrandSearch(""); setShowBrandSelector(true); setBrandDropdownPos(getWebPos(brandTriggerRef)); };
   const handleSelectBrand = (selected: string) => { setBrand(selected); setShowBrandSelector(false); };
 
+  const openYearSelector = () => { setShowYearSelector(true); setYearDropdownPos(getWebPos(yearTriggerRef)); };
+  const handleSelectYear = (selected: string) => { setYear(selected); setShowYearSelector(false); };
+
   const openFuelTypeSelector = () => { setShowFuelTypeSelector(true); setFuelTypeDropdownPos(getWebPos(fuelTypeTriggerRef)); };
   const handleSelectFuelType = (value: string) => { setFuelType(value); setShowFuelTypeSelector(false); };
 
@@ -408,14 +440,28 @@ export default function EditVehicleScreen() {
           setColor(vehicle.color || "");
           setTransmission(vehicle.transmission || "");
           setEngineSize((vehicle as any).engineSize || "");
+          setBatteryRange((vehicle as any).batteryRange || "");
           setDriveType((vehicle as any).driveType || "");
           setBodyType((vehicle as any).bodyType || "");
           setVehicleIdentificationDoc((vehicle as any).vehicleIdentificationDoc || null);
+          setSellerType(vehicle.sellerType);
           setStatus(vehicle.usageStatus || "");
           setMileage(vehicle.mileage?.toString() || "");
           setPrice(vehicle.price.toString());
+          setLocation(vehicle.location || "");
           setDescription(vehicle.description || "");
           setImages(vehicle.images || []);
+
+          // Prefill inventory (from backend) for this listing.
+          const qty = Number((vehicle as any).quantity || 0);
+          if (qty > 1) {
+            setQuantity(String(qty));
+            const labels = (vehicle as any).colorLabels;
+            if (Array.isArray(labels) && labels.length > 0) {
+              setDifferentColors(true);
+              setColorLabels(labels.map((c: any) => ({ color: String(c.color), count: String(c.count) })));
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to load vehicle:", err);
@@ -452,11 +498,12 @@ export default function EditVehicleScreen() {
     if (!year.trim()) missing.push("Year");
     if (!selectedCategoryId) missing.push("Category");
     if (!fuelType.trim()) missing.push("Fuel Type");
-    if (!color.trim()) missing.push("Primary Color");
+    if (!color.trim()) missing.push("Color");
     if (!transmission.trim()) missing.push("Transmission");
     if (!status.trim()) missing.push("Status");
     if (!mileage.trim()) missing.push("Mileage");
     if (!price.trim()) missing.push("Price");
+    if (!location.trim()) missing.push("Location");
     if (!description.trim()) missing.push("Description");
     if (missing.length > 0) {
       const message = `Please fill in: ${missing.join(", ")}`;
@@ -481,6 +528,20 @@ export default function EditVehicleScreen() {
     }
     setIsSaving(true);
     try {
+      // Inventory for business sellers (backend-tracked). Sending quantity=1
+      // clears tracking; the backend preserves already-sold units on edit.
+      const qty = parseInt(quantity, 10);
+      const isCompanyMulti = sellerType === 'company' && Number.isFinite(qty) && qty > 1;
+      const inventoryColorLabels = isCompanyMulti
+        ? (differentColors
+            ? colorLabels
+                .map((c) => ({ color: c.color.trim(), count: parseInt(c.count, 10) || 0 }))
+                .filter((c) => c.color.length > 0 && c.count > 0)
+            : color.trim()
+              ? [{ color: color.trim(), count: qty }]
+              : [])
+        : [];
+
       await updateVehicle(id, {
         title: listingTitle.trim(), brand: brand.trim(), model: model.trim(), year: year.trim(),
         categoryId: selectedCategoryId,
@@ -489,12 +550,19 @@ export default function EditVehicleScreen() {
         bodyType: bodyType.trim() || undefined,
         fuelType: fuelType.trim(), color: color.trim(), transmission: transmission.trim(),
         usageStatus, mileage: mileage.trim(), price: parsedPrice,
-        description: description.trim(), engineSize: engineSize.trim() || undefined,
+        location: location.trim(),
+        description: description.trim(),
+        engineSize: fuelType === 'Electric' ? undefined : (engineSize.trim() || undefined),
+        batteryRange: fuelType === 'Electric' ? (batteryRange.trim() || undefined) : undefined,
         driveType: driveType || undefined,
         vehicleIdentificationDoc: vehicleIdentificationDoc || undefined,
         images,
+        quantity: sellerType === 'company' ? (isCompanyMulti ? qty : 1) : undefined,
+        colorLabels: inventoryColorLabels,
       });
+
       setSubmitMessage({ type: "success", text: "Vehicle updated successfully." });
+      setToast({ title: "Listing updated", body: "Your changes were saved successfully.", icon: "checkmark.circle.fill" });
       if (!isWeb) Alert.alert("Success", "Vehicle updated successfully!");
       router.back();
     } catch (err: any) {
@@ -506,6 +574,7 @@ export default function EditVehicleScreen() {
         return;
       }
       setSubmitMessage({ type: "error", text: errorMessage });
+      setToast({ title: "Update failed", body: errorMessage, icon: "exclamationmark.circle.fill" });
       if (!isWeb) Alert.alert("Error", errorMessage);
     } finally {
       setIsSaving(false);
@@ -539,6 +608,26 @@ export default function EditVehicleScreen() {
     }
   };
 
+  const handleTakePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      const message = "Please allow access to your camera.";
+      setSubmitMessage({ type: "error", text: message });
+      if (!isWeb) Alert.alert("Permission required", message);
+      return;
+    }
+    if (images.length >= 6) {
+      const message = "You can upload up to 6 images only.";
+      setSubmitMessage({ type: "error", text: message });
+      if (!isWeb) Alert.alert("Limit reached", message);
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.7, base64: false });
+    if (!result.canceled && result.assets[0]) {
+      setImages((prev) => [...prev, result.assets[0].uri as string].slice(0, 6));
+    }
+  };
+
   const handlePickVehicleIdentificationDoc = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -548,6 +637,56 @@ export default function EditVehicleScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: false, quality: 0.8, base64: false });
     if (!result.canceled && result.assets[0]) setVehicleIdentificationDoc(result.assets[0].uri);
+  };
+
+  const handleTakeVehicleIdentificationDocPhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      if (!isWeb) Alert.alert("Permission required", "Please allow access to your camera.");
+      setSubmitMessage({ type: "error", text: "Please allow access to your camera." });
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8, base64: false });
+    if (!result.canceled && result.assets[0]) setVehicleIdentificationDoc(result.assets[0].uri);
+  };
+
+  // Lets a slot in the 10-box image grid be filled from either the gallery or the camera.
+  const handlePickImageForSlot = (index: number) => {
+    Alert.alert("Add photo", "Choose an option", [
+      {
+        text: "Take Photo",
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) {
+            setSubmitMessage({ type: "error", text: "Please allow access to your camera." });
+            return;
+          }
+          const r = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.7, base64: false });
+          if (!r.canceled && r.assets[0]) {
+            const newImages = [...images];
+            newImages[index] = r.assets[0].uri;
+            setImages(newImages);
+          }
+        },
+      },
+      {
+        text: "Choose from Gallery",
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) {
+            setSubmitMessage({ type: "error", text: "Please allow access to your photo library." });
+            return;
+          }
+          const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsMultipleSelection: false, quality: 0.7, base64: false });
+          if (!r.canceled && r.assets[0]) {
+            const newImages = [...images];
+            newImages[index] = r.assets[0].uri;
+            setImages(newImages);
+          }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   // ── Loading skeleton (restyled) ─────────────────────────────────────────────
@@ -599,6 +738,15 @@ export default function EditVehicleScreen() {
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
     <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      {!!toast && (
+        <Toast
+          visible={!!toast}
+          title={toast.title}
+          body={toast.body}
+          icon={toast.icon}
+          onHide={() => setToast(null)}
+        />
+      )}
 
       {/* ── Header ── */}
       <View style={[S.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
@@ -649,46 +797,145 @@ export default function EditVehicleScreen() {
 
           {/* ══════════ PHOTOS ══════════ */}
           <FormCard colors={colors}>
-            <SectionHead icon="photo" title="Vehicle Photos" subtitle="Up to 6 photos · First photo is the cover" colors={colors} />
+            <SectionHead icon="photo" title="Vehicle Photos" subtitle="Upload photos in the order shown below" colors={colors} />
 
-            {images.length > 0 && (
-              <View style={S.photosGrid}>
-                {images.map((uri, index) => (
-                  <View key={index} style={S.photoThumb}>
-                    <Image source={{ uri: resolveImageUrl(uri) }} style={S.photoThumbImg} contentFit="cover" />
-                    {index === 0 && (
-                      <View style={S.coverBadge}>
-                        <ThemedText style={{ fontSize: 9, color: "#fff", fontWeight: "700", letterSpacing: 0.3 }}>COVER</ThemedText>
+            {/* Info banner */}
+            <View style={{ backgroundColor: `${colors.primary}12`, borderRadius: 10, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+              <IconSymbol name="info.circle.fill" size={16} color={colors.primary} style={{ marginTop: 2 }} />
+              <ThemedText style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 19 }}>
+                The first image is your cover photo. Upload images in order for best results.
+              </ThemedText>
+            </View>
+
+            {/* Labeled image boxes (10 boxes, 6 required) */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+              {[
+                { label: "Front View", required: true },
+                { label: "Rear View", required: true },
+                { label: "Driver Side", required: true },
+                { label: "Passenger Side", required: true },
+                { label: "Interior", required: true },
+                { label: "Dashboard", required: true },
+                { label: "Engine", required: false },
+                { label: "Trunk/Boot", required: false },
+                { label: "Wheel/Tire", required: false },
+                { label: "Extra Detail", required: false },
+              ].map((item, i) => (
+                <View key={i} style={{ width: isDesktopWeb ? 'calc(20% - 8px)' as any : 'calc(50% - 5px)' as any }}>
+                  <TouchableOpacity
+                    style={[{
+                      aspectRatio: 1,
+                      borderRadius: 12,
+                      borderWidth: images[i] ? 0 : 1.5,
+                      borderStyle: images[i] ? 'solid' : 'dashed',
+                      borderColor: colors.border,
+                      backgroundColor: images[i] ? colors.card : colors.background,
+                      overflow: 'hidden',
+                      position: 'relative',
+                    }]}
+                    onPress={() => {
+                      if (images[i]) return; // Don't allow re-upload in same slot
+                      handlePickImageForSlot(i);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    {images[i] ? (
+                      <>
+                        <Image source={{ uri: resolveImageUrl(images[i]) }} style={{ width: '100%', height: '100%' }} contentFit="cover" />
+                        <TouchableOpacity
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            right: 6,
+                            backgroundColor: 'rgba(255,255,255,0.9)',
+                            borderRadius: 12,
+                            width: 24,
+                            height: 24,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                          onPress={() => handleDeleteImage(i)}
+                        >
+                          <IconSymbol name="xmark" size={14} color="#EF4444" />
+                        </TouchableOpacity>
+                        {i === 0 && (
+                          <View style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            paddingVertical: 4,
+                            alignItems: 'center',
+                          }}>
+                            <ThemedText style={{ fontSize: 9, color: '#fff', fontWeight: '700', letterSpacing: 0.3 }}>COVER</ThemedText>
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 8 }}>
+                        <IconSymbol name="plus.circle.fill" size={26} color={colors.primary} style={{ opacity: 0.6 }} />
                       </View>
                     )}
-                    <TouchableOpacity style={S.photoDeleteBtn} onPress={() => handleDeleteImage(index)}>
-                      <IconSymbol name="trash" size={13} color="#fff" />
-                    </TouchableOpacity>
+                  </TouchableOpacity>
+                  <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                    <ThemedText style={{ fontSize: 11, color: colors.icon, textAlign: 'center' }}>
+                      {item.label}
+                    </ThemedText>
+                    {item.required && <ThemedText style={{ fontSize: 11, color: '#EF4444' }}>*</ThemedText>}
                   </View>
-                ))}
-              </View>
-            )}
+                </View>
+              ))}
+            </View>
 
-            <TouchableOpacity
-              style={[S.photoAddZone, {
-                borderColor: colors.border,
-                backgroundColor: colors.background,
-                opacity: images.length >= 6 ? 0.5 : 1,
-              }]}
-              onPress={handlePickImages}
-              disabled={images.length >= 6}
-              activeOpacity={0.8}
-            >
-              <View style={[S.photoAddIcon, { backgroundColor: `${colors.primary}18` }]}>
-                <IconSymbol name="plus.circle.fill" size={26} color={colors.primary} />
-              </View>
-              <ThemedText style={{ fontWeight: "600", fontSize: 13, color: colors.text, marginTop: 10 }}>
-                {images.length >= 6 ? "Maximum photos reached (6/6)" : `Add More Photos (${images.length}/6)`}
-              </ThemedText>
-              <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 3 }}>
-                Tap to upload additional images
-              </ThemedText>
-            </TouchableOpacity>
+            {/* Quick action buttons */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={[{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                }]}
+                onPress={handlePickImages}
+                activeOpacity={0.8}
+              >
+                <IconSymbol name="photo.on.rectangle" size={18} color={colors.primary} />
+                <ThemedText style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                  Choose Multiple
+                </ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                }]}
+                onPress={handleTakePhoto}
+                activeOpacity={0.8}
+              >
+                <IconSymbol name="camera.fill" size={18} color={colors.primary} />
+                <ThemedText style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>
+                  Take Photo
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
+            <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 16, textAlign: 'center' }}>
+              Upload your best photo first — it will become the cover image displayed on search results and cards.
+            </ThemedText>
           </FormCard>
 
           {/* ══════════ VEHICLE INFORMATION ══════════ */}
@@ -725,10 +972,8 @@ export default function EditVehicleScreen() {
             <View style={S.row}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Field label="Year" required>
-                  <TextInput
-                    style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    value={year} onChangeText={setYear} placeholder="YYYY" placeholderTextColor={colors.icon} keyboardType="numeric"
-                  />
+                  <SelectorTrigger value={year} placeholder="Select year" onPress={openYearSelector}
+                    colors={colors} open={showYearSelector} isDesktopWeb={isDesktopWeb} triggerRef={yearTriggerRef} />
                 </Field>
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
@@ -747,8 +992,26 @@ export default function EditVehicleScreen() {
             <View style={S.row}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Field label="Fuel Type" required>
-                  <SelectorTrigger value={fuelType} placeholder="Select fuel type" onPress={openFuelTypeSelector}
-                    colors={colors} open={showFuelTypeSelector} isDesktopWeb={isDesktopWeb} triggerRef={fuelTypeTriggerRef} />
+                  <View ref={fuelTypeTriggerRef} collapsable={false}>
+                    <TouchableOpacity
+                      style={[S.selectorTrigger, { backgroundColor: colors.background, borderColor: colors.border }]}
+                      onPress={openFuelTypeSelector} activeOpacity={0.85}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 8 }}>
+                        {fuelType && FUEL_TYPE_ICONS[fuelType] ? (
+                          typeof FUEL_TYPE_ICONS[fuelType] === "string" ? (
+                            <IconSymbol name={FUEL_TYPE_ICONS[fuelType]} size={16} color={colors.primary} />
+                          ) : (
+                            <Image source={FUEL_TYPE_ICONS[fuelType]} style={{ width: 18, height: 18 }} contentFit="contain" />
+                          )
+                        ) : null}
+                        <ThemedText style={{ color: fuelType ? colors.text : colors.icon, fontSize: 14 }}>
+                          {fuelType || "Select fuel type"}
+                        </ThemedText>
+                      </View>
+                      <IconSymbol name={showFuelTypeSelector && isDesktopWeb ? "chevron.up" : "chevron.down"} size={16} color={colors.icon} />
+                    </TouchableOpacity>
+                  </View>
                 </Field>
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
@@ -761,13 +1024,23 @@ export default function EditVehicleScreen() {
 
             <View style={S.row}>
               <View style={{ flex: 1, marginRight: 8 }}>
-                <Field label="Engine Size">
-                  <TextInput
-                    style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    placeholder="e.g. 2.0L, 1500cc" placeholderTextColor={colors.icon}
-                    value={engineSize} onChangeText={setEngineSize}
-                  />
-                </Field>
+                {fuelType === "Electric" ? (
+                  <Field label="Battery Range (km)">
+                    <TextInput
+                      style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                      placeholder="e.g. 400" placeholderTextColor={colors.icon} keyboardType="numeric"
+                      value={batteryRange} onChangeText={setBatteryRange}
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Engine Size">
+                    <TextInput
+                      style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                      placeholder="e.g. 2.0L, 1500cc" placeholderTextColor={colors.icon}
+                      value={engineSize} onChangeText={setEngineSize}
+                    />
+                  </Field>
+                )}
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Field label="Drive Type">
@@ -786,9 +1059,9 @@ export default function EditVehicleScreen() {
               </View>
             </View>
 
-            <Field label="Primary Color" required>
+            <Field label="Color" required>
               <SelectorTrigger
-                value={color} placeholder="Select primary color" onPress={openColorSelector}
+                value={color} placeholder="Select color" onPress={openColorSelector}
                 colors={colors} open={showColorSelector} isDesktopWeb={isDesktopWeb} triggerRef={colorTriggerRef}
                 colorDot={color ? (COLOR_DOTS[color] ?? undefined) : undefined}
               />
@@ -799,14 +1072,25 @@ export default function EditVehicleScreen() {
             <View style={S.row}>
               <View style={{ flex: 1, marginRight: 8 }}>
                 <Field label="Usage Status" required>
-                  <ChipGroup options={USAGE_STATUS_OPTIONS} value={status} onChange={setStatus} colors={colors} />
+                  <ChipGroup
+                    options={USAGE_STATUS_OPTIONS}
+                    value={status}
+                    onChange={(v) => {
+                      setStatus(v);
+                      // Brand new cars have no mileage — force 0 and lock the field.
+                      if (v === "Brand New") setMileage("0");
+                      else if (mileage === "0") setMileage("");
+                    }}
+                    colors={colors}
+                  />
                 </Field>
               </View>
               <View style={{ flex: 1, marginLeft: 8 }}>
                 <Field label="Mileage (km)" required>
                   <TextInput
-                    style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    value={mileage} onChangeText={setMileage} placeholder="0" placeholderTextColor={colors.icon} keyboardType="numeric"
+                    style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text, opacity: status === "Brand New" ? 0.5 : 1 }]}
+                    value={status === "Brand New" ? "0" : mileage} onChangeText={setMileage} placeholder="0" placeholderTextColor={colors.icon} keyboardType="numeric"
+                    editable={status !== "Brand New"}
                   />
                 </Field>
               </View>
@@ -830,6 +1114,14 @@ export default function EditVehicleScreen() {
               </View>
             </Field>
 
+            <Field label="Location" required>
+              <TextInput
+                style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                value={location} onChangeText={setLocation} placeholder="e.g. Kigali, Rwanda"
+                placeholderTextColor={colors.icon}
+              />
+            </Field>
+
             <Field label="Description" required>
               <TextInput
                 style={[S.textarea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
@@ -840,7 +1132,93 @@ export default function EditVehicleScreen() {
             </Field>
           </FormCard>
 
-          {/* ══════════ VEHICLE ID DOCUMENT ══════════ */}
+          {/* ══════════ INVENTORY — business/company sellers only (local UI feature) ══════════ */}
+          {sellerType === 'company' && (
+          <FormCard colors={colors}>
+            <SectionHead icon="square.grid.2x2" title={t("sell.inventoryTitle")} subtitle={t("sell.inventorySubtitle")} colors={colors} />
+
+            <Field label={t("sell.quantityLabel")} hint={t("sell.quantityHint")}>
+              <TextInput
+                style={[S.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                placeholder={t("sell.quantityPlaceholder")}
+                placeholderTextColor={colors.icon}
+                keyboardType="numeric"
+                value={quantity}
+                onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ''))}
+              />
+            </Field>
+
+            {(parseInt(quantity, 10) || 0) > 1 && (
+              <>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}
+                  activeOpacity={0.7}
+                  onPress={() => setDifferentColors((prev) => !prev)}
+                >
+                  <View style={{ flex: 1, paddingRight: 12 }}>
+                    <ThemedText style={S.fieldLabel}>{t("sell.differentColorsLabel")}</ThemedText>
+                    <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 2 }}>
+                      {t("sell.differentColorsHint")}
+                    </ThemedText>
+                  </View>
+                  <View style={{
+                    width: 46, height: 26, borderRadius: 13, padding: 3, justifyContent: 'center',
+                    backgroundColor: differentColors ? colors.primary : colors.border,
+                  }}>
+                    <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', alignSelf: differentColors ? 'flex-end' : 'flex-start' }} />
+                  </View>
+                </TouchableOpacity>
+
+                {differentColors ? (
+                  <View style={{ marginTop: 12, gap: 10 }}>
+                    {colorLabels.map((row, idx) => (
+                      <View key={`color-row-${idx}`} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                        <TextInput
+                          style={[S.input, { flex: 1, backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                          placeholder={t("sell.colorLabelPlaceholder")}
+                          placeholderTextColor={colors.icon}
+                          value={row.color}
+                          onChangeText={(v) => setColorLabels((prev) => prev.map((r, i) => i === idx ? { ...r, color: v } : r))}
+                        />
+                        <TextInput
+                          style={[S.input, { width: 76, backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                          placeholder={t("sell.qtyShort")}
+                          placeholderTextColor={colors.icon}
+                          keyboardType="numeric"
+                          value={row.count}
+                          onChangeText={(v) => setColorLabels((prev) => prev.map((r, i) => i === idx ? { ...r, count: v.replace(/[^0-9]/g, '') } : r))}
+                        />
+                        {colorLabels.length > 1 && (
+                          <TouchableOpacity onPress={() => setColorLabels((prev) => prev.filter((_, i) => i !== idx))}>
+                            <IconSymbol name="trash" size={18} color={colors.icon} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 }}
+                      onPress={() => setColorLabels((prev) => [...prev, { color: "", count: "" }])}
+                    >
+                      <IconSymbol name="plus.circle.fill" size={18} color={colors.primary} />
+                      <ThemedText style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>
+                        {t("sell.addColor")}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  !!color.trim() && (
+                    <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 8 }}>
+                      {t("sell.sameColorHint", { count: parseInt(quantity, 10) || 0, color })}
+                    </ThemedText>
+                  )
+                )}
+              </>
+            )}
+          </FormCard>
+          )}
+
+          {/* ══════════ VEHICLE ID DOCUMENT — not required for company/business listings ══════════ */}
+          {sellerType !== 'company' && (
           <FormCard colors={colors}>
             <SectionHead icon="doc.badge.plus" title="Vehicle ID Document" subtitle="Registration or ownership doc (optional)" colors={colors} />
 
@@ -858,18 +1236,25 @@ export default function EditVehicleScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity
-                style={[S.docUploadZone, { borderColor: colors.border, backgroundColor: colors.background }]}
-                onPress={handlePickVehicleIdentificationDoc}
-                activeOpacity={0.8}
-              >
-                <IconSymbol name="arrow.up.doc" size={20} color={colors.primary} />
-                <ThemedText style={{ fontSize: 13, color: colors.text, marginLeft: 10, fontWeight: "500" }}>
-                  Upload ID Document
-                </ThemedText>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity
+                  style={[S.docUploadZone, { borderColor: colors.border, backgroundColor: colors.background }]}
+                  onPress={handlePickVehicleIdentificationDoc}
+                  activeOpacity={0.8}
+                >
+                  <IconSymbol name="arrow.up.doc" size={20} color={colors.primary} />
+                  <ThemedText style={{ fontSize: 13, color: colors.text, marginLeft: 10, fontWeight: "500" }}>
+                    Upload ID Document
+                  </ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={S.removeDocBtn} onPress={handleTakeVehicleIdentificationDocPhoto}>
+                  <IconSymbol name="camera.fill" size={13} color={colors.primary} />
+                  <ThemedText style={{ fontSize: 12, color: colors.primary, marginLeft: 5, fontWeight: "600" }}>Take Photo Instead</ThemedText>
+                </TouchableOpacity>
+              </View>
             )}
           </FormCard>
+          )}
 
           {/* ══════════ ACTION BUTTONS ══════════ */}
           <View style={S.actionRow}>
@@ -912,7 +1297,7 @@ export default function EditVehicleScreen() {
           <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.5)" }]} onPress={() => setShowColorSelector(false)} />
           <Pressable style={[S.sheet, { backgroundColor: colors.background, height: selectorSheetHeight }]} onPress={(e) => e.stopPropagation?.()}>
             <View style={[S.sheetHandle, { backgroundColor: colors.border }]} />
-            <ThemedText type="defaultSemiBold" style={S.sheetTitle}>Select Primary Color</ThemedText>
+            <ThemedText type="defaultSemiBold" style={S.sheetTitle}>Select Color</ThemedText>
             <View style={[S.sheetSearch, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <IconSymbol name="magnifyingglass" size={15} color={colors.icon} />
               <TextInput style={[S.sheetSearchInput, { color: colors.text }]} value={colorSearch} onChangeText={setColorSearch} placeholder="Search colors..." placeholderTextColor={colors.icon} />
@@ -1018,13 +1403,18 @@ export default function EditVehicleScreen() {
               <TextInput style={[S.sheetSearchInput, { color: colors.text }]} value={brandSearch} onChangeText={setBrandSearch} placeholder="Search brands..." placeholderTextColor={colors.icon} />
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }} contentContainerStyle={{ paddingBottom: insets.bottom }}>
-              {filteredBrands.length === 0 ? (
+              {!hasBrandResults ? (
                 <ThemedText style={{ color: colors.icon, textAlign: "center", marginTop: 20 }}>No brands found matching "{brandSearch}"</ThemedText>
-              ) : filteredBrands.map((opt) => (
-                <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, brand === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectBrand(opt)}>
-                  <ThemedText style={{ fontSize: 14, color: brand === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
-                  {brand === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
-                </TouchableOpacity>
+              ) : filteredBrandGroups.map((group) => (
+                <View key={group.region}>
+                  <ThemedText style={[S.brandGroupHeader, { color: colors.icon }]}>{group.region}</ThemedText>
+                  {group.brands.map((opt) => (
+                    <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, brand === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectBrand(opt)}>
+                      <ThemedText style={{ fontSize: 14, color: brand === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                      {brand === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               ))}
             </ScrollView>
           </Pressable>
@@ -1039,11 +1429,16 @@ export default function EditVehicleScreen() {
               <TextInput style={[S.sheetSearchInput, { color: colors.text }]} value={brandSearch} onChangeText={setBrandSearch} placeholder="Search brands..." placeholderTextColor={colors.icon} />
             </View>
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 240 }}>
-              {filteredBrands.map((opt) => (
-                <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, brand === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectBrand(opt)}>
-                  <ThemedText style={{ fontSize: 14, color: brand === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
-                  {brand === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
-                </TouchableOpacity>
+              {filteredBrandGroups.map((group) => (
+                <View key={group.region}>
+                  <ThemedText style={[S.brandGroupHeader, { color: colors.icon }]}>{group.region}</ThemedText>
+                  {group.brands.map((opt) => (
+                    <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, brand === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectBrand(opt)}>
+                      <ThemedText style={{ fontSize: 14, color: brand === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                      {brand === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               ))}
             </ScrollView>
           </View>
@@ -1060,7 +1455,16 @@ export default function EditVehicleScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 300 }} contentContainerStyle={{ paddingBottom: insets.bottom }}>
               {filteredFuelTypes.map((opt) => (
                 <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, fuelType === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectFuelType(opt)}>
-                  <ThemedText style={{ fontSize: 14, color: fuelType === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                    {FUEL_TYPE_ICONS[opt] ? (
+                      typeof FUEL_TYPE_ICONS[opt] === "string" ? (
+                        <IconSymbol name={FUEL_TYPE_ICONS[opt]} size={16} color={fuelType === opt ? colors.primary : colors.icon} />
+                      ) : (
+                        <Image source={FUEL_TYPE_ICONS[opt]} style={{ width: 18, height: 18 }} contentFit="contain" />
+                      )
+                    ) : null}
+                    <ThemedText style={{ fontSize: 14, color: fuelType === opt ? colors.primary : colors.text }}>{opt}</ThemedText>
+                  </View>
                   {fuelType === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
                 </TouchableOpacity>
               ))}
@@ -1075,8 +1479,51 @@ export default function EditVehicleScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 200 }}>
               {filteredFuelTypes.map((opt) => (
                 <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, fuelType === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectFuelType(opt)}>
-                  <ThemedText style={{ fontSize: 14, color: fuelType === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                    {FUEL_TYPE_ICONS[opt] ? (
+                      typeof FUEL_TYPE_ICONS[opt] === "string" ? (
+                        <IconSymbol name={FUEL_TYPE_ICONS[opt]} size={16} color={fuelType === opt ? colors.primary : colors.icon} />
+                      ) : (
+                        <Image source={FUEL_TYPE_ICONS[opt]} style={{ width: 18, height: 18 }} contentFit="contain" />
+                      )
+                    ) : null}
+                    <ThemedText style={{ fontSize: 14, color: fuelType === opt ? colors.primary : colors.text }}>{opt}</ThemedText>
+                  </View>
                   {fuelType === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
+
+      {/* ── Year ── */}
+      {!isDesktopWeb && (
+        <Modal transparent animationType="slide" visible={showYearSelector} onRequestClose={() => setShowYearSelector(false)}>
+          <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.5)" }]} onPress={() => setShowYearSelector(false)} />
+          <Pressable style={[S.sheet, { backgroundColor: colors.background, height: selectorSheetHeight }]} onPress={(e) => e.stopPropagation?.()}>
+            <View style={[S.sheetHandle, { backgroundColor: colors.border }]} />
+            <ThemedText type="defaultSemiBold" style={S.sheetTitle}>Select Year</ThemedText>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: insets.bottom }}>
+              {YEAR_OPTIONS.map((opt) => (
+                <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, year === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectYear(opt)}>
+                  <ThemedText style={{ fontSize: 14, color: year === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                  {year === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Modal>
+      )}
+      {isDesktopWeb && showYearSelector && yearDropdownPos && (
+        <Modal transparent visible={showYearSelector} onRequestClose={() => setShowYearSelector(false)}>
+          <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: "transparent" }]} onPress={() => setShowYearSelector(false)} />
+          <View style={[S.dropdown, { backgroundColor: colors.background, borderColor: colors.border, top: yearDropdownPos.top, left: yearDropdownPos.left, width: Math.max(yearDropdownPos.width, 140) }]}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 240 }}>
+              {YEAR_OPTIONS.map((opt) => (
+                <TouchableOpacity key={opt} style={[S.optionRow, { borderBottomColor: colors.border }, year === opt && { backgroundColor: `${colors.primary}12` }]} onPress={() => handleSelectYear(opt)}>
+                  <ThemedText style={{ fontSize: 14, color: year === opt ? colors.primary : colors.text, flex: 1 }}>{opt}</ThemedText>
+                  {year === opt && <IconSymbol name="checkmark" size={16} color={colors.primary} />}
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -1295,6 +1742,7 @@ const S = StyleSheet.create({
   photoDeleteBtn: { position: "absolute", top: 5, right: 5, width: 26, height: 26, borderRadius: 13, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center" },
   photoAddZone: { borderWidth: 1.5, borderStyle: "dashed", borderRadius: 12, padding: 24, alignItems: "center" },
   photoAddIcon: { width: 50, height: 50, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  cameraBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 10, paddingVertical: 12, marginTop: 10 },
 
   // Doc upload
   docUploadZone: { borderWidth: 1, borderStyle: "dashed", borderRadius: 10, padding: 16, flexDirection: "row", alignItems: "center" },
@@ -1329,6 +1777,10 @@ const S = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingVertical: 12, paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth, borderRadius: 8,
+  },
+  brandGroupHeader: {
+    fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6,
+    paddingHorizontal: 8, paddingTop: 14, paddingBottom: 6, opacity: 0.7,
   },
 
   // Desktop dropdown

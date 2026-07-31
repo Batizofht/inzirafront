@@ -12,15 +12,15 @@ import { apiRequest } from '@/lib/api-client';
 import { clearLocalAuthSession } from '@/lib/userPreference';
 
 export default function PrivacyScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'Privacy Settings | Inzira';
-    }
-  }, []);
-
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('settings.privacyPageTitle');
+    }
+  }, [t]);
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with contact/sell)
@@ -72,7 +72,7 @@ export default function PrivacyScreen() {
   const handleChangePassword = async () => {
     setPwdError(null);
     if (!currentPassword || !newPassword) {
-      setPwdError('Please fill both fields');
+      setPwdError(t('settings.fillBothFields'));
       return;
     }
     try {
@@ -81,7 +81,7 @@ export default function PrivacyScreen() {
       setCurrentPassword('');
       setNewPassword('');
     } catch (e: any) {
-      setPwdError(e?.message || 'Failed to change password');
+      setPwdError(e?.message || t('settings.failedChangePassword'));
     }
   };
 
@@ -97,11 +97,11 @@ export default function PrivacyScreen() {
       <Modal transparent animationType="fade" visible={showPwdModal} onRequestClose={() => setShowPwdModal(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowPwdModal(false)}>
           <Pressable style={[styles.modalContainer, { backgroundColor: colors.background }]} onPress={() => {}}>
-            <ThemedText type="defaultSemiBold" style={styles.modalTitle}>Change Password</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.modalTitle}>{t('settings.changePassword')}</ThemedText>
             {pwdError && <ThemedText style={[styles.errorText, { color: '#DC2626' }]}>{pwdError}</ThemedText>}
             <TextInput
               style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="Current password"
+              placeholder={t('settings.currentPassword')}
               placeholderTextColor={colors.icon}
               secureTextEntry
               value={currentPassword}
@@ -109,7 +109,7 @@ export default function PrivacyScreen() {
             />
             <TextInput
               style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-              placeholder="New password"
+              placeholder={t('settings.newPassword')}
               placeholderTextColor={colors.icon}
               secureTextEntry
               value={newPassword}
@@ -117,10 +117,10 @@ export default function PrivacyScreen() {
             />
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowPwdModal(false)}>
-                <ThemedText style={{ fontWeight: '600' }}>Cancel</ThemedText>
+                <ThemedText style={{ fontWeight: '600' }}>{t('settings.cancel')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.submitBtn, { backgroundColor: colors.primary }]} onPress={handleChangePassword}>
-                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Update</ThemedText>
+                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('settings.update')}</ThemedText>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -133,12 +133,12 @@ export default function PrivacyScreen() {
         showsVerticalScrollIndicator={isDesktopWeb} 
         contentContainerStyle={[styles.scrollContent, isDesktopWeb && [styles.webScrollContent, { paddingHorizontal: webPaddingHorizontal }]]}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Security</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.security')}</ThemedText>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
               <View style={styles.rowText}>
-                <ThemedText style={styles.label}>Two-Factor Authentication</ThemedText>
-                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>Secure your account with OTP</ThemedText>
+                <ThemedText style={styles.label}>{t('settings.twoFactor')}</ThemedText>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('settings.twoFactorDesc')}</ThemedText>
               </View>
               {isLoaded ? (
                 <TouchableOpacity 
@@ -153,19 +153,19 @@ export default function PrivacyScreen() {
               )}
             </View>
             <TouchableOpacity style={styles.row} onPress={() => setShowPwdModal(true)}>
-              <ThemedText style={styles.label}>Change Password</ThemedText>
+              <ThemedText style={styles.label}>{t('settings.changePassword')}</ThemedText>
               <IconSymbol name="chevron.right" size={20} color={colors.icon} />
             </TouchableOpacity>
           </View>
         </View>
         
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Privacy</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.privacy')}</ThemedText>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.row}>
               <View style={styles.rowText}>
-                <ThemedText style={styles.label}>Data Sharing</ThemedText>
-                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>Allow analytics to improve app</ThemedText>
+                <ThemedText style={styles.label}>{t('settings.dataSharing')}</ThemedText>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('settings.dataSharingDesc')}</ThemedText>
               </View>
               {isLoaded ? (
                 <TouchableOpacity 
@@ -183,18 +183,18 @@ export default function PrivacyScreen() {
         </View>
 
         <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
-          <ThemedText style={styles.deleteButtonText}>Delete Account</ThemedText>
+          <ThemedText style={styles.deleteButtonText}>{t('settings.deleteAccount')}</ThemedText>
         </TouchableOpacity>
       </ScrollView>
       {/* Delete Account Modal */}
       <Modal transparent animationType="fade" visible={showDeleteModal} onRequestClose={() => setShowDeleteModal(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowDeleteModal(false)}>
           <Pressable style={[styles.modalContainer, { backgroundColor: colors.background }]} onPress={() => {}}>
-            <ThemedText type="defaultSemiBold" style={[styles.modalTitle, { color: colors.text }]}>Confirm Deletion</ThemedText>
-            <ThemedText style={{ color: colors.icon, marginBottom: 12 }}>This will permanently delete your account and all associated data. This action cannot be undone.</ThemedText>
+            <ThemedText type="defaultSemiBold" style={[styles.modalTitle, { color: colors.text }]}>{t('settings.confirmDeletion')}</ThemedText>
+            <ThemedText style={{ color: colors.icon, marginBottom: 12 }}>{t('settings.deleteAccountDesc')}</ThemedText>
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowDeleteModal(false)} disabled={deleting}>
-                <ThemedText style={{ fontWeight: '600' }}>Cancel</ThemedText>
+                <ThemedText style={{ fontWeight: '600' }}>{t('settings.cancel')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#DC2626', opacity: deleting ? 0.7 : 1 }]} onPress={async () => {
                 setDeleting(true);
@@ -208,7 +208,7 @@ export default function PrivacyScreen() {
                   setDeleting(false);
                 }
               }}>
-                <ThemedText style={{ color: '#fff', fontWeight: '700' }}>{deleting ? 'Deleting...' : 'Delete'}</ThemedText>
+                <ThemedText style={{ color: '#fff', fontWeight: '700' }}>{deleting ? t('settings.deleting') : t('settings.delete')}</ThemedText>
               </TouchableOpacity>
             </View>
           </Pressable>

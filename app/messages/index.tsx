@@ -14,15 +14,15 @@ import { fetchConversations, type Conversation } from '@/lib/api-messages';
 import { getAuthUser, getUserType, type UserType } from '@/lib/userPreference';
 
 export default function MessagesScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'Messages | Inzira';
-    }
-  }, []);
-
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('messages.pageTitle');
+    }
+  }, [t]);
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with SearchScreen)
@@ -117,9 +117,9 @@ export default function MessagesScreen() {
 
   const getChatPartner = (conv: Conversation) => {
     if (userType === 'buyer') {
-      return { name: conv.sellerName, phone: conv.sellerPhone, email: conv.sellerEmail, type: 'Seller' };
+      return { name: conv.sellerName, phone: conv.sellerPhone, email: conv.sellerEmail, type: t('messages.seller') };
     } else {
-      return { name: conv.buyerName, phone: conv.buyerPhone, email: conv.buyerEmail, type: 'Buyer' };
+      return { name: conv.buyerName, phone: conv.buyerPhone, email: conv.buyerEmail, type: t('messages.buyer') };
     }
   };
 
@@ -132,13 +132,13 @@ export default function MessagesScreen() {
               <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                 <IconSymbol name="chevron.left" size={22} color={colors.text} />
               </TouchableOpacity>
-              <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('messages.title')}</ThemedText>
            
             </View>
           </View>
         </View>
         <View style={[styles.centerContent, desktopOuterPadding]}>
-          <ThemedText>Loading...</ThemedText>
+          <ThemedText>{t('messages.loading')}</ThemedText>
         </View>
       </View>
     );
@@ -153,7 +153,7 @@ export default function MessagesScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
               <IconSymbol name="chevron.left" size={22} color={colors.text} />
             </TouchableOpacity>
-            <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Messages</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('messages.title')}</ThemedText>
           </View>
         </View>
       </View>
@@ -168,10 +168,10 @@ export default function MessagesScreen() {
             <View style={[styles.emptyIcon, { backgroundColor: colors.card }]}>
               <IconSymbol name="person.fill" size={32} color={colors.icon} />
             </View>
-            <ThemedText type="defaultSemiBold" style={styles.emptyTitle}>Login Required</ThemedText>
-            <ThemedText style={[styles.emptySubtitle, { color: colors.icon }]}>To see your messages login first</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.emptyTitle}>{t('messages.loginRequired')}</ThemedText>
+            <ThemedText style={[styles.emptySubtitle, { color: colors.icon }]}>{t('messages.loginPrompt')}</ThemedText>
             <TouchableOpacity style={[styles.browseBtn, { backgroundColor: colors.primary }]} onPress={goToLogin}>
-              <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Login</ThemedText>
+              <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('messages.login')}</ThemedText>
             </TouchableOpacity>
           </View>
         ) : (
@@ -181,11 +181,11 @@ export default function MessagesScreen() {
             <View style={[styles.emptyIcon, { backgroundColor: `${colors.primary}15` }]}>
               <IconSymbol name="message.fill" size={32} color={colors.primary} />
             </View>
-            <ThemedText type="defaultSemiBold" style={styles.emptyTitle}>No messages yet</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.emptyTitle}>{t('messages.noMessagesYet')}</ThemedText>
             <ThemedText style={[styles.emptySubtitle, { color: colors.icon }]}>
               {userType === 'buyer' 
-                ? "Start browsing vehicles and contact sellers"
-                : "Buyers will appear here when they message you"
+                ? t('messages.emptyBuyer')
+                : t('messages.emptySeller')
               }
             </ThemedText>
             {userType === 'buyer' && (
@@ -193,7 +193,7 @@ export default function MessagesScreen() {
                 style={[styles.browseBtn, { backgroundColor: colors.primary }]}
                 onPress={() => router.push('/explore')}
               >
-                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>Browse Vehicles</ThemedText>
+                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('messages.browseVehicles')}</ThemedText>
               </TouchableOpacity>
             )}
           </View>

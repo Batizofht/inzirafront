@@ -12,15 +12,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getAuthUser } from '@/lib/userPreference';
 
 export default function NotificationsScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'Notifications | Inzira';
-    }
-  }, []);
-
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('notificationsPage.pageTitle');
+    }
+  }, [t]);
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -134,12 +134,12 @@ export default function NotificationsScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <IconSymbol name="chevron.left" size={24} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Notifications</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('notificationsPage.title')}</ThemedText>
         </View>
         {!!notifications.length && !isLoading && !isAuthError && (
           <TouchableOpacity style={[styles.deleteAllBtn, { borderColor: colors.border, backgroundColor: colors.card }]} onPress={openDeleteAllModal}>
             <IconSymbol name="trash.fill" size={14} color="#DC2626" />
-            <ThemedText style={styles.deleteAllText}>Delete All</ThemedText>
+            <ThemedText style={styles.deleteAllText}>{t('notificationsPage.deleteAll')}</ThemedText>
           </TouchableOpacity>
         )}
       </View>
@@ -149,19 +149,19 @@ export default function NotificationsScreen() {
         contentContainerStyle={isDesktopWeb && styles.webScrollContent}>
         {isLoading ? (
           <View style={styles.emptyState}>
-            <ThemedText style={{ color: colors.icon }}>Loading...</ThemedText>
+            <ThemedText style={{ color: colors.icon }}>{t('notificationsPage.loading')}</ThemedText>
           </View>
         ) : isAuthError ? (
           <View style={styles.emptyState}>
             <View style={[styles.emptyIconBg, { backgroundColor: colors.card }]}>
               <IconSymbol name="person.fill" size={42} color={colors.icon} />
             </View>
-            <ThemedText style={[styles.emptyStateTitle, { color: colors.text }]}>Login Required</ThemedText>
+            <ThemedText style={[styles.emptyStateTitle, { color: colors.text }]}>{t('notificationsPage.loginRequired')}</ThemedText>
             <ThemedText style={{ color: colors.icon, textAlign: 'center', maxWidth: '80%', marginBottom: 16 }}>
-              To see your notifications login first
+              {t('notificationsPage.loginPrompt')}
             </ThemedText>
             <TouchableOpacity style={[styles.loginButton, { backgroundColor: colors.primary }]} onPress={goToLogin}>
-              <ThemedText style={styles.loginButtonText}>Login</ThemedText>
+              <ThemedText style={styles.loginButtonText}>{t('notificationsPage.login')}</ThemedText>
             </TouchableOpacity>
           </View>
         ) : error ? (
@@ -171,7 +171,7 @@ export default function NotificationsScreen() {
         ) : notifications.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="bell.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
-            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>No new notifications</ThemedText>
+            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>{t('notificationsPage.noNotifications')}</ThemedText>
           </View>
         ) : (
           notifications.map((notif) => (
@@ -215,12 +215,12 @@ export default function NotificationsScreen() {
             <View style={styles.modalHeader}>
               <IconSymbol name="exclamationmark.triangle.fill" size={40} color="#DC2626" />
               <ThemedText type="defaultSemiBold" style={styles.modalTitle}>
-                {deleteMode === 'all' ? 'Delete All Notifications' : 'Delete Notification'}
+                {deleteMode === 'all' ? t('notificationsPage.deleteAllTitle') : t('notificationsPage.deleteOneTitle')}
               </ThemedText>
               <ThemedText style={[styles.modalSubtitle, { color: colors.icon }]}>
                 {deleteMode === 'all'
-                  ? 'This action will remove all your notifications.'
-                  : 'This action will remove this notification.'}
+                  ? t('notificationsPage.deleteAllDesc')
+                  : t('notificationsPage.deleteOneDesc')}
               </ThemedText>
             </View>
 
@@ -230,14 +230,14 @@ export default function NotificationsScreen() {
                 onPress={closeDeleteModal}
                 disabled={isDeleting}
               >
-                <ThemedText style={[styles.cancelBtnText, { color: colors.text }]}>Cancel</ThemedText>
+                <ThemedText style={[styles.cancelBtnText, { color: colors.text }]}>{t('notificationsPage.cancel')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.confirmDeleteBtn, { opacity: isDeleting ? 0.7 : 1 }]}
                 onPress={handleConfirmDelete}
                 disabled={isDeleting}
               >
-                <ThemedText style={styles.confirmDeleteBtnText}>{isDeleting ? 'Deleting...' : 'Delete'}</ThemedText>
+                <ThemedText style={styles.confirmDeleteBtnText}>{isDeleting ? t('notificationsPage.deleting') : t('notificationsPage.delete')}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>

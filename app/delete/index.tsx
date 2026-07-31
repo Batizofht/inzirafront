@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, TextInput, Platform, StatusBar, useWindowDimensions, Alert } from 'react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -14,14 +15,12 @@ import { useAuth } from '@/context/AuthContext';
 
 type Step = 'info' | 'reason' | 'confirm' | 'done';
 
-const DELETE_REASONS = [
-  { id: 'not_useful', label: "I don't find it useful", icon: 'xmark.circle' },
-  { id: 'privacy', label: 'Privacy concerns', icon: 'lock.fill' },
-  { id: 'sold', label: 'I already sold / bought my vehicle', icon: 'checkmark.circle.fill' },
-  { id: 'duplicate', label: 'I have a duplicate account', icon: 'person.2.fill' },
-  { id: 'switching', label: 'Switching to another platform', icon: 'arrow.right.circle.fill' },
-  { id: 'other', label: 'Other reason', icon: 'ellipsis.circle.fill' },
-];
+const DELETE_REASON_IDS = ['not_useful', 'privacy', 'sold', 'duplicate', 'switching', 'other'];
+const DELETE_REASON_ICONS = ['xmark.circle', 'lock.fill', 'checkmark.circle.fill', 'person.2.fill', 'arrow.right.circle.fill', 'ellipsis.circle.fill'];
+const DELETED_DATA_ICONS = ['person.fill', 'car.fill', 'message.fill', 'heart.fill', 'bell.fill', 'creditcard.fill'];
+const RETAINED_DATA_ICONS = ['doc.text.fill', 'shield.fill'];
+const ALTERNATIVE_ICONS = ['bell.slash.fill', 'eye.slash.fill', 'envelope.fill'];
+const ALTERNATIVE_ROUTES = ['/settings/notifications', '/listings', '/contact'];
 
 export default function DeleteAccountScreen() {
   useEffect(() => {
@@ -30,10 +29,18 @@ export default function DeleteAccountScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === 'dark';
   const { logout } = useAuth();
+  const DELETE_REASONS = (t('legal.delete.reasons', { returnObjects: true }) as { label: string }[]).map((r, i) => ({
+    id: DELETE_REASON_IDS[i], label: r.label, icon: DELETE_REASON_ICONS[i],
+  }));
+  const DELETED_DATA = (t('legal.delete.deletedData', { returnObjects: true }) as { title: string; description: string }[]).map((d, i) => ({ ...d, icon: DELETED_DATA_ICONS[i] }));
+  const RETAINED_DATA = (t('legal.delete.retainedData', { returnObjects: true }) as { title: string; description: string }[]).map((d, i) => ({ ...d, icon: RETAINED_DATA_ICONS[i] }));
+  const ALTERNATIVES = (t('legal.delete.alternatives', { returnObjects: true }) as { title: string; desc: string }[]).map((a, i) => ({ ...a, icon: ALTERNATIVE_ICONS[i], route: ALTERNATIVE_ROUTES[i] }));
+  const DONE_STEPS = t('legal.delete.doneSteps', { returnObjects: true }) as string[];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -62,7 +69,7 @@ export default function DeleteAccountScreen() {
       await new Promise((r) => setTimeout(r, 1800)); // simulate network
       setStep('done');
     } catch (err) {
-      Alert.alert('Error', 'Could not delete your account. Please contact support.');
+      Alert.alert(t('legal.delete.deleteErrorTitle'), t('legal.delete.deleteErrorMsg'));
     } finally {
       setIsLoading(false);
     }
@@ -92,11 +99,11 @@ export default function DeleteAccountScreen() {
           />
           <View style={styles.heroContent}>
             <View style={[styles.heroTag, { backgroundColor: 'rgba(239,68,68,0.25)' }]}>
-              <ThemedText style={styles.heroTagText}>Account Management</ThemedText>
+              <ThemedText style={styles.heroTagText}>{t('legal.delete.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>Delete Account</ThemedText>
+            <ThemedText style={styles.heroTitle}>{t('legal.delete.heroTitle')}</ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              This action is permanent and cannot be undone
+              {t('legal.delete.heroSubtitle')}
             </ThemedText>
           </View>
         </View>
@@ -124,7 +131,7 @@ export default function DeleteAccountScreen() {
                       }
                     </View>
                     <ThemedText style={[styles.stepLabel, { color: isActive ? colors.primary : colors.icon }]}>
-                      {s === 'info' ? 'What Happens' : s === 'reason' ? 'Reason' : 'Confirm'}
+                      {s === 'info' ? t('legal.delete.stepWhatHappens') : s === 'reason' ? t('legal.delete.stepReason') : t('legal.delete.stepConfirm')}
                     </ThemedText>
                     {i < 2 && <View style={[styles.stepLine, { backgroundColor: isDone ? '#10B981' : colors.border }]} />}
                   </View>
@@ -139,14 +146,14 @@ export default function DeleteAccountScreen() {
           <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
             <View style={[styles.warningBanner, { backgroundColor: isDark ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.4)' }]}>
               <IconSymbol name="exclamationmark.triangle.fill" size={24} color={errorColor} style={{ marginBottom: 10 }} />
-              <ThemedText style={[styles.warningTitle, { color: errorColor }]}>Before You Continue</ThemedText>
+              <ThemedText style={[styles.warningTitle, { color: errorColor }]}>{t('legal.delete.beforeContinueTitle')}</ThemedText>
               <ThemedText style={[styles.warningText, { color: colors.icon }]}>
-                Deleting your account is permanent. Please read carefully what will be removed.
+                {t('legal.delete.beforeContinueText')}
               </ThemedText>
             </View>
 
             <ThemedText type="defaultSemiBold" style={[styles.listHeading, { marginTop: 24 }]}>
-              What will be permanently deleted:
+              {t('legal.delete.deletedDataTitle')}
             </ThemedText>
             {DELETED_DATA.map((item, index) => (
               <View key={index} style={[styles.dataRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -161,7 +168,7 @@ export default function DeleteAccountScreen() {
             ))}
 
             <ThemedText type="defaultSemiBold" style={[styles.listHeading, { marginTop: 24 }]}>
-              What we retain (legally required):
+              {t('legal.delete.retainedDataTitle')}
             </ThemedText>
             {RETAINED_DATA.map((item, index) => (
               <View key={index} style={[styles.dataRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -177,7 +184,7 @@ export default function DeleteAccountScreen() {
 
             {/* Alternative actions */}
             <View style={[styles.altCard, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 28 }]}>
-              <ThemedText style={styles.altCardTitle}>Consider these alternatives</ThemedText>
+              <ThemedText style={styles.altCardTitle}>{t('legal.delete.alternativesTitle')}</ThemedText>
               {ALTERNATIVES.map((alt, index) => (
                 <TouchableOpacity
                   key={index}
@@ -201,13 +208,13 @@ export default function DeleteAccountScreen() {
                 style={[styles.btnSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => router.back()}
               >
-                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>Cancel</ThemedText>
+                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>{t('legal.delete.cancel')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnDanger, { backgroundColor: errorColor }]}
                 onPress={() => setStep('reason')}
               >
-                <ThemedText style={styles.btnDangerText}>I Understand, Continue</ThemedText>
+                <ThemedText style={styles.btnDangerText}>{t('legal.delete.understandContinue')}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -216,9 +223,9 @@ export default function DeleteAccountScreen() {
         {/* ── STEP 2: REASON ── */}
         {step === 'reason' && (
           <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Why are you leaving?</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.delete.whyLeavingTitle')}</ThemedText>
             <ThemedText style={[styles.sectionSubtitle, { color: colors.icon }]}>
-              Your feedback helps us improve Inzira for everyone.
+              {t('legal.delete.whyLeavingSubtitle')}
             </ThemedText>
 
             <View style={styles.reasonsGrid}>
@@ -251,7 +258,7 @@ export default function DeleteAccountScreen() {
             {selectedReason === 'other' && (
               <TextInput
                 style={[styles.otherInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]}
-                placeholder="Tell us more (optional)..."
+                placeholder={t('legal.delete.otherReasonPlaceholder')}
                 placeholderTextColor={colors.icon}
                 value={otherReason}
                 onChangeText={setOtherReason}
@@ -265,14 +272,14 @@ export default function DeleteAccountScreen() {
                 style={[styles.btnSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => setStep('info')}
               >
-                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>Back</ThemedText>
+                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>{t('legal.delete.back')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.btnDanger, { backgroundColor: errorColor, opacity: selectedReason ? 1 : 0.45 }]}
                 onPress={() => selectedReason && setStep('confirm')}
                 disabled={!selectedReason}
               >
-                <ThemedText style={styles.btnDangerText}>Continue</ThemedText>
+                <ThemedText style={styles.btnDangerText}>{t('legal.delete.continueBtn')}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -299,7 +306,7 @@ export default function DeleteAccountScreen() {
               <View style={[styles.confirmDivider, { backgroundColor: colors.border }]} />
 
               <ThemedText style={[styles.confirmInstructLabel, { color: colors.icon }]}>
-                Type <ThemedText style={{ fontWeight: '800', color: errorColor }}>DELETE</ThemedText> below to confirm
+                {t('legal.delete.typeDeleteConfirm')}
               </ThemedText>
               <TextInput
                 style={[
@@ -310,7 +317,7 @@ export default function DeleteAccountScreen() {
                     color: colors.text,
                   },
                 ]}
-                placeholder="Type DELETE here"
+                placeholder={t('legal.delete.typeDeletePlaceholder')}
                 placeholderTextColor={colors.icon}
                 value={confirmText}
                 onChangeText={setConfirmText}
@@ -321,7 +328,7 @@ export default function DeleteAccountScreen() {
             <View style={[styles.finalWarning, { borderColor: 'rgba(239,68,68,0.35)', backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.05)' }]}>
               <IconSymbol name="clock.fill" size={16} color={errorColor} />
               <ThemedText style={[styles.finalWarningText, { color: colors.icon }]}>
-                Your data will be permanently deleted within <ThemedText style={{ fontWeight: '700', color: colors.text }}>30 days</ThemedText>. This cannot be reversed.
+                {t('legal.delete.finalWarning', { days: t('legal.delete.thirtyDays') })}
               </ThemedText>
             </View>
 
@@ -330,7 +337,7 @@ export default function DeleteAccountScreen() {
                 style={[styles.btnSecondary, { backgroundColor: colors.card, borderColor: colors.border }]}
                 onPress={() => setStep('reason')}
               >
-                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>Back</ThemedText>
+                <ThemedText style={[styles.btnSecondaryText, { color: colors.text }]}>{t('legal.delete.back')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -341,7 +348,7 @@ export default function DeleteAccountScreen() {
                 disabled={confirmText.toUpperCase() !== 'DELETE' || isLoading}
               >
                 <ThemedText style={styles.btnDangerText}>
-                  {isLoading ? 'Deleting...' : 'Permanently Delete Account'}
+                  {isLoading ? t('legal.delete.deleting') : t('legal.delete.permanentlyDelete')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -355,10 +362,9 @@ export default function DeleteAccountScreen() {
               <View style={styles.doneIconWrap}>
                 <IconSymbol name="checkmark.circle.fill" size={64} color="#10B981" />
               </View>
-              <ThemedText style={styles.doneTitle}>Account Deletion Requested</ThemedText>
+              <ThemedText style={styles.doneTitle}>{t('legal.delete.deletionRequestedTitle')}</ThemedText>
               <ThemedText style={[styles.doneSubtitle, { color: colors.icon }]}>
-                Your account deletion has been queued. All your personal data will be permanently removed within 30 days.
-                You will receive a confirmation email once the process is complete.
+                {t('legal.delete.deletionRequestedDesc')}
               </ThemedText>
 
               <View style={[styles.doneStepsCard, { backgroundColor: isDark ? '#111827' : '#F9FAFB', borderColor: colors.border }]}>
@@ -376,7 +382,7 @@ export default function DeleteAccountScreen() {
                 style={[styles.btnDoneBack, { backgroundColor: colors.primary }]}
                 onPress={handleDoneLogout}
               >
-                <ThemedText style={styles.btnDoneBackText}>Close & Logout</ThemedText>
+                <ThemedText style={styles.btnDoneBackText}>{t('legal.delete.closeLogout')}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -387,33 +393,6 @@ export default function DeleteAccountScreen() {
     </View>
   );
 }
-
-const DELETED_DATA = [
-  { icon: 'person.fill', title: 'Profile & Account', description: 'Your name, phone number, email, profile photo, and all account settings.' },
-  { icon: 'car.fill', title: 'Vehicle Listings', description: 'All your active and past vehicle listings, including photos and descriptions.' },
-  { icon: 'message.fill', title: 'Messages & Chats', description: 'All conversations with buyers or sellers through our messaging system.' },
-  { icon: 'heart.fill', title: 'Favorites', description: 'Your saved vehicles and shortlist.' },
-  { icon: 'bell.fill', title: 'Notifications', description: 'All unread notifications and notification history.' },
-  { icon: 'creditcard.fill', title: 'Subscription', description: 'Your active subscription plan will be cancelled immediately with no refund.' },
-];
-
-const RETAINED_DATA = [
-  { icon: 'doc.text.fill', title: 'Transaction Records', description: 'Anonymised records of completed transactions for legal and financial compliance (up to 7 years).' },
-  { icon: 'shield.fill', title: 'Fraud Prevention Logs', description: 'Anonymised signals to prevent re-registration of banned accounts.' },
-];
-
-const ALTERNATIVES = [
-  { icon: 'bell.slash.fill', title: 'Pause Notifications', desc: 'Turn off all emails and push alerts without deleting your account.', route: '/settings/notifications' },
-  { icon: 'eye.slash.fill', title: 'Hide Your Listings', desc: 'Make your listings private so they are not visible to buyers.', route: '/listings' },
-  { icon: 'envelope.fill', title: 'Contact Support', desc: 'Let our team help resolve any issue you are experiencing.', route: '/contact' },
-];
-
-const DONE_STEPS = [
-  'You are now logged out of all Inzira sessions.',
-  'A confirmation email has been sent to your registered address.',
-  'All personal data will be purged within 30 days.',
-  'Anonymised transaction records are retained per legal requirements.',
-];
 
 const styles = StyleSheet.create({
   safeArea: {

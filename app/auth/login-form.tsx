@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Platform, StatusBar, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { useAuth } from '@/context/AuthContext';
 import { LoginSEO } from '@/components/page-meta';
@@ -12,6 +13,7 @@ import { loginWithEmail } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
 
 export default function LoginFormScreen() {
+  const { t } = useTranslation();
   const { refreshUser } = useAuth();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -33,11 +35,12 @@ export default function LoginFormScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
 
   const handleLogin = async () => {
     setError('');
     if (!email.trim() || !password) {
-      setError('Please enter your email and password');
+      setError(t('auth.loginForm.errEnterCredentials'));
       return;
     }
 
@@ -52,7 +55,7 @@ export default function LoginFormScreen() {
         router.replace('/(tabs)/profile' as any);
       }
     } catch (err: any) {
-      const msg = err?.message || 'Login failed';
+      const msg = err?.message || t('auth.loginForm.errLoginFailed');
       // Handle unverified email case
       if (msg.includes('not verified') || err?.data?.requiresVerification) {
         const userId = err?.data?.userId;
@@ -84,7 +87,7 @@ export default function LoginFormScreen() {
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)} style={styles.backBtn}>
           <IconSymbol name="chevron.left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Login</ThemedText>
+        <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('auth.loginForm.headerTitle')}</ThemedText>
         <View style={styles.backBtn} />
       </View>
 
@@ -105,9 +108,9 @@ export default function LoginFormScreen() {
           <IconSymbol name="person.fill" size={48} color={colors.primary} />
         </View>
 
-        <ThemedText type="defaultSemiBold" style={styles.title}>Welcome Back</ThemedText>
+        <ThemedText type="defaultSemiBold" style={styles.title}>{t('auth.loginForm.welcomeBack')}</ThemedText>
         <ThemedText style={[styles.subtitle, { color: colors.icon }]}>
-          Sign in to your Inzira account
+          {t('auth.loginForm.subtitle')}
         </ThemedText>
 
         {!!error && (
@@ -118,9 +121,18 @@ export default function LoginFormScreen() {
         )}
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Email Address</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="envelope.fill" size={18} color={colors.icon} style={styles.inputIcon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.loginForm.emailLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'email' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'email' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="envelope.fill" size={18} color={focusedField === 'email' ? colors.primary : colors.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
               placeholder="you@example.com"
@@ -130,21 +142,34 @@ export default function LoginFormScreen() {
               autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
             />
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Password</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="lock.fill" size={18} color={colors.icon} style={styles.inputIcon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.loginForm.passwordLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'password' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'password' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="lock.fill" size={18} color={focusedField === 'password' ? colors.primary : colors.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Your password"
+              placeholder={t('auth.loginForm.passwordPlaceholder')}
               placeholderTextColor={colors.icon}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
               <IconSymbol name={showPassword ? 'eye.slash.fill' : 'eye.fill'} size={18} color={colors.icon} />
@@ -159,13 +184,13 @@ export default function LoginFormScreen() {
           activeOpacity={0.8}
         >
           <ThemedText style={styles.buttonText}>
-            {isLoading ? 'Signing in...' : 'Login'}
+            {isLoading ? t('auth.loginForm.signingIn') : t('auth.loginForm.loginBtn')}
           </ThemedText>
         </TouchableOpacity>
 
         <View style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
-          <ThemedText style={[styles.dividerText, { color: colors.icon }]}>Don't have an account?</ThemedText>
+          <ThemedText style={[styles.dividerText, { color: colors.icon }]}>{t('auth.loginForm.noAccount')}</ThemedText>
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
@@ -175,7 +200,7 @@ export default function LoginFormScreen() {
           activeOpacity={0.8}
         >
           <ThemedText style={[styles.outlineButtonText, { color: colors.primary }]}>
-            Create Account
+            {t('auth.loginForm.createAccount')}
           </ThemedText>
         </TouchableOpacity>
       </ScrollView>
@@ -243,7 +268,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   inputIcon: {},
-  input: { flex: 1, fontSize: 15 },
+  input: { flex: 1, fontSize: 15, outlineStyle: 'none' as any },
   eyeBtn: { padding: 4 },
   button: {
     width: '100%',

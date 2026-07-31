@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
   Modal,
   View,
@@ -6,10 +6,10 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  useColorScheme as useRNColorScheme,
   TouchableOpacity,
+  useColorScheme as useRNColorScheme,
 } from 'react-native';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Ionicons } from '@expo/vector-icons';
 
 export type PaymentProcessingModalProps = {
   visible: boolean;
@@ -17,9 +17,6 @@ export type PaymentProcessingModalProps = {
   message?: string;
   onDismiss?: () => void;
 };
-
-const DISMISS_AFTER_MS = 60_000;
-const AUTO_CANCEL_AFTER_MS = 150_000;
 
 export function PaymentProcessingModal({
   visible,
@@ -29,60 +26,6 @@ export function PaymentProcessingModal({
 }: PaymentProcessingModalProps) {
   const colorScheme = useRNColorScheme();
   const isDark = colorScheme === 'dark';
-  const startTimeRef = useRef<number | null>(null);
-  const dismissShownRef = useRef(false);
-  const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const [dismissShown, setDismissShown] = useState(false);
-  const [autoCancelled, setAutoCancelled] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoCancelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (visible && status === 'processing') {
-      startTimeRef.current = Date.now();
-      dismissShownRef.current = false;
-      setElapsedSec(0);
-      setDismissShown(false);
-      setAutoCancelled(false);
-
-      timerRef.current = setInterval(() => {
-        const elapsed = Date.now() - (startTimeRef.current || Date.now());
-        const sec = Math.floor(elapsed / 1000);
-        setElapsedSec(sec);
-        if (sec >= 60 && !dismissShownRef.current) {
-          dismissShownRef.current = true;
-          setDismissShown(true);
-        }
-      }, 1000);
-
-      autoCancelTimerRef.current = setTimeout(() => {
-        setAutoCancelled(true);
-        onDismissRef.current?.();
-      }, AUTO_CANCEL_AFTER_MS);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      if (autoCancelTimerRef.current) {
-        clearTimeout(autoCancelTimerRef.current);
-        autoCancelTimerRef.current = null;
-      }
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      if (autoCancelTimerRef.current) {
-        clearTimeout(autoCancelTimerRef.current);
-        autoCancelTimerRef.current = null;
-      }
-    };
-  }, [visible, status]);
 
   const colors = {
     background: isDark ? '#1C1C1E' : '#FFFFFF',
@@ -104,14 +47,14 @@ export function PaymentProcessingModal({
         };
       case 'success':
         return {
-          icon: 'checkmark.circle.fill' as const,
+          icon: 'checkmark-circle' as const,
           color: colors.success,
           title: 'Payment Successful',
           description: message || 'Your subscription has been activated!',
         };
       case 'failed':
         return {
-          icon: 'xmark.circle.fill' as const,
+          icon: 'close-circle' as const,
           color: colors.error,
           title: 'Payment Failed',
           description: message || 'Payment was not completed. Please try again.',
@@ -122,63 +65,45 @@ export function PaymentProcessingModal({
   const config = getStatusConfig();
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+    >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          {/* Icon or Spinner */}
           <View style={styles.iconContainer}>
             {status === 'processing' ? (
               <ActivityIndicator size="large" color={config.color} />
             ) : (
-              <IconSymbol name={config.icon!} size={64} color={config.color} />
+              <Ionicons name={config.icon!} size={64} color={config.color} />
             )}
           </View>
 
+          {/* Title */}
           <Text style={[styles.title, { color: colors.text }]}>
             {config.title}
           </Text>
 
+          {/* Description */}
           <Text style={[styles.description, { color: colors.textSecondary }]}>
             {config.description}
           </Text>
 
+          {/* Progress dots for processing */}
           {status === 'processing' && (
-            <>
-              <Text style={[styles.timer, { color: colors.textSecondary }]}>
-                {elapsedSec < 60
-                  ? 'Waiting for approval...'
-                  : autoCancelled
-                    ? 'Cancelling...'
-                    : `Waiting for ${Math.max(0, 150 - elapsedSec)}s...`}
-              </Text>
-              {dismissShown && !autoCancelled && onDismiss && (
-                <TouchableOpacity
-                  style={[styles.dismissBtn, { borderColor: colors.error }]}
-                  onPress={() => {
-                    if (autoCancelTimerRef.current) {
-                      clearTimeout(autoCancelTimerRef.current);
-                      autoCancelTimerRef.current = null;
-                    }
-                    onDismiss();
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.dismissText, { color: colors.error }]}>
-                    Cancel Payment
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </>
+            <View style={styles.dotsContainer}>
+              <View style={[styles.dot, { backgroundColor: config.color }]} />
+              <View style={[styles.dot, { backgroundColor: config.color }]} />
+              <View style={[styles.dot, { backgroundColor: config.color }]} />
+            </View>
           )}
 
-          {status !== 'processing' && (
-            <TouchableOpacity
-              style={[styles.dismissBtn, { borderColor: colors.textSecondary }]}
-              onPress={onDismiss}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.dismissText, { color: colors.textSecondary }]}>
-                {status === 'success' ? 'Continue' : 'Close'}
-              </Text>
+          {/* Cancel option — lets the user back out of a stuck/pending payment */}
+          {status === 'processing' && onDismiss && (
+            <TouchableOpacity style={styles.cancelBtn} onPress={onDismiss}>
+              <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>Cancel</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -230,21 +155,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
-  timer: {
-    fontSize: 13,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  dismissBtn: {
+  dotsContainer: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    borderWidth: 1,
-    borderRadius: 8,
-    minWidth: 140,
-    alignItems: 'center',
   },
-  dismissText: {
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  cancelBtn: {
+    marginTop: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  cancelBtnText: {
     fontSize: 14,
     fontWeight: '600',
   },

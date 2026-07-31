@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { StyleSheet, View, TouchableOpacity, Platform, StatusBar, TextInput, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,7 @@ import { verifyOtp, resendOtp } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
 
 export default function VerifyOtpScreen() {
+  const { t } = useTranslation();
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.title = 'Verify OTP | Inzira';
@@ -73,7 +75,7 @@ export default function VerifyOtpScreen() {
   const handleVerify = async () => {
     const code = otp.join('');
     if (code.length < 6) {
-      setError('Please enter the full 6-digit code');
+      setError(t('auth.verifyOtp.errIncompleteCode'));
       return;
     }
 
@@ -83,7 +85,7 @@ export default function VerifyOtpScreen() {
       await verifyOtp(userId, code);
       router.replace('/(tabs)/profile' as any);
     } catch (err: any) {
-      setError(err?.message || 'Invalid or expired code. Try again.');
+      setError(err?.message || t('auth.verifyOtp.errInvalidCode'));
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -97,13 +99,13 @@ export default function VerifyOtpScreen() {
     setError('');
     try {
       await resendOtp(userId);
-      setSuccess('New code sent to your email');
+      setSuccess(t('auth.verifyOtp.newCodeSent'));
       setCountdown(60);
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       setTimeout(() => setSuccess(''), 4000);
     } catch (err: any) {
-      setError(err?.message || 'Failed to resend code');
+      setError(err?.message || t('auth.verifyOtp.errResendFailed'));
     } finally {
       setIsResending(false);
     }
@@ -111,7 +113,7 @@ export default function VerifyOtpScreen() {
 
   const maskedEmail = email
     ? email.replace(/(.{2})[^@]+(@.+)/, '$1****$2')
-    : 'your email';
+    : t('auth.verifyOtp.yourEmail');
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -119,7 +121,7 @@ export default function VerifyOtpScreen() {
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)} style={styles.backBtn}>
           <IconSymbol name="chevron.left" size={24} color={colors.text} />
         </TouchableOpacity>
-        <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Email Verification</ThemedText>
+        <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('auth.verifyOtp.headerTitle')}</ThemedText>
         <View style={styles.backBtn} />
       </View>
 
@@ -128,10 +130,10 @@ export default function VerifyOtpScreen() {
           <IconSymbol name="envelope.fill" size={48} color={colors.primary} />
         </View>
 
-        <ThemedText type="defaultSemiBold" style={styles.title}>Check Your Email</ThemedText>
+        <ThemedText type="defaultSemiBold" style={styles.title}>{t('auth.verifyOtp.checkEmail')}</ThemedText>
 
         <ThemedText style={[styles.subtitle, { color: colors.icon }]}>
-          We sent a 6-digit verification code to{'\n'}
+          {t('auth.verifyOtp.codeSentTo')}{'\n'}
           <ThemedText style={{ fontWeight: '600', color: colors.text }}>{maskedEmail}</ThemedText>
         </ThemedText>
 
@@ -181,7 +183,7 @@ export default function VerifyOtpScreen() {
           activeOpacity={0.8}
         >
           <ThemedText style={styles.buttonText}>
-            {isLoading ? 'Verifying...' : 'Verify Email'}
+            {isLoading ? t('auth.verifyOtp.verifying') : t('auth.verifyOtp.verifyEmailBtn')}
           </ThemedText>
         </TouchableOpacity>
 
@@ -192,15 +194,15 @@ export default function VerifyOtpScreen() {
         >
           <ThemedText style={[styles.resendText, { color: colors.primary }]}>
             {isResending
-              ? 'Sending...'
+              ? t('auth.verifyOtp.sending')
               : countdown > 0
-              ? `Resend code in ${countdown}s`
-              : 'Resend Code'}
+              ? t('auth.verifyOtp.resendIn', { seconds: countdown })
+              : t('auth.verifyOtp.resendCode')}
           </ThemedText>
         </TouchableOpacity>
 
         <ThemedText style={[styles.hint, { color: colors.icon }]}>
-          Check your spam folder if you don't see the email
+          {t('auth.verifyOtp.spamHint')}
         </ThemedText>
       </View>
     </View>

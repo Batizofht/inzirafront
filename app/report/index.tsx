@@ -9,17 +9,6 @@ import { useTranslation } from 'react-i18next';
 import { apiRequest } from '@/lib/api-client';
 import { isWeb } from '@/lib/platform';
 
-const REPORT_REASONS = [
-  'Fraudulent Listing',
-  'Misleading Information',
-  'Inappropriate Content',
-  'Scam or Spam',
-  'Seller Not Responding',
-  'Vehicle Condition Misrepresented',
-  'Price Manipulation',
-  'Other',
-] as const;
-
 export default function ReportScreen() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -46,6 +35,7 @@ export default function ReportScreen() {
   const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
   const reportMaxWidth = is2Xl ? 980 : isXl ? 920 : isLg ? 840 : undefined;
   const initialTab = params.targetType === 'other' ? 'other' : 'vehicle';
+  const REPORT_REASONS = t('legal.report.reasons', { returnObjects: true }) as string[];
   const [selectedReason, setSelectedReason] = useState<string>(String(params.reason || ''));
   const [description, setDescription] = useState(String(params.description || ''));
   const [targetId, setTargetId] = useState(String(params.targetId || ''));
@@ -56,25 +46,25 @@ export default function ReportScreen() {
 
   const handleSubmit = async () => {
     if (!selectedReason) {
-      if (Platform.OS === 'web') setFeedback({ type: 'error', message: 'Please select a reason for your report.' });
-      else Alert.alert('Validation', 'Please select a reason for your report.');
+      if (Platform.OS === 'web') setFeedback({ type: 'error', message: t('legal.report.selectReasonError') });
+      else Alert.alert('Validation', t('legal.report.selectReasonError'));
       return;
     }
     if (!description.trim()) {
-      if (Platform.OS === 'web') setFeedback({ type: 'error', message: 'Please provide a description of the issue.' });
-      else Alert.alert('Validation', 'Please provide a description of the issue.');
+      if (Platform.OS === 'web') setFeedback({ type: 'error', message: t('legal.report.descriptionRequiredError') });
+      else Alert.alert('Validation', t('legal.report.descriptionRequiredError'));
       return;
     }
     if (activeTab === 'vehicle') {
       if (!targetId.trim()) {
-        if (Platform.OS === 'web') setFeedback({ type: 'error', message: 'Please provide the vehicle ID or title.' });
-        else Alert.alert('Validation', 'Please provide the vehicle ID or title.');
+        if (Platform.OS === 'web') setFeedback({ type: 'error', message: t('legal.report.vehicleIdRequiredError') });
+        else Alert.alert('Validation', t('legal.report.vehicleIdRequiredError'));
         return;
       }
     } else {
       if (!subject.trim()) {
-        if (Platform.OS === 'web') setFeedback({ type: 'error', message: 'Please provide a subject/title for your issue.' });
-        else Alert.alert('Validation', 'Please provide a subject/title for your issue.');
+        if (Platform.OS === 'web') setFeedback({ type: 'error', message: t('legal.report.subjectRequiredError') });
+        else Alert.alert('Validation', t('legal.report.subjectRequiredError'));
         return;
       }
     }
@@ -92,15 +82,15 @@ export default function ReportScreen() {
           subject: activeTab === 'other' ? subject.trim() : undefined,
         },
       });
-      if (Platform.OS === 'web') setFeedback({ type: 'success', message: 'Your report has been submitted. Our team will review it shortly.' });
-      else Alert.alert('Success', 'Your report has been submitted. Our team will review it shortly.');
+      if (Platform.OS === 'web') setFeedback({ type: 'success', message: t('legal.report.submitSuccess') });
+      else Alert.alert('Success', t('legal.report.submitSuccess'));
       setSelectedReason('');
       setDescription('');
       setTargetId('');
       setSubject('');
       // Keep user on page so they see success on web
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to submit report';
+      const msg = err instanceof Error ? err.message : t('legal.report.submitFailed');
       if (Platform.OS === 'web') setFeedback({ type: 'error', message: msg });
       else Alert.alert('Error', msg);
     } finally {
@@ -115,7 +105,7 @@ export default function ReportScreen() {
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <IconSymbol name="chevron.left" size={24} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>Report an Issue</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('legal.report.title')}</ThemedText>
           <View style={{ width: 40 }} />
         </View>
       </View>
@@ -140,37 +130,37 @@ export default function ReportScreen() {
               style={[styles.tabBtn, { borderColor: colors.border, backgroundColor: activeTab === 'vehicle' ? colors.card : 'transparent' }]}
               onPress={() => setActiveTab('vehicle')}
             >
-              <ThemedText style={[styles.tabText, { color: colors.text, fontWeight: activeTab === 'vehicle' ? '700' : '500' }]}>Vehicle Issue</ThemedText>
+              <ThemedText style={[styles.tabText, { color: colors.text, fontWeight: activeTab === 'vehicle' ? '700' : '500' }]}>{t('legal.report.vehicleIssue')}</ThemedText>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabBtn, { borderColor: colors.border, backgroundColor: activeTab === 'other' ? colors.card : 'transparent' }]}
               onPress={() => setActiveTab('other')}
             >
-              <ThemedText style={[styles.tabText, { color: colors.text, fontWeight: activeTab === 'other' ? '700' : '500' }]}>Other</ThemedText>
+              <ThemedText style={[styles.tabText, { color: colors.text, fontWeight: activeTab === 'other' ? '700' : '500' }]}>{t('legal.report.other')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
 
         {activeTab === 'vehicle' ? (
           <View style={styles.section}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Vehicle ID or Title</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.report.vehicleIdTitle')}</ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-              placeholder={`Enter vehicle ID or title`}
+              placeholder={t('legal.report.vehicleIdPlaceholder')}
               placeholderTextColor={colors.icon}
               value={targetId}
               onChangeText={setTargetId}
             />
             <ThemedText style={[styles.hint, { color: colors.icon }]}> 
-              You can paste the listing ID from the URL or type part of the car title
+              {t('legal.report.vehicleIdHint')}
             </ThemedText>
           </View>
         ) : (
           <View style={styles.section}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Subject/Title</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.report.subjectTitle')}</ThemedText>
             <TextInput
               style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-              placeholder={`Brief title of your issue`}
+              placeholder={t('legal.report.subjectPlaceholder')}
               placeholderTextColor={colors.icon}
               value={subject}
               onChangeText={setSubject}
@@ -179,7 +169,7 @@ export default function ReportScreen() {
         )}
 
         <View style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Reason for Report</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.report.reasonTitle')}</ThemedText>
           <View style={styles.reasonGrid}>
             {REPORT_REASONS.map((reason) => (
               <TouchableOpacity
@@ -208,10 +198,10 @@ export default function ReportScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Description</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.report.descriptionTitle')}</ThemedText>
           <TextInput
             style={[styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-            placeholder="Please provide details about the issue..."
+            placeholder={t('legal.report.descriptionPlaceholder')}
             placeholderTextColor={colors.icon}
             value={description}
             onChangeText={setDescription}
@@ -227,7 +217,7 @@ export default function ReportScreen() {
           disabled={isSubmitting}
         >
           <ThemedText style={styles.submitButtonText}>
-            {isSubmitting ? 'Submitting...' : 'Submit Report'}
+            {isSubmitting ? t('legal.report.submitting') : t('legal.report.submitReport')}
           </ThemedText>
         </TouchableOpacity>
         </View>

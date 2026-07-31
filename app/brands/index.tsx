@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
@@ -64,6 +65,7 @@ export default function BrandsScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -146,7 +148,7 @@ export default function BrandsScreen() {
               <IconSymbol name="chevron.left" size={24} color={colors.text} />
             </TouchableOpacity>
             <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-              All Brands
+              {t('legal.brands.title')}
             </ThemedText>
             <View style={{ width: 24 }} />
           </View>
@@ -191,7 +193,7 @@ export default function BrandsScreen() {
                 <IconSymbol name="chevron.left" size={24} color={colors.text} />
               </TouchableOpacity>
               <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-                All Brands
+                {t('legal.brands.title')}
               </ThemedText>
               <View style={{ width: 24 }} />
             </View>
@@ -210,10 +212,10 @@ export default function BrandsScreen() {
               <View style={styles.emptyContainer}>
                 <IconSymbol name="car.fill" size={64} color={colors.icon} />
                 <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>
-                  No brands available
+                  {t('legal.brands.noBrandsTitle')}
                 </ThemedText>
                 <ThemedText style={[styles.emptySubtitle, { color: colors.icon }]}>
-                  Check back later for available car brands
+                  {t('legal.brands.noBrandsDesc')}
                 </ThemedText>
               </View>
             ) : (
@@ -282,7 +284,7 @@ export default function BrandsScreen() {
                     style={[styles.carCount, { color: colors.icon }]}
                     numberOfLines={1}
                   >
-                    {brand.count || 0} {brand.count === 1 ? "car" : "cars"}
+                    {brand.count || 0} {brand.count === 1 ? t('legal.brands.carSingular') : t('legal.brands.carPlural')}
                   </ThemedText>
 
                   {/* Explore Button */}
@@ -301,7 +303,7 @@ export default function BrandsScreen() {
                         { color: colors.primary },
                       ]}
                     >
-                      Explore
+                      {t('legal.brands.explore')}
                     </ThemedText>
                     <IconSymbol
                       name="arrow.right"

@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -10,6 +11,10 @@ import { router } from 'expo-router';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 
+const QUICK_NAV_ICONS = ['lock.fill', 'person.fill', 'eye.fill', 'hand.raised.fill', 'bell.fill', 'globe'];
+const POLICY_ICONS = ['doc.text.fill', 'gearshape.fill', 'person.2.fill', 'lock.shield.fill', 'clock.fill', 'globe'];
+const RIGHTS_ICONS = ['eye.fill', 'square.and.pencil', 'trash.fill', 'arrow.down.doc.fill', 'hand.raised.fill', 'xmark.circle.fill'];
+
 export default function PrivacyScreen() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -17,8 +22,12 @@ export default function PrivacyScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
+  const quickNav = t('legal.privacy.quickNav', { returnObjects: true }) as string[];
+  const policySections = t('legal.privacy.sections', { returnObjects: true }) as { title: string; summary: string; items: { title: string; description: string }[] }[];
+  const rights = t('legal.privacy.rights', { returnObjects: true }) as { title: string; description: string }[];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -45,25 +54,25 @@ export default function PrivacyScreen() {
           />
           <View style={styles.heroContent}>
             <View style={styles.heroTag}>
-              <ThemedText style={styles.heroTagText}>Legal &amp; Trust</ThemedText>
+              <ThemedText style={styles.heroTagText}>{t('legal.privacy.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>Privacy Policy</ThemedText>
+            <ThemedText style={styles.heroTitle}>{t('legal.privacy.heroTitle')}</ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              How we collect, use, and protect your personal information
+              {t('legal.privacy.heroSubtitle')}
             </ThemedText>
-            <ThemedText style={styles.heroMeta}>Last updated: May 2025</ThemedText>
+            <ThemedText style={styles.heroMeta}>{t('legal.privacy.heroMeta')}</ThemedText>
           </View>
         </View>
 
         {/* Quick Nav Cards */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
           <View style={[styles.quickNavGrid, isDesktopWeb && styles.webQuickNavGrid]}>
-            {QUICK_NAV.map((item, index) => (
+            {quickNav.map((title, index) => (
               <View key={index} style={[styles.quickNavCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.quickNavIcon, { backgroundColor: `${colors.primary}15` }]}>
-                  <IconSymbol name={item.icon} size={20} color={colors.primary} />
+                  <IconSymbol name={QUICK_NAV_ICONS[index] as any} size={20} color={colors.primary} />
                 </View>
-                <ThemedText style={styles.quickNavTitle}>{item.title}</ThemedText>
+                <ThemedText style={styles.quickNavTitle}>{title}</ThemedText>
               </View>
             ))}
           </View>
@@ -74,15 +83,13 @@ export default function PrivacyScreen() {
           <View style={[styles.introCard, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }]}>
             <IconSymbol name="hand.raised.fill" size={28} color={colors.primary} style={{ marginBottom: 12 }} />
             <ThemedText style={[styles.introText, { color: colors.text }]}>
-              At Inzira, your privacy is not an afterthought — it is a commitment. This Privacy Policy explains
-              exactly what data we collect, why we collect it, and how you remain in control at all times.
-              By using Inzira's mobile app or web platform, you agree to the practices described here.
+              {t('legal.privacy.introText')}
             </ThemedText>
           </View>
         </View>
 
         {/* Main Policy Sections */}
-        {POLICY_SECTIONS.map((section, sectionIndex) => (
+        {policySections.map((section, sectionIndex) => (
           <View
             key={sectionIndex}
             style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}
@@ -90,7 +97,7 @@ export default function PrivacyScreen() {
             <View style={[styles.policyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.policyCardHeader}>
                 <View style={[styles.policyCardIcon, { backgroundColor: `${colors.primary}15` }]}>
-                  <IconSymbol name={section.icon} size={22} color={colors.primary} />
+                  <IconSymbol name={POLICY_ICONS[sectionIndex] as any} size={22} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <ThemedText style={styles.policyCardNumber}>0{sectionIndex + 1}</ThemedText>
@@ -115,15 +122,15 @@ export default function PrivacyScreen() {
 
         {/* Your Rights */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Your Rights</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.privacy.rightsTitle')}</ThemedText>
           <ThemedText style={[styles.sectionSubtitle, { color: colors.icon }]}>
-            You have full control over your personal data on Inzira.
+            {t('legal.privacy.rightsSubtitle')}
           </ThemedText>
           <View style={[styles.rightsGrid, isDesktopWeb && styles.webRightsGrid]}>
-            {RIGHTS.map((right, index) => (
+            {rights.map((right, index) => (
               <View key={index} style={[styles.rightCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.rightIconWrap, { backgroundColor: `${colors.primary}15` }]}>
-                  <IconSymbol name={right.icon} size={20} color={colors.primary} />
+                  <IconSymbol name={RIGHTS_ICONS[index] as any} size={20} color={colors.primary} />
                 </View>
                 <ThemedText style={styles.rightTitle}>{right.title}</ThemedText>
                 <ThemedText style={[styles.rightDesc, { color: colors.icon }]}>{right.description}</ThemedText>
@@ -136,9 +143,9 @@ export default function PrivacyScreen() {
         <View style={[styles.ctaSection, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
           <View style={[styles.ctaBanner, { backgroundColor: colors.primary }]}>
             <IconSymbol name="envelope.fill" size={28} color="#fff" style={{ marginBottom: 12 }} />
-            <ThemedText style={styles.ctaBannerTitle}>Have Privacy Questions?</ThemedText>
+            <ThemedText style={styles.ctaBannerTitle}>{t('legal.privacy.ctaTitle')}</ThemedText>
             <ThemedText style={styles.ctaBannerSubtitle}>
-              Contact our Privacy Team at{' '}
+              {t('legal.privacy.ctaSubtitle')}{' '}
               <ThemedText style={[styles.ctaBannerEmail]}>privacy@inzira.co</ThemedText>
             </ThemedText>
             <View style={styles.ctaBannerActions}>
@@ -146,13 +153,13 @@ export default function PrivacyScreen() {
                 style={[styles.ctaBtn, { backgroundColor: '#fff' }]}
                 onPress={() => router.push('/contact')}
               >
-                <ThemedText style={[styles.ctaBtnText, { color: colors.primary }]}>Contact Support</ThemedText>
+                <ThemedText style={[styles.ctaBtnText, { color: colors.primary }]}>{t('legal.privacy.ctaContactBtn')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.ctaBtnOutline]}
                 onPress={() => router.push('/delete' as any)}
               >
-                <ThemedText style={styles.ctaBtnOutlineText}>Delete My Data</ThemedText>
+                <ThemedText style={styles.ctaBtnOutlineText}>{t('legal.privacy.ctaDeleteBtn')}</ThemedText>
               </TouchableOpacity>
             </View>
           </View>
@@ -163,185 +170,6 @@ export default function PrivacyScreen() {
     </View>
   );
 }
-
-const QUICK_NAV = [
-  { icon: 'lock.fill', title: 'Data Security' },
-  { icon: 'person.fill', title: 'Your Data' },
-  { icon: 'eye.fill', title: 'Usage Info' },
-  { icon: 'hand.raised.fill', title: 'Your Rights' },
-  { icon: 'bell.fill', title: 'Notifications' },
-  { icon: 'globe', title: 'Third Parties' },
-];
-
-const POLICY_SECTIONS = [
-  {
-    icon: 'doc.text.fill',
-    title: 'Information We Collect',
-    summary: 'We collect only what is necessary to provide a trusted, functional vehicle marketplace.',
-    items: [
-      {
-        title: 'Account Information',
-        description: 'When you register, we collect your full name, phone number, email address, and profile photo. This is used to create and identify your account.',
-      },
-      {
-        title: 'Vehicle Listings',
-        description: 'Sellers provide vehicle details including title, brand, model, year, mileage, fuel type, transmission, price, and photos. This data is publicly visible to buyers browsing listings.',
-      },
-      {
-        title: 'Location Data',
-        description: 'With your permission, we access your device location to display nearby vehicles and auto-fill your location field on your profile. You may deny this permission at any time.',
-      },
-      {
-        title: 'Messages & Transactions',
-        description: 'Chat messages between buyers and sellers and deal proposal records are stored securely to support dispute resolution and transaction history.',
-      },
-      {
-        title: 'Device & Usage Data',
-        description: 'We collect device identifiers, app version, OS type, and anonymised usage analytics to improve platform stability and performance.',
-      },
-    ],
-  },
-  {
-    icon: 'gearshape.fill',
-    title: 'How We Use Your Information',
-    summary: 'Your data powers the features you use — nothing more.',
-    items: [
-      {
-        title: 'Platform Operations',
-        description: 'To create and maintain your account, display your listings, facilitate buyer–seller communication, and process subscription payments.',
-      },
-      {
-        title: 'Personalisation',
-        description: 'To show you relevant vehicle recommendations, category filters, and market insights based on your browsing history and saved preferences.',
-      },
-      {
-        title: 'Safety & Trust',
-        description: 'To verify seller identities, review reported listings, detect fraudulent activity, and enforce our Terms of Service.',
-      },
-      {
-        title: 'Notifications',
-        description: 'To send you alerts about new messages, deal updates, listing views, and platform news. You can manage notification preferences in Settings.',
-      },
-      {
-        title: 'Legal Compliance',
-        description: 'To comply with applicable Rwandan law, respond to lawful government requests, and resolve legal disputes when necessary.',
-      },
-    ],
-  },
-  {
-    icon: 'person.2.fill',
-    title: 'Sharing Your Information',
-    summary: 'We do not sell your personal data. Sharing is limited and purposeful.',
-    items: [
-      {
-        title: 'With Other Users',
-        description: 'Your public profile (name, verified status, listed vehicles) is visible to other Inzira users. Your phone number is only shared when both parties accept a deal proposal.',
-      },
-      {
-        title: 'Service Providers',
-        description: 'We work with trusted partners for payment processing, cloud hosting, and analytics. These providers are contractually bound to handle your data securely and only for specified purposes.',
-      },
-      {
-        title: 'Legal Authorities',
-        description: 'We may disclose data when required by Rwandan law, court order, or to protect the rights and safety of Inzira users.',
-      },
-      {
-        title: 'Business Transfers',
-        description: 'In the event of a merger or acquisition, user data may be transferred. We will notify you before your data becomes subject to a different Privacy Policy.',
-      },
-    ],
-  },
-  {
-    icon: 'lock.shield.fill',
-    title: 'Data Security',
-    summary: 'We use industry-standard security to protect your information.',
-    items: [
-      {
-        title: 'Encryption',
-        description: 'All data in transit is encrypted using TLS 1.3. Sensitive fields such as passwords are hashed with bcrypt and never stored in plaintext.',
-      },
-      {
-        title: 'Access Controls',
-        description: 'Only authorised Inzira engineers with a documented need can access personal data. All internal access is logged and audited.',
-      },
-      {
-        title: 'Infrastructure',
-        description: 'Our servers are hosted on reputable cloud infrastructure with automated backups, intrusion detection, and DDoS protection.',
-      },
-      {
-        title: 'Incident Response',
-        description: 'In the event of a data breach, we will notify affected users within 72 hours and take immediate steps to contain and remediate the issue.',
-      },
-    ],
-  },
-  {
-    icon: 'clock.fill',
-    title: 'Data Retention',
-    summary: 'We keep your data only as long as necessary.',
-    items: [
-      {
-        title: 'Active Accounts',
-        description: 'We retain your account data for as long as your account is active or as needed to provide services.',
-      },
-      {
-        title: 'Deleted Accounts',
-        description: 'When you delete your account, your personal data is permanently removed within 30 days. Anonymised transaction records may be retained for legal compliance.',
-      },
-      {
-        title: 'Messages',
-        description: 'Chat messages are retained for 12 months after a transaction closes, then permanently deleted unless required for an open dispute.',
-      },
-    ],
-  },
-  {
-    icon: 'globe',
-    title: "Children's Privacy",
-    summary: 'Inzira is not intended for users under the age of 18.',
-    items: [
-      {
-        title: 'Age Requirement',
-        description: 'You must be at least 18 years old to create an account or use Inzira services. We do not knowingly collect personal information from minors.',
-      },
-      {
-        title: 'Parental Contact',
-        description: 'If we discover that a minor has provided us with personal information, we will delete it immediately. Parents may contact privacy@inzira.co to request removal.',
-      },
-    ],
-  },
-];
-
-const RIGHTS = [
-  {
-    icon: 'eye.fill',
-    title: 'Right to Access',
-    description: 'Request a copy of all personal data we hold about you at any time.',
-  },
-  {
-    icon: 'square.and.pencil',
-    title: 'Right to Correct',
-    description: 'Update or correct inaccurate personal information through your profile settings or by contacting us.',
-  },
-  {
-    icon: 'trash.fill',
-    title: 'Right to Delete',
-    description: 'Request permanent deletion of your account and all associated data within 30 days.',
-  },
-  {
-    icon: 'arrow.down.doc.fill',
-    title: 'Right to Export',
-    description: 'Download a portable copy of your data in a machine-readable format.',
-  },
-  {
-    icon: 'hand.raised.fill',
-    title: 'Right to Object',
-    description: 'Opt out of marketing communications or data processing for analytics at any time.',
-  },
-  {
-    icon: 'xmark.circle.fill',
-    title: 'Right to Restrict',
-    description: 'Ask us to limit how we use your data while a correction or objection is being reviewed.',
-  },
-];
 
 const styles = StyleSheet.create({
   safeArea: {

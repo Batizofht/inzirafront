@@ -13,6 +13,9 @@ export type Vehicle = {
   mileage: string;
   transmission: string;
   color?: string;
+  engineSize?: string;
+  batteryRange?: string;
+  driveType?: string;
   price: number;
   description?: string;
   location: string;
@@ -23,12 +26,19 @@ export type Vehicle = {
   isBrokered?: boolean;
   /** Company sellers can declare they provide assurance/insurance for the vehicle. */
   providesAssurance?: boolean;
+  /** Total units in this listing (business sellers with identical cars). */
+  quantity?: number;
+  /** Units still available. When 0 the listing is sold out. */
+  remainingQuantity?: number;
+  /** Optional per-colour breakdown for multi-unit listings (UI labelling). */
+  colorLabels?: { color: string; count: number }[] | null;
   createdAt?: string;
   sellerName?: string;
   sellerPhone?: string;
   sellerCompanyName?: string;
   /** Seller account type, when returned by the API. */
   sellerType?: 'individual' | 'company';
+  sellerAccountType?: 'individual' | 'dealer' | 'company';
   verificationStatus?: 'approved' | 'pending' | 'rejected' | 'none';
   verificationScore?: number;
   sellerTier?: 'dealer_pro' | 'trusted' | 'verified' | 'basic';

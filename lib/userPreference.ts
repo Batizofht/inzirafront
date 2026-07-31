@@ -21,6 +21,7 @@ export type AuthUser = {
   isBroker?: boolean;
   profileImage?: string | null;
   sellerType?: 'individual' | 'company' | null;
+  accountType?: 'individual' | 'dealer' | 'company';
   hasPaidVerificationFee?: boolean;
   createdAt?: string;
 };
@@ -92,6 +93,7 @@ export async function registerUser(payload: {
   phone?: string;
   sellerType?: 'individual' | 'company';
   isBroker?: boolean;
+  accountType?: 'individual' | 'dealer' | 'company';
 }): Promise<{ userId: string; email: string; role: string }> {
   const response = await apiRequest<{ status: number; data: { userId: string; email: string; role: string } }>('/auth/register', {
     method: 'POST',
@@ -220,10 +222,11 @@ export async function logout(): Promise<void> {
 export async function switchAccountRole(
   role: 'buyer' | 'seller',
   sellerType?: 'individual' | 'company',
+  accountType?: 'individual' | 'dealer',
 ): Promise<{ status: number; data: { user: AuthUser } }> {
   return apiRequest<{ status: number; data: { user: AuthUser } }>('/auth/switch-role', {
     method: 'POST',
     auth: true,
-    body: { role, sellerType },
+    body: { role, sellerType, accountType },
   });
 }

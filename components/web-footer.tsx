@@ -16,6 +16,7 @@ import { Image } from 'expo-image';
 import { isWeb } from '@/lib/platform';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '@/i18n';
 import { getThemeModePreference, setThemeModePreference, subscribeThemePreference } from '@/lib/themePreference';
 
 const LOGO_IMAGE = require('@/assets/images/Logo.png');
@@ -59,32 +60,31 @@ function WebLink({ href, children, style }: { href: string; children: React.Reac
   );
 }
 
-const FOOTER_LINKS = {
+const FOOTER_LINK_PATHS = {
   company: [
-    { label: 'About Us', path: '/about' },
-    { label: 'Careers', path: '/careers' },
-    { label: 'Press', path: '/press' },
+    { key: 'about', path: '/about' },
+    { key: 'careers', path: '/careers' },
+    { key: 'press', path: '/press' },
   ],
   support: [
-    { label: 'Help Center', path: '/help' },
-    { label: 'Safety Center', path: '/safety' },
-    { label: 'Community Guidelines', path: '/guidelines' },
-    { label: 'Report an Issue', path: '/report' },
-    { label: 'Contact Us', path: '/contact' },
+    { key: 'help', path: '/help' },
+    { key: 'safety', path: '/safety' },
+    { key: 'guidelines', path: '/guidelines' },
+    { key: 'report', path: '/report' },
+    { key: 'contact', path: '/contact' },
   ],
   legal: [
-    { label: 'Terms of Service', path: '/terms' },
-    { label: 'Privacy Policy', path: '/privacy' },
-    { label: 'Cookie Policy', path: '/cookies' },
-    { label: 'Accessibility', path: '/accessibility' },
+    { key: 'terms', path: '/terms' },
+    { key: 'privacy', path: '/privacy' },
+    { key: 'cookies', path: '/cookies' },
+    { key: 'accessibility', path: '/accessibility' },
   ],
 };
 
 const SOCIAL_LINKS = [
-  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366', url: 'https://wa.me/250788378766' },
-  { icon: require('@/assets/social/instagram.png'), label: 'Instagram', color: '#E4405F', url: 'https://instagram.com/inzira.rw' },
-  { icon: require('@/assets/social/tiktok.png'), label: 'TikTok', color: '#111111', url: 'https://tiktok.com/@inzira.rw' },
-  { icon: require('@/assets/social/linkedin.png'), label: 'LinkedIn', color: '#0A66C2', url: 'https://linkedin.com/company/inzira' },
+  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366', url: 'https://wa.me/250788307583' },
+  { icon: require('@/assets/social/instagram.png'), label: 'Instagram', color: '#E4405F', url: 'https://www.instagram.com/inzira.co?utm_source=qr' },
+  { icon: require('@/assets/social/tiktok.png'), label: 'TikTok', color: '#111111', url: 'https://www.tiktok.com/@inzira.co?_r=1&_t=ZS-98IMhe0iOHt' },
 ];
 
 const LANGUAGES = [
@@ -96,7 +96,7 @@ export function WebFooter() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isMobile = width < 768;
   const isVerySmallMobile = width < 393;
   // Desktop scaling breakpoints
@@ -127,11 +127,11 @@ export function WebFooter() {
   const handleSubscribe = () => {
     setEmailError('');
     if (!email.trim()) {
-      setEmailError('Please enter your email address');
+      setEmailError(t('footer.emailRequired'));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setEmailError('Please enter a valid email address');
+      setEmailError(t('footer.emailInvalid'));
       return;
     }
     setSubscribed(true);
@@ -153,28 +153,28 @@ export function WebFooter() {
               </ThemedText>
             </View>
             <ThemedText style={[styles.brandTagline, { color: colors.icon }]}>
-              Rwanda's #1 Verified Car Marketplace
+              {t('footer.brandTagline')}
             </ThemedText>
           </View>
 
           <ThemedText style={[styles.brandDescription, { color: colors.icon }]}>
-            Buy and sell vehicles with confidence. Find cars, motorcycles, and commercial vehicles from verified sellers.
+            {t('footer.brandDescription')}
           </ThemedText>
 
           {/* Car Subscription Form */}
           <View style={[styles.subscriptionBox, isMobile && styles.subscriptionBoxMobile]}>
             <ThemedText style={[styles.subscriptionTitle, { color: colors.text }]}>
-              <IconSymbol name="bell.fill" size={14} color={colors.primary} /> Get New Car Alerts
+              <IconSymbol name="bell.fill" size={14} color={colors.primary} /> {t('footer.subscriptionTitle')}
             </ThemedText>
             <ThemedText style={[styles.subscriptionDesc, { color: colors.icon }]}>
-              Subscribe to receive notifications when new vehicles are posted
+              {t('footer.subscriptionDesc')}
             </ThemedText>
 
             {subscribed ? (
               <View style={[styles.successMessage, { backgroundColor: colors.primary + '20' }]}>
                 <IconSymbol name="checkmark.circle.fill" size={20} color={colors.primary} />
                 <ThemedText style={[styles.successText, { color: colors.primary }]}>
-                  You're subscribed! Watch your inbox.
+                  {t('footer.subscriptionSuccess')}
                 </ThemedText>
               </View>
             ) : (
@@ -186,10 +186,10 @@ export function WebFooter() {
                     color: colors.text,
                     borderColor: emailError ? '#EF4444' : colors.border,
                   }]}
-                  placeholder="Enter your email"
+                  placeholder={t('footer.emailPlaceholder')}
                   placeholderTextColor={colors.icon}
                   value={email}
-                  onChangeText={(t) => { setEmail(t); setEmailError(''); }}
+                  onChangeText={(txt) => { setEmail(txt); setEmailError(''); }}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -197,7 +197,7 @@ export function WebFooter() {
                   style={[styles.subscribeBtn, isMobile && styles.subscribeBtnMobile, { backgroundColor: colors.primary }]}
                   onPress={handleSubscribe}
                 >
-                  <ThemedText style={styles.subscribeBtnText}>Subscribe</ThemedText>
+                  <ThemedText style={styles.subscribeBtnText}>{t('footer.subscribeBtn')}</ThemedText>
                 </TouchableOpacity>
               </View>
               {!!emailError && (
@@ -213,12 +213,12 @@ export function WebFooter() {
           {/* Company Links */}
           <View style={styles.linkColumn}>
             <ThemedText style={[styles.linkColumnTitle, { color: colors.text }]}>
-              Company
+              {t('footer.company')}
             </ThemedText>
-            {FOOTER_LINKS.company.map((link) => (
+            {FOOTER_LINK_PATHS.company.map((link) => (
               <WebLink key={link.path} href={link.path} style={styles.linkItem}>
                 <ThemedText style={[styles.linkText, { color: colors.icon }]}>
-                  {link.label}
+                  {t(`footer.companyLinks.${link.key}`)}
                 </ThemedText>
               </WebLink>
             ))}
@@ -227,12 +227,12 @@ export function WebFooter() {
           {/* Support Links */}
           <View style={styles.linkColumn}>
             <ThemedText style={[styles.linkColumnTitle, { color: colors.text }]}>
-              Support
+              {t('footer.support')}
             </ThemedText>
-            {FOOTER_LINKS.support.map((link) => (
+            {FOOTER_LINK_PATHS.support.map((link) => (
               <WebLink key={link.path} href={link.path} style={styles.linkItem}>
                 <ThemedText style={[styles.linkText, { color: colors.icon }]}>
-                  {link.label}
+                  {t(`footer.supportLinks.${link.key}`)}
                 </ThemedText>
               </WebLink>
             ))}
@@ -241,12 +241,12 @@ export function WebFooter() {
           {/* Legal Links */}
           <View style={styles.linkColumn}>
             <ThemedText style={[styles.linkColumnTitle, { color: colors.text }]}>
-              Legal & Terms and Policy
+              {t('footer.legal')}
             </ThemedText>
-            {FOOTER_LINKS.legal.map((link) => (
+            {FOOTER_LINK_PATHS.legal.map((link) => (
               <WebLink key={link.path} href={link.path} style={styles.linkItem}>
                 <ThemedText style={[styles.linkText, { color: colors.icon }]}>
-                  {link.label}
+                  {t(`footer.legalLinks.${link.key}`)}
                 </ThemedText>
               </WebLink>
             ))}
@@ -261,14 +261,14 @@ export function WebFooter() {
             <View style={styles.contactItem}>
               <IconSymbol name="phone.fill" size={16} color={colors.primary} />
               <ThemedText style={[styles.contactText, { color: colors.text }]}>
-                +250 788 378 766
+                +250 788 307 583
               </ThemedText>
             </View>
             <View style={styles.contactDivider} />
             <View style={styles.contactItem}>
               <IconSymbol name="envelope.fill" size={16} color={colors.primary} />
               <ThemedText style={[styles.contactText, { color: colors.text }]}>
-                support@inzira.co
+                info@inzira.co
               </ThemedText>
             </View>
             <View style={styles.contactDivider} />
@@ -320,7 +320,7 @@ export function WebFooter() {
                             i18n.language === lang.code && styles.langOptionActive,
                           ]}
                           onPress={() => {
-                            i18n.changeLanguage(lang.code);
+                            changeLanguage(lang.code);
                             setShowLangDropdown(false);
                           }}
                           activeOpacity={0.85}
@@ -346,7 +346,7 @@ export function WebFooter() {
       {/* Bottom Bar */}
       <View style={[styles.bottomBar, isMobile && styles.bottomBarMobile, { backgroundColor: colors.primary, paddingHorizontal: footerPadding }]}>
         <ThemedText style={styles.copyrightText}>
-          © 2026 Inzira Rwanda. All rights reserved.
+          {t('footer.copyright')}
         </ThemedText>
         <View style={styles.paymentMethods}>
           <View style={styles.paymentIcons}>
@@ -373,7 +373,7 @@ export function WebFooter() {
         >
           <IconSymbol name={themeMode === 'dark' ? 'sun.max.fill' : 'moon.fill'} size={16} color="#fff" />
           <ThemedText style={styles.darkModeToggleText}>
-            {themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            {themeMode === 'dark' ? t('footer.lightMode') : t('footer.darkMode')}
           </ThemedText>
         </TouchableOpacity>
       </View>

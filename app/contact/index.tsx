@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, TextInput, useWindowDimensions, LayoutAnimation, UIManager, ActivityIndicator } from 'react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +21,7 @@ export default function ContactScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -80,7 +82,7 @@ export default function ContactScreen() {
 
     if (!payload.fullName || !payload.email || !payload.subject || !payload.message) {
       setSubmitSuccess(null);
-      setSubmitError('Please fill in all fields.');
+      setSubmitError(t('legal.contact.fillAllFields'));
       return;
     }
 
@@ -89,13 +91,13 @@ export default function ContactScreen() {
       setSubmitError(null);
       setSubmitSuccess(null);
       await createContactMessage(payload);
-      setSubmitSuccess('Message sent successfully. Our admin team will get back to you.');
+      setSubmitSuccess(t('legal.contact.sentSuccess'));
       setFullName('');
       setEmail('');
       setSubject('');
       setMessage('');
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to send message. Please try again.');
+      setSubmitError(error instanceof Error ? error.message : t('legal.contact.sendFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -121,11 +123,11 @@ export default function ContactScreen() {
           />
           <View style={styles.heroContent}>
             <View style={styles.heroTag}>
-              <ThemedText style={styles.heroTagText}>We're Here to Help</ThemedText>
+              <ThemedText style={styles.heroTagText}>{t('legal.contact.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>Contact Us</ThemedText>
+            <ThemedText style={styles.heroTitle}>{t('legal.contact.heroTitle')}</ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              Get in touch with our team for any questions or support
+              {t('legal.contact.heroSubtitle')}
             </ThemedText>
           </View>
         </View>
@@ -134,9 +136,9 @@ export default function ContactScreen() {
         <View style={[styles.contactSection, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal, flexDirection: 'row', gap: 48 }]}>
           {/* Left Column - Contact Info */}
           <View style={[styles.contactInfoColumn, isDesktopWeb && styles.webContactInfoColumn]}>
-            <ThemedText type="defaultSemiBold" style={styles.contactInfoTitle}>Contact Information</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.contactInfoTitle}>{t('legal.contact.contactInfoTitle')}</ThemedText>
             <ThemedText style={[styles.contactInfoSubtitle, { color: colors.icon }]}>
-              Reach out to us through any of these channels
+              {t('legal.contact.contactInfoSubtitle')}
             </ThemedText>
 
             <View style={styles.contactInfoList}>
@@ -145,8 +147,8 @@ export default function ContactScreen() {
                   <IconSymbol name="phone.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.contactInfoText}>
-                  <ThemedText style={styles.contactInfoLabel}>Phone</ThemedText>
-                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>+250 788 378 766</ThemedText>
+                  <ThemedText style={styles.contactInfoLabel}>{t('legal.contact.phone')}</ThemedText>
+                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>+250 788 307 583</ThemedText>
                 </View>
               </View>
 
@@ -155,8 +157,8 @@ export default function ContactScreen() {
                   <IconSymbol name="envelope.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.contactInfoText}>
-                  <ThemedText style={styles.contactInfoLabel}>Email</ThemedText>
-                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>support@inzira.co</ThemedText>
+                  <ThemedText style={styles.contactInfoLabel}>{t('legal.contact.email')}</ThemedText>
+                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>info@inzira.co</ThemedText>
                 </View>
               </View>
 
@@ -165,7 +167,7 @@ export default function ContactScreen() {
                   <IconSymbol name="location.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.contactInfoText}>
-                  <ThemedText style={styles.contactInfoLabel}>Address</ThemedText>
+                  <ThemedText style={styles.contactInfoLabel}>{t('legal.contact.address')}</ThemedText>
                   <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>Kigali, Rwanda</ThemedText>
                 </View>
               </View>
@@ -175,8 +177,8 @@ export default function ContactScreen() {
                   <IconSymbol name="clock.fill" size={24} color={colors.primary} />
                 </View>
                 <View style={styles.contactInfoText}>
-                  <ThemedText style={styles.contactInfoLabel}>Working Hours</ThemedText>
-                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>Mon - Fri: 8AM - 6PM</ThemedText>
+                  <ThemedText style={styles.contactInfoLabel}>{t('legal.contact.workingHours')}</ThemedText>
+                  <ThemedText style={[styles.contactInfoValue, { color: colors.text }]}>{t('legal.contact.workingHoursValue')}</ThemedText>
                 </View>
               </View>
             </View>
@@ -185,16 +187,16 @@ export default function ContactScreen() {
           {/* Right Column - Contact Form */}
           <View style={[styles.formColumn, isDesktopWeb && styles.webFormColumn]}>
             <View style={[styles.formCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <ThemedText type="defaultSemiBold" style={styles.formTitle}>Send us a message</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.formTitle}>{t('legal.contact.formTitle')}</ThemedText>
               <ThemedText style={[styles.formSubtitle, { color: colors.icon }]}>
-                Fill out the form below and we'll get back to you
+                {t('legal.contact.formSubtitle')}
               </ThemedText>
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Full Name</ThemedText>
+                <ThemedText style={styles.inputLabel}>{t('legal.contact.fullName')}</ThemedText>
                 <TextInput 
                   style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]} 
-                  placeholder="Your full name"
+                  placeholder={t('legal.contact.fullNamePlaceholder')}
                   placeholderTextColor={colors.icon}
                   value={fullName}
                   onChangeText={setFullName}
@@ -202,10 +204,10 @@ export default function ContactScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Email Address</ThemedText>
+                <ThemedText style={styles.inputLabel}>{t('legal.contact.emailAddress')}</ThemedText>
                 <TextInput 
                   style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]} 
-                  placeholder="your@email.com"
+                  placeholder={t('legal.contact.emailPlaceholder')}
                   placeholderTextColor={colors.icon}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -215,10 +217,10 @@ export default function ContactScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Subject</ThemedText>
+                <ThemedText style={styles.inputLabel}>{t('legal.contact.subject')}</ThemedText>
                 <TextInput 
                   style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]} 
-                  placeholder="How can we help?"
+                  placeholder={t('legal.contact.subjectPlaceholder')}
                   placeholderTextColor={colors.icon}
                   value={subject}
                   onChangeText={setSubject}
@@ -226,10 +228,10 @@ export default function ContactScreen() {
               </View>
 
               <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Message</ThemedText>
+                <ThemedText style={styles.inputLabel}>{t('legal.contact.message')}</ThemedText>
                 <TextInput 
                   style={[styles.textArea, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]} 
-                  placeholder="Type your message here..."
+                  placeholder={t('legal.contact.messagePlaceholder')}
                   placeholderTextColor={colors.icon}
                   multiline
                   numberOfLines={5}
@@ -247,7 +249,7 @@ export default function ContactScreen() {
                 onPress={handleSubmitContact}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <ThemedText style={styles.submitBtnText}>Send Message</ThemedText>}
+                {isSubmitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <ThemedText style={styles.submitBtnText}>{t('legal.contact.sendMessage')}</ThemedText>}
               </TouchableOpacity>
             </View>
           </View>
@@ -255,13 +257,13 @@ export default function ContactScreen() {
 
         {/* FAQ Section */}
         <View style={[styles.faqSection, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Frequently Asked Questions</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.contact.faqTitle')}</ThemedText>
           <ThemedText style={[styles.faqSubtitle, { color: colors.icon }]}> 
-            Quick answers to the most common buyer and seller questions.
+            {t('legal.contact.faqSubtitle')}
           </ThemedText>
 
           <View style={styles.faqGrid}>
-            {FAQ_ITEMS.map((item, index) => {
+            {(t('legal.contact.faqItems', { returnObjects: true }) as { question: string; answer: string }[]).map((item, index) => {
               const isOpen = openFaqIndex === index;
 
               return (
@@ -276,7 +278,7 @@ export default function ContactScreen() {
                     <View style={styles.faqQuestionContent}>
                       <ThemedText style={styles.faqQuestion}>{item.question}</ThemedText>
                       <ThemedText style={[styles.faqQuestionHint, { color: colors.icon }]}>
-                        {isOpen ? 'Tap to collapse' : 'Tap to read detailed answer'}
+                        {isOpen ? t('legal.contact.tapToCollapse') : t('legal.contact.tapToExpand')}
                       </ThemedText>
                     </View>
                     <View style={[styles.faqChevronWrap, { backgroundColor: `${colors.primary}12` }]}>
@@ -288,7 +290,7 @@ export default function ContactScreen() {
                     <View style={[styles.faqAnswerWrap, { borderTopColor: colors.border, backgroundColor: `${colors.primary}06` }]}>
                       <View style={styles.faqAnswerHeader}>
                         <IconSymbol name="checkmark.seal.fill" size={15} color={colors.primary} />
-                        <ThemedText style={[styles.faqAnswerHeaderText, { color: colors.primary }]}>Detailed answer</ThemedText>
+                        <ThemedText style={[styles.faqAnswerHeaderText, { color: colors.primary }]}>{t('legal.contact.detailedAnswer')}</ThemedText>
                       </View>
                       <ThemedText style={[styles.faqAnswer, { color: colors.icon }]}>{item.answer}</ThemedText>
                     </View>
@@ -304,41 +306,6 @@ export default function ContactScreen() {
     </View>
   );
 }
-
-const FAQ_ITEMS = [
-  {
-    question: 'How do I create an account as a buyer or seller?',
-    answer: 'Simply download our app or visit the website, click Sign Up, and register with your phone number. You will then select whether you want to use the platform as a buyer or seller, which unlocks personalized features for your role.'
-  },
-  {
-    question: 'What vehicle categories can I browse or list?',
-    answer: 'We support multiple vehicle categories including cars, motorcycles, electric vehicles, hybrid vehicles, and conventional fuel vehicles. You can filter by type, fuel, status (brand new, imported used, used in Rwanda), and more.'
-  },
-  {
-    question: 'How does the communication system work between buyers and sellers?',
-    answer: 'Buyers send contact requests to sellers through the platform. Once a seller accepts, both parties can engage in real-time chat, negotiate deals, share additional information, and arrange meetings. All conversations are securely stored for reference.'
-  },
-  {
-    question: 'What information should I include in my vehicle listing?',
-    answer: 'Include the vehicle title, brand, model, year of manufacture, vehicle type, fuel type, status, mileage, transmission type, price, and a detailed description. Upload multiple high-quality photos showing front, back, interior, and sides for maximum buyer interest.'
-  },
-  {
-    question: 'Is there a fee for using the platform?',
-    answer: 'Basic browsing and listing are free. Sellers can choose premium subscription plans for featured placements and full buyer details. We charge a transparent commission only when a deal is successfully completed through our platform.'
-  },
-  {
-    question: 'How do I make a deal proposal as a buyer?',
-    answer: 'Once you have connected with a seller, you can propose offers through our deal management system. The seller can accept, reject, or counter your offer. This process continues until both parties reach a satisfactory agreement.'
-  },
-  {
-    question: 'What payment options are available?',
-    answer: 'We offer flexible payment options including subscription plans for sellers (to access premium features) and commission-based fees on completed deals. All financial transactions are processed securely through our platform.'
-  },
-  {
-    question: 'How do I favorite a listing for later viewing?',
-    answer: 'Click the heart icon on any vehicle listing to save it to your favorites. You can access your saved list anytime from your profile to compare options and make informed decisions.'
-  },
-];
 
 const styles = StyleSheet.create({
   safeArea: {

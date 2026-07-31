@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Platform, StatusBar, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { useAuth } from '@/context/AuthContext';
 import { RegisterSEO } from '@/components/page-meta';
@@ -12,6 +13,7 @@ import { registerUser } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -37,17 +39,17 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [sellerType, setSellerType] = useState<'individual' | 'company'>('individual');
-  const [isBroker, setIsBroker] = useState(false);
+  const [accountType, setAccountType] = useState<'individual' | 'dealer' | 'company'>('individual');
+  const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | 'confirmPassword' | null>(null);
 
   const isSeller = role === 'seller';
 
   const validate = () => {
-    if (!fullName.trim()) return 'Full name is required';
-    if (!email.trim()) return 'Email is required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Enter a valid email address';
-    if (password.length < 6) return 'Password must be at least 6 characters';
-    if (password !== confirmPassword) return 'Passwords do not match';
+    if (!fullName.trim()) return t('auth.register.errFullNameRequired');
+    if (!email.trim()) return t('auth.register.errEmailRequired');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return t('auth.register.errEmailInvalid');
+    if (password.length < 6) return t('auth.register.errPasswordLength');
+    if (password !== confirmPassword) return t('auth.register.errPasswordMismatch');
     return null;
   };
 
@@ -79,15 +81,16 @@ export default function RegisterScreen() {
         email: email.trim(), 
         password, 
         role,
-        sellerType: isSeller ? sellerType : undefined,
-        isBroker: isSeller ? isBroker : false,
+        accountType,
+        sellerType: isSeller ? (accountType === 'company' ? 'company' : accountType === 'dealer' ? 'individual' : undefined) : undefined,
+        isBroker: accountType === 'dealer',
       });
       // Go to OTP verification
       router.push(
         `/auth/verify-otp?userId=${result.userId}&email=${encodeURIComponent(result.email)}&role=${result.role}&mode=register` as any
       );
     } catch (err: any) {
-      setError(err?.message || 'Registration failed. Please try again.');
+      setError(err?.message || t('auth.register.errRegistrationFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +104,7 @@ export default function RegisterScreen() {
           <IconSymbol name="chevron.left" size={24} color={colors.text} />
         </TouchableOpacity>
         <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-          Create Account
+          {t('auth.register.headerTitle')}
         </ThemedText>
         <View style={styles.backBtn} />
       </View>
@@ -114,58 +117,49 @@ export default function RegisterScreen() {
         <View style={[styles.roleBadge, { backgroundColor: isSeller ? `${colors.primary}15` : '#16A34A20', borderColor: isSeller ? colors.primary : '#16A34A' }]}>
           <IconSymbol name={isSeller ? 'plus.circle.fill' : 'car.fill'} size={16} color={isSeller ? colors.primary : '#16A34A'} />
           <ThemedText style={[styles.roleBadgeText, { color: isSeller ? colors.primary : '#16A34A' }]}>
-            Registering as {isSeller ? 'Seller' : 'Buyer'}
+            {isSeller ? t('auth.register.registeringAsSeller') : t('auth.register.registeringAsBuyer')}
           </ThemedText>
         </View>
 
         {isSeller && (
           <View style={styles.formGroup}>
-            <ThemedText style={[styles.label, { color: colors.icon }]}>Seller Type</ThemedText>
-            <View style={[styles.segmentedControl, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <TouchableOpacity
-                style={[styles.segmentOption, sellerType === 'individual' && { backgroundColor: colors.primary }]}
-                onPress={() => setSellerType('individual')}
-              >
-                <IconSymbol name="person.fill" size={16} color={sellerType === 'individual' ? '#fff' : colors.icon} />
-                <ThemedText style={[styles.segmentText, { color: sellerType === 'individual' ? '#fff' : colors.text }]}>
-                  Individual
-                </ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segmentOption, sellerType === 'company' && { backgroundColor: colors.primary }]}
-                onPress={() => setSellerType('company')}
-              >
-                <IconSymbol name="building.2.fill" size={16} color={sellerType === 'company' ? '#fff' : colors.icon} />
-                <ThemedText style={[styles.segmentText, { color: sellerType === 'company' ? '#fff' : colors.text }]}>
-                  Company
-                </ThemedText>
-              </TouchableOpacity>
+            <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.register.accountTypeLabel')}</ThemedText>
+            <View style={[styles.accountTypeTabs, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {([
+                { key: 'individual' as const, icon: 'person.fill', label: t('auth.register.accountTypeIndividual') },
+                { key: 'dealer' as const, icon: 'briefcase.fill', label: t('auth.register.accountTypeDealer') },
+                { key: 'company' as const, icon: 'building.2.fill', label: t('auth.register.accountTypeCompany') },
+              ]).map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.accountTypeTab, {
+                    backgroundColor: accountType === opt.key ? colors.primary : 'transparent',
+                  }]}
+                  onPress={() => setAccountType(opt.key)}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol name={opt.icon as any} size={16} color={accountType === opt.key ? '#fff' : colors.icon} />
+                  <ThemedText style={[styles.accountTypeTabText, { color: accountType === opt.key ? '#fff' : colors.text }]}>
+                    {opt.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
-        )}
-
-        {isSeller && (
-          <View style={[styles.formGroup, { marginBottom: 12 }]}>
-            <TouchableOpacity
-              style={[styles.brokerToggle, { backgroundColor: isBroker ? `${colors.primary}15` : colors.card, borderColor: isBroker ? colors.primary : colors.border }]}
-              onPress={() => setIsBroker(!isBroker)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.brokerCheckbox, { borderColor: isBroker ? colors.primary : colors.border, backgroundColor: isBroker ? colors.primary : 'transparent' }]}>
-                {isBroker && <IconSymbol name="checkmark" size={12} color="#fff" />}
-              </View>
-              <ThemedText style={[styles.brokerLabel, { color: colors.text }]}>I am a vehicle broker</ThemedText>
-            </TouchableOpacity>
+            <ThemedText style={[styles.hint, { color: colors.icon }]}>
+              {accountType === 'individual' && t('auth.register.accountTypeIndividualHint')}
+              {accountType === 'dealer' && t('auth.register.accountTypeDealerHint')}
+              {accountType === 'company' && t('auth.register.accountTypeCompanyHint')}
+            </ThemedText>
           </View>
         )}
 
         <ThemedText type="defaultSemiBold" style={styles.title}>
-          {isSeller ? 'Create Seller Account' : 'Create Buyer Account'}
+          {isSeller ? t('auth.register.titleSeller') : t('auth.register.titleBuyer')}
         </ThemedText>
         <ThemedText style={[styles.subtitle, { color: colors.icon }]}>
           {isSeller
-            ? 'Enter your details. We\'ll send a verification code to your email.'
-            : 'Enter your details to start browsing and buying vehicles.'}
+            ? t('auth.register.subtitleSeller')
+            : t('auth.register.subtitleBuyer')}
         </ThemedText>
 
         {!!error && (
@@ -176,24 +170,44 @@ export default function RegisterScreen() {
         )}
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Full Name</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="person.fill" size={18} color={colors.icon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.register.fullNameLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'fullName' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'fullName' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="person.fill" size={18} color={focusedField === 'fullName' ? colors.primary : colors.icon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Your names"
+              placeholder={t('auth.register.fullNamePlaceholder')}
               placeholderTextColor={colors.icon}
               autoCapitalize="words"
               value={fullName}
               onChangeText={setFullName}
+              onFocus={() => setFocusedField('fullName')}
+              onBlur={() => setFocusedField(null)}
             />
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Email Address</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="envelope.fill" size={18} color={colors.icon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.register.emailLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'email' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'email' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="envelope.fill" size={18} color={focusedField === 'email' ? colors.primary : colors.icon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
               placeholder="you@example.com"
@@ -203,24 +217,37 @@ export default function RegisterScreen() {
               autoCorrect={false}
               value={email}
               onChangeText={setEmail}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
             />
           </View>
           <ThemedText style={[styles.hint, { color: colors.icon }]}>
-            A 6-digit verification code will be sent to this email
+            {t('auth.register.emailHint')}
           </ThemedText>
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Password</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="lock.fill" size={18} color={colors.icon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.register.passwordLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'password' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'password' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="lock.fill" size={18} color={focusedField === 'password' ? colors.primary : colors.icon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Min. 6 characters"
+              placeholder={t('auth.register.passwordPlaceholder')}
               placeholderTextColor={colors.icon}
               secureTextEntry={!showPassword}
               value={password}
               onChangeText={setPassword}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
               <IconSymbol name={showPassword ? 'eye.slash.fill' : 'eye.fill'} size={18} color={colors.icon} />
@@ -229,16 +256,27 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.formGroup}>
-          <ThemedText style={[styles.label, { color: colors.icon }]}>Confirm Password</ThemedText>
-          <View style={[styles.inputWrapper, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <IconSymbol name="lock.fill" size={18} color={colors.icon} />
+          <ThemedText style={[styles.label, { color: colors.icon }]}>{t('auth.register.confirmPasswordLabel')}</ThemedText>
+          <View
+            style={[
+              styles.inputWrapper,
+              {
+                backgroundColor: colors.card,
+                borderColor: focusedField === 'confirmPassword' ? colors.primary : colors.border,
+                borderWidth: focusedField === 'confirmPassword' ? 2 : 1,
+              },
+            ]}
+          >
+            <IconSymbol name="lock.fill" size={18} color={focusedField === 'confirmPassword' ? colors.primary : colors.icon} />
             <TextInput
               style={[styles.input, { color: colors.text }]}
-              placeholder="Repeat your password"
+              placeholder={t('auth.register.confirmPasswordPlaceholder')}
               placeholderTextColor={colors.icon}
               secureTextEntry={!showConfirm}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
+              onFocus={() => setFocusedField('confirmPassword')}
+              onBlur={() => setFocusedField(null)}
             />
             <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeBtn}>
               <IconSymbol name={showConfirm ? 'eye.slash.fill' : 'eye.fill'} size={18} color={colors.icon} />
@@ -253,7 +291,7 @@ export default function RegisterScreen() {
           activeOpacity={0.8}
         >
           <ThemedText style={styles.buttonText}>
-            {isLoading ? 'Creating Account...' : 'Continue'}
+            {isLoading ? t('auth.register.creatingAccount') : t('auth.register.continueBtn')}
           </ThemedText>
         </TouchableOpacity>
 
@@ -262,8 +300,8 @@ export default function RegisterScreen() {
           onPress={() => router.push('/auth/login-form' as any)}
         >
           <ThemedText style={[styles.loginLinkText, { color: colors.icon }]}>
-            Already have an account?{' '}
-            <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>Login</ThemedText>
+            {t('auth.register.alreadyHaveAccount')}{' '}
+            <ThemedText style={{ color: colors.primary, fontWeight: '600' }}>{t('auth.register.loginLink')}</ThemedText>
           </ThemedText>
         </TouchableOpacity>
       </ScrollView>
@@ -328,7 +366,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 10,
   },
-  input: { flex: 1, fontSize: 15 },
+  input: { flex: 1, fontSize: 15, outlineStyle: 'none' as any },
   eyeBtn: { padding: 4 },
   hint: { fontSize: 12, marginTop: 6 },
   switchContainer: {
@@ -348,14 +386,14 @@ const styles = StyleSheet.create({
     borderRightWidth: 0,
   },
   switchOptionText: { fontSize: 15, fontWeight: '600' },
-  segmentedControl: {
+  accountTypeTabs: {
     flexDirection: 'row',
     borderRadius: 12,
     borderWidth: 1,
     padding: 4,
     gap: 4,
   },
-  segmentOption: {
+  accountTypeTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -364,25 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 9,
   },
-  segmentText: { fontSize: 14, fontWeight: '600' },
-  brokerToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  brokerCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  brokerLabel: { fontSize: 14, fontWeight: '500' },
+  accountTypeTabText: { fontSize: 13, fontWeight: '600' },
   button: {
     width: '100%',
     height: 56,

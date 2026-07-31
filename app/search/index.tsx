@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDim
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -28,6 +29,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 export default function SearchScreen() {
+  const { t } = useTranslation();
   useEffect(() => {
     if (typeof document !== 'undefined') {
       document.title = 'Search | Inzira';
@@ -42,6 +44,7 @@ export default function SearchScreen() {
   const [suggestions, setSuggestions] = useState<{ brands: string[]; models: string[]; locations: string[] }>({ brands: [], models: [], locations: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
@@ -165,14 +168,16 @@ export default function SearchScreen() {
             <IconSymbol name="chevron.left" size={22} color={colors.text} />
           </TouchableOpacity>
 
-          <View style={[styles.searchContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          <IconSymbol name="magnifyingglass" size={18} color={colors.icon} style={{ marginRight: 8 }} />
+          <View style={[styles.searchContainer, { borderColor: isSearchFocused ? colors.primary : colors.border, borderWidth: isSearchFocused ? 3 : 2, backgroundColor: colors.card }]}>
+          <IconSymbol name="magnifyingglass" size={18} color={isSearchFocused ? colors.primary : colors.icon} style={{ marginRight: 8 }} />
           <TextInput
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={handleSearch}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
             autoFocus
-            placeholder="Search cars, model, type, location"
+            placeholder={t('search.placeholder')}
             placeholderTextColor={colors.icon}
             style={[styles.searchInput, { color: colors.text }]}
             returnKeyType="search"
@@ -281,7 +286,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 46,
@@ -290,6 +295,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 14,
+    outlineStyle: 'none' as any,
   },
   content: {
     padding: 16,

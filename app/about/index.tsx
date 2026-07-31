@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +12,8 @@ import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { AboutSEO } from '@/components/page-meta';
 
+const VALUE_ICONS = ['checkmark.shield.fill', 'bolt.fill', 'hand.thumbsup.fill', 'lock.fill', 'creditcard.fill', 'chart.bar.fill'];
+
 export default function AboutScreen() {
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -18,8 +21,11 @@ export default function AboutScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
+  const stats = t('legal.about.stats', { returnObjects: true }) as { number: string; label: string }[];
+  const values = t('legal.about.values', { returnObjects: true }) as { title: string; description: string }[];
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints
@@ -48,11 +54,11 @@ export default function AboutScreen() {
           />
           <View style={styles.heroContent}>
             <View style={styles.heroTag}>
-              <ThemedText style={styles.heroTagText}>The Verified Car Marketplace</ThemedText>
+              <ThemedText style={styles.heroTagText}>{t('legal.about.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>About Us</ThemedText>
+            <ThemedText style={styles.heroTitle}>{t('legal.about.heroTitle')}</ThemedText>
             <ThemedText style={styles.heroSubtitle}>
-              Connecting buyers and sellers since 2020
+              {t('legal.about.heroSubtitle')}
             </ThemedText>
           </View>
         </View>
@@ -63,14 +69,9 @@ export default function AboutScreen() {
             <View style={[styles.missionContent, isDesktopWeb && styles.webMissionContent]}>
               <View style={styles.missionTextColumn}>
                 <IconSymbol name="target" size={32} color={colors.primary} style={{ marginBottom: 16 }} />
-                <ThemedText type="defaultSemiBold" style={styles.missionTitle}>Our Mission</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.missionTitle}>{t('legal.about.missionTitle')}</ThemedText>
                 <ThemedText style={[styles.missionText, { color: colors.icon }]}>
-                  Inzira.co is the premier digital marketplace for buying and selling vehicles across Rwanda. 
-                  Our mission is to revolutionize the automotive marketplace by making transactions simple, transparent, 
-                  and trustworthy. We connect verified sellers with genuine buyers, ensuring every deal is secure and fair. 
-                  Whether you're looking for luxury sedans, commercial trucks, motorcycles, electric vehicles, or hybrid cars, 
-                  we provide a reliable platform where trust meets convenience. Since 2020, we've been bridging the gap 
-                  between buyers and sellers with cutting-edge technology and local expertise.
+                  {t('legal.about.missionText')}
                 </ThemedText>
               </View>
               <View style={styles.missionMediaColumn}>
@@ -86,19 +87,16 @@ export default function AboutScreen() {
 
         {/* Platform Overview */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>What We Offer</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.about.offerTitle')}</ThemedText>
           <ThemedText style={[styles.overviewText, { color: colors.icon }]}>
-            Our platform supports multiple vehicle categories including cars, motorcycles, electric vehicles, 
-            hybrid vehicles, and conventional fuel vehicles. We provide a comprehensive ecosystem with three 
-            main components: a Mobile App for on-the-go access, a full-featured Web Platform for desktop users, 
-            and a powerful Admin Dashboard for managing operations, users, payments, and listings.
+            {t('legal.about.offerText')}
           </ThemedText>
         </View>
 
         {/* Stats */}
         <View style={[styles.statsSection, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
           <View style={styles.statsGrid}>
-            {STATS.map((stat, index) => (
+            {stats.map((stat, index) => (
               <View key={index} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <ThemedText style={[styles.statNumber, { color: colors.primary }]}>{stat.number}</ThemedText>
                 <ThemedText style={[styles.statLabel, { color: colors.icon }]}>{stat.label}</ThemedText>
@@ -109,12 +107,12 @@ export default function AboutScreen() {
 
         {/* Values */}
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Our Values</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>{t('legal.about.valuesTitle')}</ThemedText>
           <View style={[styles.valuesGrid, isDesktopWeb && styles.webValuesGrid]}>
-            {VALUES.map((value, index) => (
+            {values.map((value, index) => (
               <View key={index} style={[styles.valueCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <View style={[styles.valueIcon, { backgroundColor: `${colors.primary}20` }]}>
-                  <IconSymbol name={value.icon} size={24} color={colors.primary} />
+                  <IconSymbol name={VALUE_ICONS[index] as any} size={24} color={colors.primary} />
                 </View>
                 <ThemedText style={styles.valueTitle}>{value.title}</ThemedText>
                 <ThemedText style={[styles.valueText, { color: colors.icon }]}>{value.description}</ThemedText>
@@ -127,10 +125,10 @@ export default function AboutScreen() {
         <View style={[styles.section, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
           <View style={[styles.teamCard, { backgroundColor: colors.card, borderColor: colors.border, alignItems: 'center', padding: 28 }]}>
             <ThemedText style={{ fontSize: 15, color: colors.icon, textAlign: 'center', marginBottom: 8 }}>
-              A product of
+              {t('legal.about.productOf')}
             </ThemedText>
             <ThemedText type="defaultSemiBold" style={{ fontSize: 20, textAlign: 'center', marginBottom: 12 }}>
-              Bonet Elite Services LTD
+              {t('legal.about.companyName')}
             </ThemedText>
             <TouchableOpacity
               onPress={() => {
@@ -142,7 +140,7 @@ export default function AboutScreen() {
               }}
               style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
             >
-              <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Learn More About Bonet</ThemedText>
+              <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>{t('legal.about.learnMore')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -150,13 +148,13 @@ export default function AboutScreen() {
         {/* CTA */}
         <View style={[styles.ctaSection, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
           <View style={[styles.ctaCard, { backgroundColor: colors.primary }]}>
-            <ThemedText style={styles.ctaTitle}>Ready to find your perfect vehicle?</ThemedText>
-            <ThemedText style={styles.ctaText}>Join thousands of happy customers today</ThemedText>
+            <ThemedText style={styles.ctaTitle}>{t('legal.about.ctaTitle')}</ThemedText>
+            <ThemedText style={styles.ctaText}>{t('legal.about.ctaText')}</ThemedText>
             <TouchableOpacity 
               style={[styles.ctaButton, { backgroundColor: '#fff' }]}
               onPress={() => router.push('/explore')}
             >
-              <ThemedText style={[styles.ctaButtonText, { color: colors.primary }]}>Browse Vehicles</ThemedText>
+              <ThemedText style={[styles.ctaButtonText, { color: colors.primary }]}>{t('legal.about.ctaButton')}</ThemedText>
             </TouchableOpacity>
           </View>
         </View>
@@ -165,22 +163,6 @@ export default function AboutScreen() {
     </View>
   );
 }
-
-const STATS = [
-  { number: '10K+', label: 'Vehicles Listed' },
-  { number: '50K+', label: 'Happy Customers' },
-  { number: '5K+', label: 'Dealers' },
-  { number: '98%', label: 'Satisfaction Rate' },
-];
-
-const VALUES = [
-  { icon: 'checkmark.shield.fill', title: 'Trust & Transparency', description: 'We verify every listing and seller to ensure you deal with genuine, trustworthy parties. Our verification process includes identity checks and vehicle documentation validation.' },
-  { icon: 'bolt.fill', title: 'Speed & Efficiency', description: 'Our platform is designed for quick transactions. From listing to sale, we streamline every step with smart categorization, instant messaging, and deal management tools.' },
-  { icon: 'hand.thumbsup.fill', title: '24/7 Customer Support', description: 'Our dedicated support team is available around the clock to assist with any questions, disputes, or technical issues you may encounter.' },
-  { icon: 'lock.fill', title: 'Security First', description: 'Your data and transactions are protected with industry-standard encryption. We never share your personal information without consent.' },
-  { icon: 'creditcard.fill', title: 'Flexible Payments', description: 'We offer multiple payment options including subscription plans for sellers and secure transaction processing for all users.' },
-  { icon: 'chart.bar.fill', title: 'Market Intelligence', description: 'Access real-time market data, pricing insights, and analytics to make informed buying or selling decisions.' },
-];
 
 const styles = StyleSheet.create({
   safeArea: {

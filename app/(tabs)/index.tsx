@@ -1,4 +1,4 @@
-import {
+﻿import {
   StyleSheet,
   TextInput,
   ScrollView,
@@ -10,7 +10,9 @@ import {
   Pressable,
   useWindowDimensions,
   ActivityIndicator,
+  Linking,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors, Elevation, Radius } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
@@ -18,7 +20,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { VehicleCard } from "@/components/vehicle-card";
 import { Image } from "expo-image";
 import { useTranslation } from "react-i18next";
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "@/context/AuthContext";
@@ -54,6 +56,7 @@ import { apiRequest } from "@/lib/api-client";
 import * as Location from "expo-location";
 import { ThemeSelector } from "@/components/theme-selector";
 import { HeroSection } from "@/components/hero-section";
+import { OnboardingHint } from "@/components/onboarding-hint";
 import { isWeb } from "@/lib/platform";
 import { WebFooter } from "@/components/web-footer";
 import { resolveImageUrl } from "@/lib/image-url";
@@ -63,6 +66,7 @@ import { HomeSEO } from "@/components/page-head";
 import { createPortal } from "react-dom";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Themman from "@/lib/Notification/Allowno";
+import { Toast } from "@/components/Toast";
 
 // Car brand logos with transparent backgrounds - using carlogos.org
 const BRAND_LOGOS: Record<string, string> = {
@@ -105,6 +109,16 @@ const BRAND_LOGOS: Record<string, string> = {
   "Aston Martin": "https://www.carlogos.org/logo/Aston-Martin-logo-2003-6000x3000.png",
 };
 
+// Custom category icon images — used when a category's fuel-type icon has a matching
+// custom asset. Falls back to the existing IconSymbol mapping when not present.
+const CATEGORY_ICON_IMAGES: Record<string, any> = {
+  "car.fill": require('@/assets/customericons/petrol-pump.png'),
+  "fuelpump.fill": require('@/assets/customericons/petrol-pump.png'),
+  "drop.fill": require('@/assets/customericons/diesel.png'),
+  "leaf.fill": require('@/assets/customericons/hybrid.png'),
+  "bolt.car.fill": require('@/assets/customericons/chargingelectric.png'),
+};
+
 // Body type placeholder images - replace with custom images later
 const BODY_TYPE_IMAGES: Record<string, string> = {
   "SUVs": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/SUV@2x.png",
@@ -118,6 +132,126 @@ const BODY_TYPE_IMAGES: Record<string, string> = {
   "Station Wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
   "Station wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
 };
+
+function BodyTypeChip({
+  type,
+  count,
+  colors,
+  isDark,
+  onPress,
+  compact,
+}: {
+  type: string;
+  count: number;
+  colors: (typeof Colors)["light"];
+  isDark: boolean;
+  onPress: () => void;
+  compact?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  return (
+    <Pressable
+      style={[styles.bodyTypeItem, compact && styles.bodyTypeItemCompact]}
+      onPress={onPress}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+      onFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+    >
+      <View
+        style={[
+          styles.bodyTypeImageContainer,
+          compact && styles.bodyTypeImageContainerCompact,
+          {
+            backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+            borderColor: isHovered || isFocused ? colors.primary : colors.border,
+            borderWidth: isHovered || isFocused ? 2 : 1,
+          },
+        ]}
+      >
+        {BODY_TYPE_IMAGES[type] ? (
+          <Image
+            source={{ uri: BODY_TYPE_IMAGES[type] }}
+            style={styles.bodyTypeImage}
+            contentFit="contain"
+          />
+        ) : (
+          <IconSymbol name="car.fill" size={compact ? 28 : 36} color={colors.primary} />
+        )}
+      </View>
+      <ThemedText style={[styles.bodyTypeName, { color: colors.text }]} numberOfLines={1}>
+        {type.replace("SUVs & Crossovers", "SUVs").replace("Station wagons", "Station Wagons")}
+      </ThemedText>
+      {count > 0 && (
+        <ThemedText style={[styles.bodyTypeCount, { color: colors.icon }]}>
+          {t("home.carsCount", { count })}
+        </ThemedText>
+      )}
+    </Pressable>
+  );
+}
+
+function InsuranceActionButton({
+  icon,
+  label,
+  onPress,
+  colors,
+  isDark,
+  accentColor,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  colors: (typeof Colors)["light"];
+  isDark: boolean;
+  accentColor: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <Pressable
+      style={[
+        styles.insuranceActionCard,
+        {
+          backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "#FFFFFF",
+          borderColor: isHovered ? accentColor : colors.border,
+          borderWidth: isHovered ? 2 : 1,
+        },
+        isHovered && styles.insuranceActionCardHovered,
+      ]}
+      onPress={onPress}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+    >
+      <View
+        style={[
+          styles.insuranceActionIconWrap,
+          { backgroundColor: isDark ? `${accentColor}26` : `${accentColor}14` },
+        ]}
+      >
+        <IconSymbol name={icon as any} size={18} color={accentColor} />
+      </View>
+      <ThemedText
+        style={[styles.insuranceActionText, { color: colors.text }]}
+        numberOfLines={1}
+      >
+        {label}
+      </ThemedText>
+      <IconSymbol
+        name="chevron.right"
+        size={14}
+        color={isHovered ? accentColor : colors.icon}
+        style={[
+          styles.insuranceActionChevron,
+          isHovered && styles.insuranceActionChevronHovered,
+        ]}
+      />
+    </Pressable>
+  );
+}
 
 export default function HomeScreen() {
   useEffect(() => {
@@ -152,7 +286,7 @@ export default function HomeScreen() {
     getCurrencyPreference(),
   );
   const [currentLocationLabel, setCurrentLocationLabel] = useState(
-    "Detecting location...",
+    t("home.detectingLocation"),
   );
   const [showLoginToast, setShowLoginToast] = useState(false);
   const loginRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -180,15 +314,15 @@ export default function HomeScreen() {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [featuredScrollX, setFeaturedScrollX] = useState(0);
-  const featuredScrollRef = useRef<ScrollView>(null);
   const [brandsScrollX, setBrandsScrollX] = useState(0);
+  const [toast, setToast] = useState<{ title: string; body?: string; icon?: string } | null>(null);
   const brandsScrollRef = useRef<ScrollView>(null);
   const errorColor = isDark ? "#FCA5A5" : "#DC2626"; // Professional red shades
   const hasDailyPicks = dailyPicks.length > 0;
   const hasRecentVehicles = recentVehicles.length > 0;
 
   const isFavorited = (id: string) => favoriteIds.includes(id);
+  const totalVehicleCount = useMemo(() => bodyTypes.reduce((sum, bt) => sum + (bt.count || 0), 0), [bodyTypes]);
 
   const syncDetectedLocation = useCallback(
     async (nextLocation: string) => {
@@ -243,7 +377,7 @@ export default function HomeScreen() {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
         console.log("[home] location permission not granted");
-        setCurrentLocationLabel("Location permission denied");
+        setCurrentLocationLabel(t("home.locationPermissionDenied"));
         return;
       }
 
@@ -257,7 +391,7 @@ export default function HomeScreen() {
 
       const place = places?.[0];
       if (!place) {
-        setCurrentLocationLabel("Location unavailable");
+        setCurrentLocationLabel(t("home.locationUnavailable"));
         return;
       }
 
@@ -276,11 +410,11 @@ export default function HomeScreen() {
         await syncDetectedLocation(nextLocation);
       } else {
         console.log("[home] no usable location from reverse geocode");
-        setCurrentLocationLabel("Location unavailable");
+        setCurrentLocationLabel(t("home.locationUnavailable"));
       }
     } catch (err) {
       console.error("[home] resolveDeviceLocation failed", err);
-      setCurrentLocationLabel("Location unavailable");
+      setCurrentLocationLabel(t("home.locationUnavailable"));
     }
   }, [syncDetectedLocation]);
 
@@ -324,9 +458,11 @@ export default function HomeScreen() {
       if (isFavorited(id)) {
         await removeFavorite(id);
         setFavoriteIds((prev) => prev.filter((fid) => fid !== id));
+        setToast({ title: t("home.removedFromFavorites"), icon: "heart" });
       } else {
         await addFavorite(id);
         setFavoriteIds((prev) => [...prev, id]);
+        setToast({ title: t("home.addedToFavorites"), icon: "heart.fill" });
       }
     } catch (err) {
       console.error("Favorite toggle failed:", err);
@@ -366,7 +502,7 @@ export default function HomeScreen() {
       setCategories(categoriesRes.data.categories || []);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to refresh home listings",
+        err instanceof Error ? err.message : t("home.failedRefreshListings"),
       );
     } finally {
       setIsRefreshing(false);
@@ -409,7 +545,7 @@ export default function HomeScreen() {
       } catch (err) {
         if (mounted) {
           setError(
-            err instanceof Error ? err.message : "Failed to load home listings",
+            err instanceof Error ? err.message : t("home.failedLoadListings"),
           );
         }
       } finally {
@@ -564,10 +700,10 @@ export default function HomeScreen() {
         <IconSymbol name="car.rear.fill" size={34} color={colors.primary} />
       </View>
       <ThemedText style={styles.emptyStateTitle}>
-        No cars uploaded yet
+        {t("home.noCarsUploaded")}
       </ThemedText>
       <ThemedText style={[styles.emptyStateSubtitle, { color: colors.icon }]}>
-        Come back again
+        {t("home.comeBackAgain")}
       </ThemedText>
     </View>
   );
@@ -614,67 +750,53 @@ export default function HomeScreen() {
   const renderFeaturedSkeleton = () => (
     <View
       style={[
-        styles.featuredScrollContainer,
+        styles.latestGrid,
         isDesktopWeb &&
           (is2Xl
-            ? styles.webFeaturedScrollContainer2Xl
+            ? styles.webLatestListings2Xl
             : isXl
-              ? styles.webFeaturedScrollContainerXl
+              ? styles.webLatestListingsXl
               : isLg
-                ? styles.webFeaturedScrollContainerLg
-                : styles.webFeaturedScrollContainerMd),
+                ? styles.webLatestListingsLg
+                : styles.webLatestListingsMd),
       ]}
     >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={[
-          styles.featuredScroll,
-          isDesktopWeb &&
-            (is2Xl
-              ? styles.webFeaturedScroll2Xl
-              : isXl
-                ? styles.webFeaturedScrollXl
-                : isLg
-                  ? styles.webFeaturedScrollLg
-                  : styles.webFeaturedScrollMd),
-        ]}
-      >
-        {Array.from({ length: 4 }).map((_, index) => (
+      {Array.from({ length: isDesktopWeb ? 4 : 4 }).map((_, index) => (
+        <View
+          key={`featured-skeleton-${index}`}
+          style={[
+            isDesktopWeb ? styles.webLatestGridCard : styles.latestGridCard,
+            {
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              overflow: "hidden",
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <View
-            key={`featured-skeleton-${index}`}
             style={[
-              styles.vehicleCard,
-              { backgroundColor: colors.background, borderColor: colors.border },
+              styles.skeletonFeaturedImage,
+              { backgroundColor: skeletonSoft },
             ]}
-          >
+          />
+          <View style={styles.vehicleInfo}>
             <View
               style={[
-                styles.skeletonFeaturedImage,
-                { backgroundColor: skeletonSoft },
+                styles.skeletonLine,
+                { width: "82%", backgroundColor: skeletonBase },
               ]}
             />
-            <View style={styles.vehicleInfo}>
-              <View
-                style={[
-                  styles.skeletonLine,
-                  { width: "82%", backgroundColor: skeletonBase },
-                ]}
-              />
-              <View
-                style={[
-                  styles.skeletonLine,
-                  {
-                    width: "56%",
-                    marginBottom: 0,
-                    backgroundColor: skeletonBase,
-                  },
-                ]}
-              />
+            <View
+              style={[
+                styles.skeletonLine,
+                { width: "56%", marginBottom: 0, backgroundColor: skeletonBase },
+              ]}
+            />
           </View>
         </View>
       ))}
-    </ScrollView>
     </View>
   );
 
@@ -747,10 +869,18 @@ export default function HomeScreen() {
               color="#F59E0B"
             />
             <ThemedText style={styles.toastText}>
-              You must first login
+              {t("home.mustLoginFirst")}
             </ThemedText>
           </View>
         </View>
+      )}
+      {!!toast && (
+        <Toast
+          visible={!!toast}
+          title={toast.title}
+          icon={toast.icon}
+          onHide={() => setToast(null)}
+        />
       )}
       {/* SEO */}
       <HomeSEO />
@@ -914,29 +1044,111 @@ export default function HomeScreen() {
         {/* Hero Section with Mega Search - Web Only */}
         {isDesktopWeb && <HeroSection categories={categories} />}
 
-        {/* Browse by Category - Mobile */}
+        {/* Insurance banner — the gif is the tappable ad. On web the box is much
+            wider than the gif's own aspect ratio, so it now keeps its full,
+            undistorted look on the left (sized to its own aspect ratio) and
+            the leftover width holds two quick-action buttons. Mobile is
+            untouched — still just the full-bleed tappable image. */}
+        <View
+          style={[
+            styles.insuranceBanner,
+            isDesktopWeb &&
+              (is2Xl
+                ? styles.webInsuranceBanner2Xl
+                : isXl
+                  ? styles.webInsuranceBannerXl
+                  : isLg
+                    ? styles.webInsuranceBannerLg
+                    : styles.webInsuranceBanner),
+          ]}
+        >
+          <TouchableOpacity
+            style={isDesktopWeb ? styles.insuranceLeftImageWrap : styles.insuranceBgImage}
+            onPress={() => {
+              const waUrl = `https://wa.me/250788307583?text=${encodeURIComponent(t("home.insuranceWhatsappMessage"))}`;
+              Linking.openURL(waUrl).catch(() => {});
+            }}
+            activeOpacity={0.9}
+          >
+            {isDesktopWeb ? <>  <Image
+              source={require("../../assets/banner.png")}
+              style={isDesktopWeb ? styles.insuranceLeftImage : StyleSheet.absoluteFill}
+              contentFit="cover"
+            /></> : <>
+              <Image
+              source={require("../../assets/bannerm.png")}
+              style={isDesktopWeb ? styles.insuranceLeftImage : StyleSheet.absoluteFill}
+              contentFit="cover"
+            />
+            </>}
+       
+          </TouchableOpacity>
+
+          {isDesktopWeb && (
+            <View
+              style={[
+                styles.insuranceRightActions,
+                {
+                  backgroundColor: isDark ? "#111827" : "#F8FAFC",
+                  borderTopRightRadius: Radius.lg,
+                  borderBottomRightRadius: Radius.lg,
+                },
+              ]}
+            >
+              <InsuranceActionButton
+                icon="magnifyingglass"
+                label={t("hero.searchCars")}
+                onPress={() => router.push("/search")}
+                colors={colors}
+                isDark={isDark}
+                accentColor={colors.primary}
+              />
+              <InsuranceActionButton
+                icon="person.crop.circle.badge.plus"
+                label={t("home.registerAccount")}
+                onPress={() => router.push("/auth/register" as any)}
+                colors={colors}
+                isDark={isDark}
+                accentColor="#16A34A"
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Browse by Category - Mobile (desktop has its own version inside HeroSection) */}
         {!isDesktopWeb && categories.length > 0 && (
           <View style={[styles.browseSection, { borderBottomColor: colors.border }]}>
-            <ThemedText style={[styles.browseLabel, { color: colors.icon }]}>
-              Browse by category
-            </ThemedText>
+            <View style={{ position: "relative", alignSelf: "flex-start", zIndex: 999999 }}>
+              <ThemedText style={[styles.browseLabel, { color: colors.icon }]}>
+                {t("home.browseByCategoryLabel")}
+              </ThemedText>
+              <OnboardingHint
+                id="browse-category-mobile"
+                text={t("home.browseByCategoryHint")}
+                icon="square.grid.2x2"
+                placement="bottom"
+                align="left"
+                style={styles.marginDown}
+              />
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.browseChips}
             >
               {categories.slice(0, 8).map((cat, index) => {
-                const colorPalette = [
-                  { bg: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.12)', icon: '#16A34A' },
-                  { bg: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.12)', icon: '#2563EB' },
-                  { bg: isDark ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.12)', icon: '#9333EA' },
-                  { bg: isDark ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.12)', icon: '#DB2777' },
-                  { bg: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.12)', icon: '#D97706' },
-                  { bg: isDark ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.12)', icon: '#0D9488' },
-                  { bg: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.12)', icon: '#4F46E5' },
-                  { bg: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.12)', icon: '#DC2626' },
-                ];
+            const colorPalette = [
+                { bg: isDark ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.12)', icon: '#DB2777' }, // Pink
+                { bg: isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(59, 130, 246, 0.12)', icon: '#2563EB' }, // Blue
+                { bg: isDark ? 'rgba(89, 78, 240, 0.2)' : 'rgba(15, 54, 228, 0.12)', icon: '#9333EA' }, // Purple
+                { bg: isDark ? 'rgba(77, 236, 72, 0.2)' : 'rgba(72, 236, 86, 0.12)', icon: '#DB2777' }, // Pink
+                { bg: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.12)', icon: '#D97706' }, // Orange
+                { bg: isDark ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.12)', icon: '#0D9488' }, // Teal
+                { bg: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.12)', icon: '#4F46E5' }, // Indigo
+                { bg: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.12)', icon: '#DC2626' }, // Red
+              ];
                 const catColors = colorPalette[index % colorPalette.length];
+                const customIcon = CATEGORY_ICON_IMAGES[cat.icon || ''];
 
                 return (
                   <TouchableOpacity
@@ -954,11 +1166,15 @@ export default function HomeScreen() {
                         { backgroundColor: catColors.bg },
                       ]}
                     >
-                      <IconSymbol
-                        name={(cat.icon || "car.fill") as any}
-                        size={18}
-                        color={catColors.icon}
-                      />
+                      {customIcon ? (
+                        <Image source={customIcon} style={{ width: 40, height: 40 }} contentFit="contain" />
+                      ) : (
+                        <IconSymbol
+                          name={(cat.icon || "car.fill") as any}
+                          size={30}
+                          color={catColors.icon}
+                        />
+                      )}
                     </View>
                     <ThemedText style={[styles.browseChipText, { color: colors.text }]}>
                       {cat.name}
@@ -986,7 +1202,7 @@ export default function HomeScreen() {
             ]}
           >
             <ThemedText type="defaultSemiBold" style={{ fontSize: 18, fontWeight: "800", letterSpacing: -0.3 }}>
-              {"Your Today's Pick"}
+              {t("home.todaysPick")}
             </ThemedText>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <TouchableOpacity onPress={() => router.push("/explore")}>
@@ -1016,7 +1232,7 @@ export default function HomeScreen() {
                     fontWeight: "500",
                   }}
                 >
-                 Refresh
+                 {t("home.refresh")}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -1044,90 +1260,38 @@ export default function HomeScreen() {
           ) : (
             <View
               style={[
-                styles.featuredScrollContainer,
+                styles.latestGrid,
                 isDesktopWeb &&
                   (is2Xl
-                    ? styles.webFeaturedScrollContainer2Xl
+                    ? styles.webLatestListings2Xl
                     : isXl
-                      ? styles.webFeaturedScrollContainerXl
+                      ? styles.webLatestListingsXl
                       : isLg
-                        ? styles.webFeaturedScrollContainerLg
-                        : styles.webFeaturedScrollContainerMd),
+                        ? styles.webLatestListingsLg
+                        : styles.webLatestListingsMd),
               ]}
             >
-              <View style={{ position: "relative" }}>
-                <ScrollView
-                  ref={featuredScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  onScroll={(e) => setFeaturedScrollX(e.nativeEvent.contentOffset.x)}
-                  scrollEventThrottle={16}
-                  style={[
-                    styles.featuredScroll,
-                    isDesktopWeb &&
-                      (is2Xl
-                        ? styles.webFeaturedScroll2Xl
-                        : isXl
-                          ? styles.webFeaturedScrollXl
-                          : isLg
-                            ? styles.webFeaturedScrollLg
-                            : styles.webFeaturedScrollMd),
-                  ]}
-                >
-                  {dailyPicks.slice(0, 10).map((vehicle) => (
-                    <VehicleCard
-                      key={vehicle.id}
-                      vehicle={vehicle}
-                      variant="grid"
-                      isFavorited={isFavorited(vehicle.id)}
-                      onPress={() => goToVehicle(vehicle.id)}
-                      onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
-                      style={styles.vehicleCard}
-                    />
-                  ))}
-                </ScrollView>
-                {isDesktopWeb && (
-                  <>
-                    <TouchableOpacity
-                      style={[
-                        styles.scrollNavButton,
-                        styles.scrollNavButtonLeft,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                          opacity: featuredScrollX > 10 ? 1 : 0,
-                        },
-                      ]}
-                      onPress={() => featuredScrollRef.current?.scrollTo({ x: Math.max(0, featuredScrollX - 300), animated: true })}
-                      disabled={featuredScrollX <= 10}
-                    >
-                      <IconSymbol name="chevron.left" size={20} color={colors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.scrollNavButton,
-                        styles.scrollNavButtonRight,
-                        {
-                          backgroundColor: colors.card,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                      onPress={() => featuredScrollRef.current?.scrollTo({ x: featuredScrollX + 300, animated: true })}
-                    >
-                      <IconSymbol name="chevron.right" size={20} color={colors.text} />
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
+              {dailyPicks.slice(0, 8).map((vehicle) => (
+                <VehicleCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  variant="grid"
+                  isFavorited={isFavorited(vehicle.id)}
+                  onPress={() => goToVehicle(vehicle.id)}
+                  onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
+                  style={isDesktopWeb ? styles.webLatestGridCard : styles.latestGridCard}
+                />
+              ))}
             </View>
           )}
         </View>
 
         {/* Browse by Body Type */}
-        <View style={[styles.section, isDesktopWeb && styles.webSection, { marginTop: 40 }]}>
+        <View style={[styles.section, isDesktopWeb && styles.webSection, { marginTop: 40, position: "relative", zIndex: 999999 }]}>
           <View
             style={[
               styles.bodyTypeSectionContainer,
+              !isDesktopWeb && styles.bodyTypeSectionContainerMobile,
               {
                 borderColor: colors.border,
                 backgroundColor: isDark ? "rgba(31, 41, 55, 0.3)" : "rgba(248, 250, 252, 0.8)",
@@ -1142,9 +1306,19 @@ export default function HomeScreen() {
                       : styles.webBodyTypeSectionContainerMd),
             ]}
           >
-            <ThemedText type="defaultSemiBold" style={[styles.bodyTypeSectionTitle, { color: colors.text }]}>
-              Browse by body type
-            </ThemedText>
+            <View style={{ position: "relative", alignSelf: "flex-start", zIndex: 999999 }}>
+              <ThemedText type="defaultSemiBold" style={[styles.bodyTypeSectionTitle, { color: colors.text }]}>
+                {t("header.browseByBodyType")}
+              </ThemedText>
+              <OnboardingHint
+                id="browse-body-type"
+                text={t("home.browseByBodyTypeHint")}
+                icon="car.fill"
+                placement="bottom"
+                align="left"
+                style={styles.bodyTypeHintOffset}
+              />
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1158,68 +1332,82 @@ export default function HomeScreen() {
                 "Minivans",
                 "Hatchbacks",
                 "Convertibles",
-                "Station Wagons",
+                "Station wagons",
               ].map((type) => {
                 const matchedType = bodyTypes.find(
                   (bt) => bt.name.toLowerCase() === type.toLowerCase()
                 );
                 const count = matchedType?.count || 0;
                 return (
-                  <TouchableOpacity
+                  <BodyTypeChip
                     key={type}
-                    style={styles.bodyTypeItem}
+                    type={type}
+                    count={count}
+                    colors={colors}
+                    isDark={isDark}
+                    compact={!isDesktopWeb}
                     onPress={() =>
                       router.push({
                         pathname: "/explore",
-                        params: { typebodies: type.replace("SUVs & Crossovers", "SUVs") },
+                        params: { typebodies: type },
                       } as any)
                     }
-                    activeOpacity={0.85}
-                  >
-                    <View
-                      style={[
-                        styles.bodyTypeImageContainer,
-                        {
-                          backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      {BODY_TYPE_IMAGES[type] ? (
-                        <Image
-                          source={{ uri: BODY_TYPE_IMAGES[type] }}
-                          style={styles.bodyTypeImage}
-                          contentFit="contain"
-                        />
-                      ) : (
-                        <IconSymbol
-                          name="car.fill"
-                          size={36}
-                          color={colors.primary}
-                        />
-                      )}
-                    </View>
-                    <ThemedText
-                      style={[styles.bodyTypeName, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {type.replace("SUVs & Crossovers", "SUVs")}
-                    </ThemedText>
-                    {count > 0 && (
-                      <ThemedText
-                        style={[styles.bodyTypeCount, { color: colors.icon }]}
-                      >
-                        {count} cars
-                      </ThemedText>
-                    )}
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </ScrollView>
           </View>
         </View>
 
+        {/* Vehicle Count — bold gradient stat strip */}
+        {totalVehicleCount > 0 && (
+          <View
+            style={[
+              styles.vehicleCountOuter,
+              isDesktopWeb &&
+                (is2Xl
+                  ? styles.webVehicleCountWrap2Xl
+                  : isXl
+                    ? styles.webVehicleCountWrapXl
+                    : isLg
+                      ? styles.webVehicleCountWrapLg
+                      : styles.webVehicleCountWrapMd),
+            ]}
+          >
+            <LinearGradient
+              colors={
+                isDark
+                  ? ["#1D4ED8", "#0D1B3E"]
+                  : ["#0A2540", "#12406E"]
+              }
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.vehicleCountWrap}
+            >
+              <IconSymbol
+                name="car.rear.fill"
+                size={72}
+                color="rgba(255,255,255,0.10)"
+                style={styles.vehicleCountGhostIcon}
+              />
+              <ThemedText style={styles.vehicleCountPrefix}>
+                {t("home.vehiclesAvailablePrefix")}
+              </ThemedText>
+              <View style={styles.vehicleCountNumberRow}>
+                <ThemedText style={styles.vehicleCountBigNumber}>
+                  {totalVehicleCount.toLocaleString()}
+                </ThemedText>
+                <ThemedText style={styles.vehicleCountPlus}>+</ThemedText>
+              </View>
+              <ThemedText style={styles.vehicleCountLabel}>
+                {t("home.vehiclesAvailableSuffix")}
+              </ThemedText>
+            </LinearGradient>
+          </View>
+        )}
+
         {/* Promotional Banner */}
+
         <TouchableOpacity
           style={[
             styles.promoBanner,
@@ -1232,41 +1420,38 @@ export default function HomeScreen() {
                     ? styles.webPromoBannerLg
                     : styles.webPromoBannerMd),
             {
-              backgroundColor: isDark
-                ? "rgba(59, 130, 246, 0.15)"
-                : "rgba(59, 130, 246, 0.08)",
+              backgroundColor: isDark ? "rgba(59, 130, 246, 0.12)" : "#F3F5F8",
+              borderColor: `${colors.primary}45`,
             },
           ]}
           onPress={() => router.push("/contact" as any)}
           activeOpacity={0.9}
         >
-          <View
-            style={[
-              styles.promoIconContainer,
-              { backgroundColor: colors.primary },
-            ]}
+          <LinearGradient
+            colors={isDark ? ["#3B82F6", "#2563EB"] : ["#1E3A5F", "#0A2540"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.promoIconContainer, !isDesktopWeb && styles.promoIconContainerMobile]}
           >
-            <IconSymbol name="sparkles" size={24} color="#fff" />
-          </View>
+            <IconSymbol name="sparkles" size={isDesktopWeb ? 24 : 20} color="#fff" />
+          </LinearGradient>
           <View style={styles.promoContent}>
             <ThemedText
               type="defaultSemiBold"
               style={[styles.promoTitle, { color: colors.text }]}
+              numberOfLines={1}
             >
-              {t("home.customOrderTitle") || "Order Your Custom Car"}
+              {t("home.customOrderTitle")}
             </ThemedText>
-            <ThemedText style={[styles.promoSubtitle, { color: colors.icon }]}>
-              {t("home.customOrderSubtitle") ||
-                "Get exclusive deals + personalized offers tailored for you"}
+            <ThemedText
+              style={[styles.promoSubtitle, { color: colors.icon }]}
+              numberOfLines={2}
+            >
+              {t("home.customOrderSubtitle")}
             </ThemedText>
           </View>
-          <View
-            style={[
-              styles.promoArrow,
-              { backgroundColor: `${colors.primary}20` },
-            ]}
-          >
-            <IconSymbol name="arrow.right" size={20} color={colors.primary} />
+          <View style={[styles.promoArrow, !isDesktopWeb && styles.promoArrowMobile, { backgroundColor: colors.primary }]}>
+            <IconSymbol name="arrow.right" size={isDesktopWeb ? 18 : 15} color="#fff" />
           </View>
         </TouchableOpacity>
 
@@ -1352,7 +1537,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/(tabs)/explore' as any)}
             activeOpacity={0.8}
           >
-            <ThemedText style={styles.browseAllBtnText}>Browse All</ThemedText>
+            <ThemedText style={styles.browseAllBtnText}>{t('home.browseAll')}</ThemedText>
             <IconSymbol name="arrow.right" size={14} color="#fff" />
           </TouchableOpacity>
         </View>
@@ -1381,7 +1566,7 @@ export default function HomeScreen() {
               ]}
             >
               <ThemedText type="defaultSemiBold" style={{ fontSize: 20, textAlign: "center" }}>
-                Get your car by brand
+                {t("home.carsByBrand")}
               </ThemedText>
             </View>
             <View
@@ -1466,7 +1651,7 @@ export default function HomeScreen() {
                       <ThemedText
                         style={[styles.brandCount, { color: colors.icon }]}
                       >
-                        {brand.count} cars
+                        {t("home.carsCount", { count: brand.count })}
                       </ThemedText>
                     </TouchableOpacity>
                   ))}
@@ -1538,14 +1723,14 @@ export default function HomeScreen() {
               style={[styles.sheetHandle, { backgroundColor: colors.border }]}
             />
             <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-              Location Menu
+              {t("home.locationMenu")}
             </ThemedText>
 
             <TouchableOpacity
               style={[styles.sheetItem, { borderColor: colors.border }]}
               onPress={handleGoSupport}
             >
-              <ThemedText style={styles.sheetItemText}>Support</ThemedText>
+              <ThemedText style={styles.sheetItemText}>{t('home.support')}</ThemedText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -1553,7 +1738,7 @@ export default function HomeScreen() {
               onPress={() => setShowCurrencyOptions((prev) => !prev)}
             >
               <View style={styles.currencyRow}>
-                <ThemedText style={styles.sheetItemText}>Currency</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('home.currency')}</ThemedText>
                 <View style={styles.currencyRowRight}>
                   <ThemedText
                     style={{
@@ -1623,7 +1808,7 @@ export default function HomeScreen() {
               onPress={handleLogout}
             >
               <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>
-                Logout
+                {t("home.logout")}
               </ThemedText>
             </TouchableOpacity>
           </Pressable>
@@ -1659,12 +1844,12 @@ export default function HomeScreen() {
                 ]}
               >
                 <ThemedText style={styles.dropdownName}>
-                  {authUser?.fullName || "User"}
+                  {authUser?.fullName || t("home.defaultUserName")}
                 </ThemedText>
                 <ThemedText
                   style={[styles.dropdownType, { color: colors.icon }]}
                 >
-                  {authUser?.role || "Buyer"}
+                  {authUser?.role || t("home.defaultRole")}
                 </ThemedText>
               </View>
 
@@ -1719,14 +1904,14 @@ export default function HomeScreen() {
             <Pressable style={{ flex: 1 }} onPress={() => setShowProfileMenu(false)} />
             <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
               <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Profile Menu</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>{t('home.profileMenu')}</ThemedText>
 
               <View style={[styles.dropdownHeader, { borderBottomColor: colors.border, paddingHorizontal: 0, paddingVertical: 12 }]}>
                 <ThemedText style={styles.dropdownName}>
-                  {authUser?.fullName || "User"}
+                  {authUser?.fullName || t("home.defaultUserName")}
                 </ThemedText>
                 <ThemedText style={[styles.dropdownType, { color: colors.icon }]}>
-                  {authUser?.role || "Buyer"}
+                  {authUser?.role || t("home.defaultRole")}
                 </ThemedText>
               </View>
 
@@ -1737,7 +1922,7 @@ export default function HomeScreen() {
                   router.push("/(tabs)/profile" as any);
                 }}
               >
-                <ThemedText style={styles.sheetItemText}>Profile</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('home.profile')}</ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1754,7 +1939,7 @@ export default function HomeScreen() {
                 style={[styles.sheetItem, { borderColor: colors.border }]}
                 onPress={handleLogout}
               >
-                <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>Logout</ThemedText>
+                <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>{t('home.logout')}</ThemedText>
               </TouchableOpacity>
             </Pressable>
           </View>
@@ -1821,6 +2006,9 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 2,
+  },
+  marginDown:{
+    marginTop:60
   },
   profileDropdown: {
     position: "absolute",
@@ -1986,12 +2174,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 20,
     marginTop: 28,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 16,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    borderColor: "rgba(59, 130, 246, 0.3)",
-    ...Elevation.flat,
+    gap: 10,
+    ...Elevation.card,
   },
   webPromoBannerMd: {
     marginHorizontal: 40,
@@ -2018,32 +2206,54 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
   },
   promoIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 14,
+    flexShrink: 0,
+    shadowColor: "#0A2540",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  promoIconContainerMobile: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
   },
   promoContent: {
     flex: 1,
+    minWidth: 0,
   },
   promoTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
   promoSubtitle: {
     fontSize: 13,
     lineHeight: 18,
   },
   promoArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    flexShrink: 0,
+    shadowColor: "#0A2540",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  promoArrowMobile: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   categoriesScroll: {
     paddingHorizontal: 16,
@@ -2110,7 +2320,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   latestGridCard: {
-    width: "48%",
+    width: "100%",
   },
   webLatestGridCard: {
     width: "calc(25% - 18px)" as any,
@@ -2206,6 +2416,11 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     paddingHorizontal: 16,
   },
+  bodyTypeSectionContainerMobile: {
+    marginHorizontal: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 18,
+  },
   webBodyTypeSectionContainerMd: {
     marginHorizontal: 40,
   },
@@ -2224,28 +2439,38 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     marginBottom: 20,
   },
+  bodyTypeHintOffset: {
+    marginTop: 110,
+  },
   bodyTypesScroll: {
     gap: 16,
     alignItems: "flex-start",
-    marginLeft:5
   },
   bodyTypeItem: {
     alignItems: "center",
     width: 110,
   },
+  bodyTypeItemCompact: {
+    width: 84,
+  },
   bodyTypeImageContainer: {
-    width: 120,
-    height: 100,
-    borderRadius: 12,
+    width: 110,
+    height: 80,
+    borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
     borderWidth: 1,
     overflow: "hidden",
+    paddingHorizontal: 4,
+  },
+  bodyTypeImageContainerCompact: {
+    width: 84,
+    height: 64,
   },
   bodyTypeImage: {
-    width: "90%",
-    height: "80%",
+    width: "96%",
+    height: "82%",
   },
   bodyTypeName: {
     fontSize: 12,
@@ -2592,6 +2817,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     marginBottom: 8,
+    position: "relative",
+    zIndex: 999999,
   },
   browseLabel: {
     fontSize: 13,
@@ -2613,9 +2840,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   browseChipIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+ width: 50,
+    height: 50,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2644,5 +2871,154 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#fff',
+  },
+  // Vehicle Count — bold gradient stat strip
+  vehicleCountOuter: {
+    marginHorizontal: 20,
+    marginTop: 28,
+  },
+  vehicleCountWrap: {
+    borderRadius: 18,
+    paddingVertical: 22,
+    paddingHorizontal: 22,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  vehicleCountGhostIcon: {
+    position: 'absolute',
+    right: -8,
+    bottom: -10,
+    transform: [{ rotate: '-12deg' }],
+  },
+  vehicleCountPrefix: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.65)',
+  },
+  vehicleCountNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+  },
+  vehicleCountBigNumber: {
+    fontSize: 42,
+    lineHeight: 46,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -1,
+  },
+  vehicleCountPlus: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#38BDF8',
+    marginLeft: 2,
+    marginTop: 4,
+  },
+  vehicleCountLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
+    maxWidth: '80%',
+  },
+  webVehicleCountWrapMd: {
+    marginHorizontal: 40,
+  },
+  webVehicleCountWrapLg: {
+    marginHorizontal: 80,
+  },
+  webVehicleCountWrapXl: {
+    marginHorizontal: 160,
+  },
+  webVehicleCountWrap2Xl: {
+    marginHorizontal: 400,
+  },
+  // Insurance Ad — full-bleed image creative styled like a real ad unit
+  insuranceBanner: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    height: 170,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'flex-end',
+  },
+  webInsuranceBanner: {
+    marginHorizontal: 40,
+    marginTop: 24,
+    height: 210,
+    flexDirection: 'row',
+  },
+  webInsuranceBannerLg: {
+    marginHorizontal: 80,
+    marginTop: 24,
+   height: 260,
+    flexDirection: 'row',
+  },
+  webInsuranceBannerXl: {
+    marginHorizontal: 160,
+    marginTop: 32,
+    height: 310,
+    flexDirection: 'row',
+  },
+  webInsuranceBanner2Xl: {
+    marginHorizontal: 400,
+    marginTop: 32,
+    height: 250,
+    flexDirection: 'row',
+  },
+  insuranceBgImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  insuranceLeftImageWrap: {
+    height: '100%',
+    width: '80%',
+  },
+  insuranceLeftImage: {
+    width: '100%',
+    height: '100%',
+  },
+  insuranceRightActions: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+  },
+  insuranceActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    ...Elevation.card,
+  },
+  insuranceActionCardHovered: {
+    ...Elevation.raised,
+  },
+  insuranceActionIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  insuranceActionText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  insuranceActionChevron: {
+    marginLeft: 4,
+  },
+  insuranceActionChevronHovered: {
+    transform: [{ translateX: 2 }],
   },
 });

@@ -3,6 +3,7 @@ import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Toast } from '@/components/Toast';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { isWeb } from '@/lib/platform';
@@ -11,15 +12,15 @@ import { getAuthUser, getAuthToken, setAuthSession } from '@/lib/userPreference'
 import { apiRequest } from '@/lib/api-client';
 
 export default function AccountScreen() {
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.title = 'Account Settings | Inzira';
-    }
-  }, []);
-
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.title = t('settings.accountPageTitle');
+    }
+  }, [t]);
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with contact/sell)
@@ -33,6 +34,7 @@ export default function AccountScreen() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [toast, setToast] = useState<{ title: string; body?: string; icon?: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -59,9 +61,11 @@ export default function AccountScreen() {
       if (token && user) {
         await setAuthSession(token, { ...user, fullName: updated.fullName, email: updated.email, phone: updated.phone });
       }
-      router.back();
-    } catch {
-      // Optionally show feedback
+      setToast({ title: t('settings.profileUpdated'), body: t('settings.profileUpdatedBody'), icon: 'checkmark.circle.fill' });
+      setTimeout(() => router.back(), 900);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('settings.failedUpdateProfile');
+      setToast({ title: t('settings.updateFailed'), body: message, icon: 'exclamationmark.circle.fill' });
     } finally {
       setSaving(false);
     }
@@ -69,6 +73,15 @@ export default function AccountScreen() {
 
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      {!!toast && (
+        <Toast
+          visible={!!toast}
+          title={toast.title}
+          body={toast.body}
+          icon={toast.icon}
+          onHide={() => setToast(null)}
+        />
+      )}
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && [styles.webHeader, { paddingHorizontal: webPaddingHorizontal }]]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -82,38 +95,38 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={isDesktopWeb} 
         contentContainerStyle={[styles.scrollContent, isDesktopWeb && [styles.webScrollContent, { paddingHorizontal: webPaddingHorizontal }]]}>
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Personal Information</ThemedText>
+          <ThemedText style={styles.sectionTitle}>{t('settings.personalInformation')}</ThemedText>
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-              <ThemedText style={[styles.label, { color: colors.icon }]}>Full Name</ThemedText>
+              <ThemedText style={[styles.label, { color: colors.icon }]}>{t('settings.fullName')}</ThemedText>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 value={fullName}
                 onChangeText={setFullName}
-                placeholder="Your name"
+                placeholder={t('settings.fullNamePlaceholder')}
                 placeholderTextColor={colors.icon}
               />
             </View>
             <View style={[styles.row, { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-              <ThemedText style={[styles.label, { color: colors.icon }]}>Email</ThemedText>
+              <ThemedText style={[styles.label, { color: colors.icon }]}>{t('settings.email')}</ThemedText>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 keyboardType="email-address"
-                placeholder="you@example.com"
+                placeholder={t('settings.emailPlaceholder')}
                 placeholderTextColor={colors.icon}
               />
             </View>
             <View style={styles.row}>
-              <ThemedText style={[styles.label, { color: colors.icon }]}>Phone Number</ThemedText>
+              <ThemedText style={[styles.label, { color: colors.icon }]}>{t('settings.phoneNumber')}</ThemedText>
               <TextInput
                 style={[styles.input, { color: colors.text }]}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
-                placeholder="+250 ..."
+                placeholder={t('settings.phonePlaceholder')}
                 placeholderTextColor={colors.icon}
               />
             </View>
@@ -121,7 +134,7 @@ export default function AccountScreen() {
         </View>
         
         <TouchableOpacity style={[styles.button, { backgroundColor: colors.primary, opacity: saving ? 0.7 : 1 }]} onPress={onSave} disabled={saving || loading}>
-          {saving ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.buttonText}>Save Changes</ThemedText>}
+          {saving ? <ActivityIndicator color="#fff" /> : <ThemedText style={styles.buttonText}>{t('settings.saveChanges')}</ThemedText>}
         </TouchableOpacity>
       </ScrollView>
     </View>

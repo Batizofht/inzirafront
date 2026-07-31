@@ -4,7 +4,7 @@ const path = require('path');
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://inzira.co').replace(/\/$/, '');
 const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://api.inzira.co/api/v1').replace(/\/$/, '');
 const DIST_DIR = path.join(process.cwd(), 'dist');
-const DEFAULT_IMAGE = `${SITE_URL}/og-image.jpg`;
+const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`;
 
 const DEFAULT_META = {
   title: "Inzira - Rwanda's #1 Verified Car Marketplace",
@@ -43,6 +43,12 @@ const ROUTE_OVERRIDES = {
     description:
       "Contact Inzira for support, partnerships, or inquiries. We're here to help with your vehicle buying and selling needs in Rwanda.",
     keywords: 'contact inzira, support, help, customer service',
+  },
+  '/brands': {
+    title: 'Browse Cars by Brand in Rwanda | Inzira',
+    description:
+      'Shop verified vehicle listings by brand in Rwanda. Toyota, Mercedes-Benz, BMW, and more - compare models, prices, and sellers on Inzira.',
+    keywords: 'car brands rwanda, toyota rwanda, mercedes rwanda, bmw rwanda, vehicle brands, buy car by brand',
   },
   '/services': {
     title: 'Our Services - Vehicle Marketplace Solutions | Inzira',
@@ -199,7 +205,12 @@ function formatUsd(price) {
 }
 
 function normalizeRouteFromDistPath(relativePath) {
-  const normalized = relativePath.replace(/\\/g, '/');
+  let normalized = relativePath.replace(/\\/g, '/');
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch {
+    // Leave as-is if it isn't validly percent-encoded.
+  }
 
   if (normalized.startsWith('(tabs)/')) {
     return normalizeRouteFromDistPath(normalized.replace(/^\(tabs\)\//, ''));

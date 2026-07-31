@@ -1,10 +1,67 @@
 import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
-import { Colors } from '@/constants/theme';
+import { Colors, Radius, Spacing, Elevation } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { isWeb } from '@/lib/platform';
+
+function CookieButton({
+  label,
+  onPress,
+  variant,
+  colors,
+}: {
+  label: string;
+  onPress: () => void;
+  variant: 'solid' | 'outline' | 'text';
+  colors: (typeof Colors)['light'];
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  if (variant === 'text') {
+    return (
+      <Pressable
+        style={styles.linkBtn}
+        onPress={onPress}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+      >
+        <ThemedText style={[styles.linkBtnText, { color: colors.text, textDecorationLine: isHovered ? 'underline' : 'none' }]}>
+          {label}
+        </ThemedText>
+      </Pressable>
+    );
+  }
+
+  if (variant === 'outline') {
+    return (
+      <Pressable
+        style={[
+          styles.btn,
+          styles.btnOutline,
+          { borderColor: colors.border, backgroundColor: isHovered ? colors.card : 'transparent' },
+        ]}
+        onPress={onPress}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+      >
+        <ThemedText style={[styles.btnText, { color: colors.text }]}>{label}</ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable
+      style={[styles.btn, { backgroundColor: colors.primary, opacity: isHovered ? 0.9 : 1 }]}
+      onPress={onPress}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
+    >
+      <ThemedText style={[styles.btnText, { color: '#fff' }]}>{label}</ThemedText>
+    </Pressable>
+  );
+}
 
 export function CookieBanner() {
   const theme = useResolvedTheme();
@@ -40,32 +97,22 @@ export function CookieBanner() {
   return (
     <View style={[styles.banner, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
       <View style={styles.content}>
-        <ThemedText style={[styles.text, { color: colors.text }]}>
-          This website uses cookies and similar technologies to enable our website functionalities. We also share information about your use of our site with our social media, advertising and analytics partners. For more details see "Cookie preferences".
-        </ThemedText>
-        <View style={styles.actions}>
-          <TouchableOpacity
-            style={[styles.btn, styles.btnOutline, { borderColor: colors.text }]}
-            onPress={handlePreferences}
-          >
-            <ThemedText style={[styles.btnText, { color: colors.text }]}>Cookie preferences</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: colors.text }]}
-            onPress={handleReject}
-          >
-            <ThemedText style={[styles.btnText, { color: colors.background }]}>Reject all</ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: colors.text }]}
-            onPress={handleAccept}
-          >
-            <ThemedText style={[styles.btnText, { color: colors.background, fontWeight: '700' }]}>Accept all</ThemedText>
-          </TouchableOpacity>
+        <View style={styles.textRow}>
+          <View style={[styles.iconWrap, { backgroundColor: `${colors.primary}12` }]}>
+            <IconSymbol name="info.circle.fill" size={16} color={colors.primary} />
+          </View>
+          <ThemedText style={[styles.text, { color: colors.text }]}>
+            This website uses cookies and similar technologies to enable our website functionalities. We also share information about your use of our site with our social media, advertising and analytics partners. For more details see "Cookie preferences".
+          </ThemedText>
         </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={handleDismiss}>
-          <IconSymbol name="xmark" size={18} color={colors.icon} />
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <CookieButton label="Cookie preferences" onPress={handlePreferences} variant="text" colors={colors} />
+          <CookieButton label="Reject all" onPress={handleReject} variant="outline" colors={colors} />
+          <CookieButton label="Accept all" onPress={handleAccept} variant="solid" colors={colors} />
+        </View>
+        <Pressable style={[styles.closeBtn, { backgroundColor: colors.card, borderColor: colors.border }]} onPress={handleDismiss}>
+          <IconSymbol name="xmark" size={14} color={colors.icon} />
+        </Pressable>
       </View>
     </View>
   );
@@ -78,44 +125,63 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     borderTopWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
     zIndex: 99999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 24,
+    ...Elevation.raised,
+    shadowOffset: { width: 0, height: -6 },
   },
   content: {
     flexDirection: 'column',
-    gap: 14,
+    gap: Spacing.md,
     maxWidth: 1400,
     alignSelf: 'center',
     width: '100%',
     position: 'relative',
   },
+  textRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingRight: 30,
+  },
+  iconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 1,
+  },
   text: {
+    flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    paddingRight: 30,
   },
   actions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
-    gap: 10,
+    gap: Spacing.sm,
   },
   btn: {
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 6,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
   },
   btnOutline: {
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
+    borderWidth: 1,
   },
   btnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  linkBtn: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 10,
+    marginRight: Spacing.xs,
+  },
+  linkBtnText: {
     fontSize: 13,
     fontWeight: '600',
   },
@@ -123,6 +189,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    padding: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

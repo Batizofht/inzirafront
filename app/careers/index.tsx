@@ -1,5 +1,6 @@
 import { StyleSheet, ScrollView, View, Platform, StatusBar, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -18,6 +19,7 @@ const OPEN_JOBS: { title: string; type: string; location: string }[] = [
 
 export default function CareersScreen() {
   useEffect(() => { if (typeof document !== 'undefined') document.title = 'Careers | Inzira'; }, []);
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
@@ -28,17 +30,17 @@ export default function CareersScreen() {
     <View style={[styles.safe, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.content, isDesktopWeb && { maxWidth: maxW, alignSelf: 'center' }]}>
-          <ThemedText style={styles.title}>Careers</ThemedText>
+          <ThemedText style={styles.title}>{t('legal.careers.title')}</ThemedText>
           <ThemedText style={[styles.subtitle, { color: colors.icon }]}>
-            Join the team building Rwanda's #1 vehicle marketplace.
+            {t('legal.careers.subtitle')}
           </ThemedText>
 
           {OPEN_JOBS.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <IconSymbol name="person.2.fill" size={32} color={colors.icon} />
-              <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>No open positions right now</ThemedText>
+              <ThemedText style={[styles.emptyTitle, { color: colors.text }]}>{t('legal.careers.emptyTitle')}</ThemedText>
               <ThemedText style={[styles.emptyDesc, { color: colors.icon }]}>
-                We're not actively hiring at the moment, but we're always interested in talented people. Send your CV to careers@inzira.co and we'll reach out when something opens up.
+                {t('legal.careers.emptyDesc')}
               </ThemedText>
             </View>
           ) : (
@@ -53,7 +55,7 @@ export default function CareersScreen() {
                 </View>
               ))}
               <ThemedText style={[styles.applyNote, { color: colors.icon }]}>
-                To apply, send your CV and cover letter to careers@inzira.co
+                {t('legal.careers.applyNote')}
               </ThemedText>
             </View>
           )}

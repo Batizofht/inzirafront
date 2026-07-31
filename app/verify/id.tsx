@@ -72,6 +72,23 @@ export default function IDVerificationScreen() {
     }
   };
 
+  const takePhoto = async (setter: (uri: string) => void) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: false,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      setter(result.assets[0].uri);
+    }
+  };
+
   // Individual: go to selfie next
   const handleIndividualContinue = async () => {
     if (!selectedIDType || !frontImage) return;
@@ -230,6 +247,17 @@ export default function IDVerificationScreen() {
                       </>
                     )}
                   </TouchableOpacity>
+                  {!frontImage && (
+                    <TouchableOpacity
+                      style={[styles.cameraLinkBtn, { borderColor: colors.border }]}
+                      onPress={() => takePhoto(setFrontImage)}
+                    >
+                      <IconSymbol name="camera.fill" size={14} color={colors.primary} />
+                      <ThemedText style={{ fontSize: 13, color: colors.primary, marginLeft: 6, fontWeight: '600' }}>
+                        Take Photo Instead
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -292,6 +320,18 @@ export default function IDVerificationScreen() {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {!rdbCertificate && (
+                  <TouchableOpacity
+                    style={[styles.cameraLinkBtn, { borderColor: colors.border }]}
+                    onPress={() => takePhoto(setRdbCertificate)}
+                  >
+                    <IconSymbol name="camera.fill" size={14} color={colors.primary} />
+                    <ThemedText style={{ fontSize: 13, color: colors.primary, marginLeft: 6, fontWeight: '600' }}>
+                      Take Photo Instead
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
 
                 {rdbCertificate && (
                   <TouchableOpacity
@@ -484,6 +524,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 10,
+  },
+  cameraLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
   },
   removeBtnText: {
     fontSize: 13,

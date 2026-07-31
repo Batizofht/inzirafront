@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 
+import { useTranslation } from 'react-i18next';
+
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { ShareModal } from '@/components/share-modal';
 import { Colors, Radius, Elevation } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { resolveImageUrl } from '@/lib/image-url';
@@ -46,15 +49,48 @@ export function VehicleCard({
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === 'dark';
+  const { t } = useTranslation();
+
+  const [showShareModal, setShowShareModal] = useState(false);
+  const shareUrl = `https://inzira.co/vehicle/${vehicle.id}`;
+
+  // Backend-tracked inventory (business sellers with mass quantity).
+  const hasStock = Number(vehicle.quantity || 0) > 1;
+  const stockSoldOut = hasStock && Number(vehicle.remainingQuantity || 0) <= 0;
+  const carsLeft = hasStock ? Number(vehicle.remainingQuantity || 0) : null;
+
+  // ── i18n helpers for labels shown on the card ────────────────────────────────
+  const translateUsage = (u?: string) => {
+    const map: Record<string, string> = {
+      'Brand New': 'brandNew',
+      'Imported Used': 'importedUsed',
+      'Used In Rwanda': 'usedInRwanda',
+    };
+    const key = u ? map[u] : undefined;
+    return key ? t(`vehicleCard.usage.${key}`) : (u || '');
+  };
+  const translateFuel = (f?: string) => {
+    const key = (f || '').toLowerCase();
+    const known = ['petrol', 'diesel', 'hybrid', 'electric', 'cng', 'lpg'];
+    return known.includes(key) ? t(`vehicleCard.fuel.${key}`) : (f || '');
+  };
 
   const verified = isVerified(vehicle);
-  const isCompany = vehicle.sellerType === 'company';
-  const isDealer = isCompany || !!vehicle.isBrokered;
+  const accountType = vehicle.sellerAccountType || (vehicle.sellerType === 'company' ? 'company' : null);
+  const isCompany = accountType === 'company';
+  const isDealer = accountType === 'dealer' || !!vehicle.isBrokered;
   const usage = vehicle.usageStatus;
+  const usageLabel = translateUsage(usage);
+  const dealerLabel = t('vehicleCard.dealer');
   const mileage = formatMileage(vehicle.mileage);
-  const isSold = vehicle.status === 'sold';
+  const isSold = vehicle.status === 'sold' || stockSoldOut;
   const sellerName = vehicle.sellerName || vehicle.seller?.fullName || null;
-  const specLine = [vehicle.year, mileage, vehicle.fuelType].filter(Boolean).join(' · ');
+  const specLine = [vehicle.year, mileage, translateFuel(vehicle.fuelType)].filter(Boolean).join(' · ');
+  const sellerFooterLabel = isCompany
+    ? sellerName
+    : isDealer
+      ? `${sellerName ?? dealerLabel} · ${dealerLabel}`
+      : sellerName;
 
   const cardBg = isDark ? colors.card : '#FFFFFF';
   const cardBorder = isDark ? colors.border : '#E8EAF0';
@@ -63,6 +99,7 @@ export function VehicleCard({
   // ── Compact ─────────────────────────────────────────────────────────────────
   if (variant === 'compact') {
     return (
+      <>
       <TouchableOpacity
         style={[styles.compactCard, { backgroundColor: cardBg, borderColor: cardBorder }, style]}
         onPress={onPress}
@@ -83,7 +120,14 @@ export function VehicleCard({
           {usage && usageColor && (
             <View style={[styles.usagePill, { backgroundColor: `${usageColor}E6` }]}>
               <View style={[styles.usageDot, { backgroundColor: '#fff' }]} />
-              <ThemedText style={styles.usagePillText} numberOfLines={1}>{usage}</ThemedText>
+              <ThemedText style={styles.usagePillText} numberOfLines={1}>{usageLabel}</ThemedText>
+            </View>
+          )}
+          {carsLeft !== null && carsLeft > 0 && (
+            <View style={styles.stockPill}>
+              <ThemedText style={styles.stockPillText} numberOfLines={1}>
+                {t('vehicleCard.carsLeft', { count: carsLeft })}
+              </ThemedText>
             </View>
           )}
         </View>
@@ -112,36 +156,56 @@ export function VehicleCard({
           )}
 
           {/* Seller footer */}
-          {(sellerName || isDealer) && (
+          {(sellerName || isDealer || isCompany) && (
             <View style={styles.sellerRow}>
               <View style={[styles.sellerAvatar, { backgroundColor: `${colors.icon}18` }]}>
                 <IconSymbol name="person.fill" size={9} color={colors.icon} />
               </View>
               <ThemedText style={[styles.sellerName, { color: colors.icon }]} numberOfLines={1}>
-                {isDealer ? `${sellerName ?? 'Dealer'} · Dealer` : sellerName}
+                {sellerFooterLabel}
               </ThemedText>
             </View>
           )}
         </View>
 
-        {/* Heart */}
-        {!hideFavorite && onToggleFavorite && (
+        {/* Heart + Share */}
+        <View style={styles.compactActions}>
           <TouchableOpacity
             style={[styles.heartBtn, {
               backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
             }]}
-            onPress={(e) => { e.stopPropagation?.(); onToggleFavorite(); }}
+            onPress={(e) => { e.stopPropagation?.(); setShowShareModal(true); }}
             hitSlop={12}
           >
-            <IconSymbol name="heart.fill" size={14} color={isFavorited ? '#EF4444' : colors.icon} />
+            <IconSymbol name="square.and.arrow.up" size={14} color={colors.icon} />
           </TouchableOpacity>
-        )}
+          {!hideFavorite && onToggleFavorite && (
+            <TouchableOpacity
+              style={[styles.heartBtn, {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              }]}
+              onPress={(e) => { e.stopPropagation?.(); onToggleFavorite(); }}
+              hitSlop={12}
+            >
+              <IconSymbol name="heart.fill" size={14} color={isFavorited ? '#EF4444' : colors.icon} />
+            </TouchableOpacity>
+          )}
+        </View>
       </TouchableOpacity>
+
+      <ShareModal
+        visible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        url={shareUrl}
+        title={vehicle.title}
+      />
+      </>
     );
   }
 
   // ── Grid ────────────────────────────────────────────────────────────────────
   return (
+    <>
     <TouchableOpacity
       style={[styles.gridCard, { backgroundColor: cardBg, borderColor: cardBorder }, style]}
       onPress={onPress}
@@ -163,7 +227,7 @@ export function VehicleCard({
         {/* TOP-LEFT: Dealer pill */}
         {isDealer && (
           <View style={styles.dealerPill}>
-            <ThemedText style={styles.dealerPillText}>Dealer</ThemedText>
+            <ThemedText style={styles.dealerPillText}>{dealerLabel}</ThemedText>
           </View>
         )}
 
@@ -181,11 +245,32 @@ export function VehicleCard({
           </TouchableOpacity>
         )}
 
+        {/* TOP-RIGHT (below favorite): Share */}
+        <TouchableOpacity
+          style={[styles.gridShareBtn, {
+            backgroundColor: isDark ? 'rgba(0,0,0,0.50)' : 'rgba(255,255,255,0.90)',
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+          }]}
+          onPress={(e) => { e.stopPropagation?.(); setShowShareModal(true); }}
+          hitSlop={8}
+        >
+          <IconSymbol name="square.and.arrow.up" size={12} color={isDark ? 'rgba(255,255,255,0.7)' : colors.icon} />
+        </TouchableOpacity>
+
         {/* BOTTOM-LEFT: Usage */}
         {usage && usageColor && (
           <View style={[styles.usagePill, { backgroundColor: `${usageColor}EC` }]}>
             <View style={[styles.usageDot, { backgroundColor: 'rgba(255,255,255,0.9)' }]} />
-            <ThemedText style={styles.usagePillText} numberOfLines={1}>{usage}</ThemedText>
+            <ThemedText style={styles.usagePillText} numberOfLines={1}>{usageLabel}</ThemedText>
+          </View>
+        )}
+
+        {/* BOTTOM-RIGHT: Cars left */}
+        {carsLeft !== null && carsLeft > 0 && (
+          <View style={styles.stockPill}>
+            <ThemedText style={styles.stockPillText} numberOfLines={1}>
+              {t('vehicleCard.carsLeft', { count: carsLeft })}
+            </ThemedText>
           </View>
         )}
       </View>
@@ -213,7 +298,7 @@ export function VehicleCard({
         )}
 
         {/* Seller footer */}
-        {(sellerName || isDealer) && (
+        {(sellerName || isDealer || isCompany) && (
           <>
             <View style={[styles.divider, { backgroundColor: cardBorder }]} />
             <View style={styles.sellerRow}>
@@ -221,13 +306,21 @@ export function VehicleCard({
                 <IconSymbol name="person.fill" size={9} color={colors.icon} />
               </View>
               <ThemedText style={[styles.sellerName, { color: colors.icon }]} numberOfLines={1}>
-                {isDealer ? `${sellerName ?? 'Dealer'} · Dealer` : sellerName}
+                {sellerFooterLabel}
               </ThemedText>
             </View>
           </>
         )}
       </View>
     </TouchableOpacity>
+
+    <ShareModal
+      visible={showShareModal}
+      onClose={() => setShowShareModal(false)}
+      url={shareUrl}
+      title={vehicle.title}
+    />
+    </>
   );
 }
 
@@ -308,6 +401,16 @@ const styles = StyleSheet.create({
   },
   soldLabel: { color: '#fff', fontSize: 15, fontWeight: '900', letterSpacing: 2.5 },
 
+  stockPill: {
+    position: 'absolute', bottom: 8, right: 8, zIndex: 2,
+    paddingHorizontal: 8, paddingVertical: 0,
+    borderRadius: Radius.pill,
+    backgroundColor: 'rgba(16,185,129,0.92)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  stockPillText: { color: '#fff', fontSize: 9, fontWeight: '800', letterSpacing: 0.3, lineHeight: 18 },
+
   // ── Compact ──────────────────────────────────────────────────────────────────
   compactCard: {
     flexDirection: 'row',
@@ -336,5 +439,15 @@ const styles = StyleSheet.create({
   heartBtn: {
     width: 30, height: 30, borderRadius: 15,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  compactActions: {
+    flexDirection: 'column',
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  gridShareBtn: {
+    position: 'absolute', top: 40, right: 8, zIndex: 2,
+    width: 26, height: 26, borderRadius: 13, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
   },
 });

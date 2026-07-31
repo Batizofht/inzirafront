@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -10,9 +10,9 @@ import {
   Platform,
   useColorScheme as useRNColorScheme,
 } from 'react-native';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Ionicons } from '@expo/vector-icons';
 
-export type PlanOption = {
+export type PaymentPlanOption = {
   id: string;
   name: string;
   price: number;
@@ -27,9 +27,8 @@ export type PaymentModalProps = {
   amount: number;
   currency?: string;
   defaultPhoneNumber?: string;
-  plans?: PlanOption[];
-  /** Pre-select a specific plan when the modal opens. */
   initialPlanId?: string;
+  plans?: PaymentPlanOption[];
 };
 
 export function PaymentModal({
@@ -38,11 +37,11 @@ export function PaymentModal({
   onConfirm,
   title,
   description,
-  amount: defaultAmount,
+  amount,
   currency = 'RWF',
   defaultPhoneNumber = '',
-  plans,
   initialPlanId,
+  plans,
 }: PaymentModalProps) {
   const colorScheme = useRNColorScheme();
   const isDark = colorScheme === 'dark';
@@ -52,9 +51,6 @@ export function PaymentModal({
   const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>(
     initialPlanId ?? plans?.[0]?.id
   );
-
-  const selectedPlan = plans?.find((p) => p.id === selectedPlanId);
-  const displayAmount = selectedPlan?.price ?? defaultAmount;
 
   const colors = {
     background: isDark ? '#1C1C1E' : '#FFFFFF',
@@ -67,13 +63,21 @@ export function PaymentModal({
   };
 
   React.useEffect(() => {
+    if (visible && defaultPhoneNumber) {
+      setPhoneNumber(defaultPhoneNumber);
+    }
+  }, [visible, defaultPhoneNumber]);
+
+  useEffect(() => {
     if (visible) {
-      if (defaultPhoneNumber) setPhoneNumber(defaultPhoneNumber);
-      // Always sync the selected plan when the modal opens so the caller's
-      // choice (initialPlanId) is honoured even after a previous open.
       setSelectedPlanId(initialPlanId ?? plans?.[0]?.id);
     }
-  }, [visible, defaultPhoneNumber, initialPlanId, plans]);
+    // Only reset the plan choice when the modal opens, not on every plans/initialPlanId re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  const selectedPlan = plans?.find((p) => p.id === selectedPlanId);
+  const displayAmount = selectedPlan ? selectedPlan.price : amount;
 
   const handleConfirm = async () => {
     if (!phoneNumber.trim()) {
@@ -101,8 +105,6 @@ export function PaymentModal({
     }).format(value);
   };
 
-  if (!visible) return null;
-
   return (
     <Modal
       visible={visible}
@@ -116,14 +118,14 @@ export function PaymentModal({
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
             <TouchableOpacity onPress={onClose} disabled={isProcessing}>
-              <IconSymbol name="xmark" size={24} color={colors.textSecondary} />
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Icon */}
           <View style={styles.iconContainer}>
             <View style={[styles.iconCircle, { backgroundColor: colors.card }]}>
-              <IconSymbol name="creditcard.fill" size={32} color={colors.primary} />
+              <Ionicons name="card-outline" size={32} color={colors.primary} />
             </View>
           </View>
 
@@ -134,29 +136,26 @@ export function PaymentModal({
 
           {/* Plan Selector */}
           {plans && plans.length > 0 && (
-            <View style={styles.planSelector}>
-              <Text style={[styles.planSelectorLabel, { color: colors.text }]}>
-                Select Duration
-              </Text>
+            <View style={styles.planRow}>
               {plans.map((plan) => {
-                const active = selectedPlanId === plan.id;
+                const selected = plan.id === selectedPlanId;
                 return (
                   <TouchableOpacity
                     key={plan.id}
                     style={[
-                      styles.planOption,
-                      { borderColor: active ? colors.primary : colors.border },
-                      active && { backgroundColor: colors.primary + '15' },
+                      styles.planCard,
+                      {
+                        borderColor: selected ? colors.primary : colors.border,
+                        backgroundColor: selected ? `${colors.primary}15` : colors.card,
+                      },
                     ]}
                     onPress={() => setSelectedPlanId(plan.id)}
+                    disabled={isProcessing}
                   >
-                    <View style={styles.planOptionLeft}>
-                      <View style={[styles.radio, { borderColor: active ? colors.primary : colors.border }]}>
-                        {active && <View style={[styles.radioFill, { backgroundColor: colors.primary }]} />}
-                      </View>
-                      <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
-                    </View>
-                    <Text style={[styles.planPrice, { color: colors.primary }]}>
+                    <Text style={[styles.planName, { color: selected ? colors.primary : colors.text }]}>
+                      {plan.name}
+                    </Text>
+                    <Text style={[styles.planPrice, { color: selected ? colors.primary : colors.textSecondary }]}>
                       {formatAmount(plan.price)}
                     </Text>
                   </TouchableOpacity>
@@ -181,8 +180,8 @@ export function PaymentModal({
               Mobile Money Phone Number
             </Text>
             <View style={[styles.inputWrapper, { borderColor: colors.border }]}>
-              <IconSymbol
-                name="phone.fill"
+              <Ionicons
+                name="phone-portrait-outline"
                 size={20}
                 color={colors.textSecondary}
                 style={styles.inputIcon}
@@ -293,50 +292,27 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 22,
   },
-  planSelector: {
-    marginBottom: 16,
-  },
-  planSelectorLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  planOption: {
+  planRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 20,
   },
-  planOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  planCard: {
     flex: 1,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  radioFill: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
   planName: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
   },
   planPrice: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   amountContainer: {
     padding: 16,
@@ -399,7 +375,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   confirmButton: {
-    
+
   },
   confirmButtonText: {
     fontSize: 16,

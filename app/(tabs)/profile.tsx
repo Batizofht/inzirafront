@@ -1,4 +1,4 @@
-import {
+﻿import {
   StyleSheet,
   ScrollView,
   View,
@@ -28,6 +28,8 @@ import { router } from "expo-router";
 
 import { useFocusEffect } from "@react-navigation/native";
 
+import { useTranslation } from "react-i18next";
+
 import * as ImagePicker from "expo-image-picker";
 
 import {
@@ -56,11 +58,13 @@ import {
 } from "@/lib/userPreference";
 
 import { fetchMyVerificationStatus } from "@/lib/api-verifications";
+import { uploadProfilePhoto } from "@/lib/api-profile";
 
 import {
   fetchMyVehicles,
   deleteVehicle,
   updateVehicle,
+  reduceVehicleStock,
 } from "@/lib/api-vehicles";
 
 import {
@@ -86,6 +90,7 @@ import { startConversation, fetchConversations, type Conversation } from "@/lib/
 import { PaymentModal } from '@/components/PaymentModal';
 import { PaymentProcessingModal } from '@/components/PaymentProcessingModal';
 import { PaymentExplainerModal } from '@/components/PaymentExplainerModal';
+import { Toast } from '@/components/Toast';
 
 
 import type { Vehicle } from "@/types/vehicle";
@@ -115,6 +120,111 @@ const getSellerStats = (vehicles: Vehicle[], contactRequests: ContactRequestResp
   orders: contactRequests.length,
 });
 
+/**
+ * Seller-side inventory control for multi-unit listings. Shows "X of Y left"
+ * (from the backend) and lets the seller MANUALLY reduce the count as cars are
+ * sold. When colour labels exist the seller must pick which colour is being
+ * reduced. The backend auto-marks the listing sold when it hits 0.
+ */
+function SellerStockControl({
+  vehicle,
+  colors,
+  t,
+  busy,
+  onReduce,
+}: {
+  vehicle: any;
+  colors: any;
+  t: (key: string, opts?: any) => string;
+  busy?: boolean;
+  onReduce: (vehicle: any, color?: string) => void;
+}) {
+  const total = Number(vehicle?.quantity || 0);
+  if (total <= 1) return null;
+
+  const remaining = Number(vehicle?.remainingQuantity || 0);
+  const depleted = remaining <= 0;
+  const labels: { color: string; count: number }[] = Array.isArray(vehicle?.colorLabels)
+    ? vehicle.colorLabels
+    : [];
+
+  return (
+    <View style={{ marginTop: 8, gap: 6 }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          alignSelf: 'flex-start',
+          gap: 5,
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 999,
+          backgroundColor: depleted ? 'rgba(220,38,38,0.12)' : 'rgba(16,185,129,0.12)',
+        }}
+      >
+        <IconSymbol name="square.grid.2x2" size={11} color={depleted ? '#DC2626' : '#16A34A'} />
+        <ThemedText style={{ fontSize: 11, fontWeight: '700', color: depleted ? '#DC2626' : '#16A34A' }}>
+          {t('profile.stockLeft', { remaining, total })}
+        </ThemedText>
+      </View>
+
+      {!depleted && (
+        labels.length > 0 ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {labels.map((c, idx) => (
+              <TouchableOpacity
+                key={`${c.color}-${idx}`}
+                disabled={busy || c.count <= 0}
+                onPress={() => onReduce(vehicle, c.color)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  backgroundColor: colors.card,
+                  opacity: c.count <= 0 ? 0.4 : 1,
+                }}
+              >
+                <IconSymbol name="minus.circle.fill" size={12} color={colors.primary} />
+                <ThemedText style={{ fontSize: 11, fontWeight: '600', color: colors.text }}>
+                  {c.color} · {c.count}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          <TouchableOpacity
+            disabled={busy}
+            onPress={() => onReduce(vehicle)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              alignSelf: 'flex-start',
+              gap: 5,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            <IconSymbol name="minus.circle.fill" size={13} color={colors.primary} />
+            <ThemedText style={{ fontSize: 12, fontWeight: '600', color: colors.text }}>
+              {t('profile.reduceStock')}
+            </ThemedText>
+          </TouchableOpacity>
+        )
+      )}
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const [sellerType, setSellerType] = useState<'individual' | 'company' | null>(null);
 
@@ -126,13 +236,15 @@ export default function ProfileScreen() {
     fetchSellerType();
   }, []);
 
+  const { logout, refreshUser } = useAuth();
+
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.title = 'My Profile | Inzira';
+      document.title = t('profile.pageTitle');
     }
-  }, []);
-
-  const { logout, refreshUser } = useAuth();
+  }, [t]);
 
   const theme = useResolvedTheme();
 
@@ -208,6 +320,7 @@ export default function ProfileScreen() {
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
 
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [toast, setToast] = useState<{ title: string; body?: string; icon?: string } | null>(null);
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
@@ -224,7 +337,7 @@ export default function ProfileScreen() {
   >(null);
 
   const [showRoleSwitchModal, setShowRoleSwitchModal] = useState(false);
-  const [roleSwitchSellerType, setRoleSwitchSellerType] = useState<'individual' | 'company'>('individual');
+  const [becomeSellerAccountType, setBecomeSellerAccountType] = useState<'individual' | 'dealer'>('individual');
   const [isSwitchingRole, setIsSwitchingRole] = useState(false);
 
   const errorColor = isDark ? "#FCA5A5" : "#DC2626";
@@ -321,37 +434,63 @@ export default function ProfileScreen() {
           prev.map((v) => (v.id === vehicleId ? { ...v, status: "sold" } : v)),
         );
         if (Platform.OS === "web" && typeof window !== "undefined") {
-          window.alert("Updated\n\nVehicle marked as sold out.");
+          window.alert(`${t('profile.updated')}\n\n${t('profile.vehicleMarkedSoldOut')}`);
         } else {
-          Alert.alert("Updated", "Vehicle marked as sold out.");
+          Alert.alert(t('profile.updated'), t('profile.vehicleMarkedSoldOut'));
         }
         loadSellerData();
       } catch (err) {
         console.error("Failed to mark vehicle sold:", err);
         if (Platform.OS === "web" && typeof window !== "undefined") {
-          window.alert("Error\n\nFailed to mark vehicle as sold out.");
+          window.alert(`${t('profile.error')}\n\n${t('profile.failedMarkSoldOut')}`);
         } else {
-          Alert.alert("Error", "Failed to mark vehicle as sold out.");
+          Alert.alert(t('profile.error'), t('profile.failedMarkSoldOut'));
         }
       }
     };
 
     if (Platform.OS === "web" && typeof window !== "undefined") {
       const confirmed = window.confirm(
-        "Mark as Sold Out\n\nThis car will be moved to Sold Out and removed from available listings.",
+        `${t('profile.markAsSoldOut')}\n\n${t('profile.markSoldOutDesc')}`,
       );
       if (confirmed) {
         await markAsSold();
       }
     } else {
       Alert.alert(
-        "Mark as Sold Out",
-        "This car will be moved to Sold Out and removed from available listings.",
+        t('profile.markAsSoldOut'),
+        t('profile.markSoldOutDesc'),
         [
-          { text: "Cancel", style: "cancel" },
-          { text: "Mark Sold", onPress: markAsSold },
+          { text: t('profile.cancel'), style: "cancel" },
+          { text: t('profile.markSold'), onPress: markAsSold },
         ],
       );
+    }
+  };
+
+  // Manual, seller-driven stock reduction. Decrements remaining (and the chosen
+  // colour) on the backend; the API auto-marks the listing sold at 0.
+  const [reducingStockId, setReducingStockId] = useState<string | null>(null);
+  const handleReduceStock = async (vehicle: any, color?: string) => {
+    if (!vehicle?.id || reducingStockId) return;
+    setReducingStockId(vehicle.id);
+    try {
+      const res = await reduceVehicleStock(vehicle.id, color);
+      const updated = res?.data?.vehicle;
+      if (updated) {
+        setMyVehicles((prev) =>
+          prev.map((v) => (v.id === updated.id ? { ...v, ...updated } : v)),
+        );
+      }
+    } catch (err: any) {
+      const msg = err?.message || t('profile.failedReduceStock');
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(msg);
+      } else {
+        Alert.alert(t('profile.error'), msg);
+      }
+    } finally {
+      setReducingStockId(null);
     }
   };
   const insets = useSafeAreaInsets();
@@ -385,7 +524,7 @@ export default function ProfileScreen() {
     try {
       setShowPaymentModal(false);
       setPaymentStatus('processing');
-      setPaymentMessage('Please approve the payment on your phone...');
+      setPaymentMessage(t('profile.approvePaymentOnPhone'));
       setShowPaymentProcessing(true);
       setIsProcessingSubscription(true);
       paymentCancelSignalRef.current.cancelled = false;
@@ -402,30 +541,34 @@ export default function ProfileScreen() {
 
         if (finalStatus.data.paymentStatus === 'successful') {
           setPaymentStatus('success');
-          setPaymentMessage('Subscription activated! You can now view contacts and reply.');
+          setPaymentMessage(t('profile.subscriptionActivatedViewContacts'));
           setHasSub(true);
           loadSellerData();
+          setToast({ title: t('profile.paymentSuccessful'), body: t('profile.subscriptionNowActive'), icon: 'checkmark.circle.fill' });
           setTimeout(() => setShowPaymentProcessing(false), 2000);
         } else if (finalStatus.data.paymentStatus === 'failed') {
           setPaymentStatus('failed');
-          setPaymentMessage(finalStatus.data.failureReason || 'Payment was rejected or failed');
+          setPaymentMessage(finalStatus.data.failureReason || t('profile.paymentRejectedOrFailed'));
+          setToast({ title: t('profile.paymentFailed'), body: finalStatus.data.failureReason || t('profile.pleaseTryAgain'), icon: 'exclamationmark.circle.fill' });
           setTimeout(() => setShowPaymentProcessing(false), 3000);
         } else {
           setPaymentStatus('failed');
-          setPaymentMessage('Payment timeout - still processing');
+          setPaymentMessage(t('profile.paymentTimeoutStillProcessing'));
           setTimeout(() => setShowPaymentProcessing(false), 3000);
         }
       } else if (result.data?.subscription) {
         setPaymentStatus('success');
-        setPaymentMessage('Subscription activated successfully!');
+        setPaymentMessage(t('profile.subscriptionActivatedSuccessfully'));
         setHasSub(true);
         loadSellerData();
+        setToast({ title: t('profile.paymentSuccessful'), body: t('profile.subscriptionNowActive'), icon: 'checkmark.circle.fill' });
         setTimeout(() => setShowPaymentProcessing(false), 2000);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to process payment';
+      const message = err instanceof Error ? err.message : t('profile.failedProcessPayment');
       setPaymentStatus('failed');
       setPaymentMessage(message);
+      setToast({ title: t('profile.paymentFailed'), body: message, icon: 'exclamationmark.circle.fill' });
       setTimeout(() => setShowPaymentProcessing(false), 3000);
     } finally {
       setIsProcessingSubscription(false);
@@ -454,10 +597,10 @@ export default function ProfileScreen() {
       const res = await activateDealershipTrial();
       setSubscription(res.data.subscription);
       setHasSub(true);
-      if (!isWeb) Alert.alert('Trial Activated', 'Your 2-month free trial is now active!');
+      if (!isWeb) Alert.alert(t('profile.trialActivated'), t('profile.trialActivatedMsg'));
     } catch (err: any) {
-      const msg = err?.message || 'Failed to activate trial';
-      if (!isWeb) Alert.alert('Error', msg);
+      const msg = err?.message || t('profile.failedActivateTrial');
+      if (!isWeb) Alert.alert(t('profile.error'), msg);
     } finally {
       setIsProcessingSubscription(false);
     }
@@ -495,7 +638,7 @@ export default function ProfileScreen() {
     } catch (err: any) {
       console.error("Failed to delete vehicle:", err);
 
-      const message = err?.message || "Failed to delete vehicle.";
+      const message = err?.message || t('profile.failedDeleteVehicle');
       alert(message);
     } finally {
       setIsDeleting(false);
@@ -520,6 +663,7 @@ export default function ProfileScreen() {
       console.log("getAuthUser result:", user);
 
       setAuthUser(user);
+      if (user?.profileImage) setProfileImageUri(user.profileImage);
 
       if (user?.role === "seller") {
         try {
@@ -578,6 +722,21 @@ export default function ProfileScreen() {
     }
   }, [activeTab, userType]);
 
+  const persistProfilePhoto = async (localUri: string) => {
+    setProfileImageUri(localUri);
+    try {
+      const result = await uploadProfilePhoto(localUri);
+      const uploadedUrl = result.data.profileImageUrl;
+      setProfileImageUri(uploadedUrl);
+      await updateStoredAuthUser({ profileImage: uploadedUrl });
+      setAuthUser((prev) => (prev ? { ...prev, profileImage: uploadedUrl } : prev));
+      setToast({ title: t('profile.profilePhotoUpdated'), icon: 'checkmark.circle.fill' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('profile.failedUploadPhoto');
+      setToast({ title: t('profile.uploadFailed'), body: message, icon: 'exclamationmark.circle.fill' });
+    }
+  };
+
   const pickProfileImage = async () => {
     try {
       const permission =
@@ -596,7 +755,27 @@ export default function ProfileScreen() {
       });
 
       if (!result.canceled && result.assets.length > 0) {
-        setProfileImageUri(result.assets[0].uri);
+        await persistProfilePhoto(result.assets[0].uri);
+      }
+    } finally {
+      setShowProfileActionSheet(false);
+    }
+  };
+
+  const takeProfilePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) return;
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        await persistProfilePhoto(result.assets[0].uri);
       }
     } finally {
       setShowProfileActionSheet(false);
@@ -639,7 +818,7 @@ export default function ProfileScreen() {
     } catch (err) {
       console.error("Failed to approve request:", err);
 
-      alert("Failed to approve request. Please try again.");
+      alert(t('profile.failedApproveRequest'));
     }
   };
 
@@ -655,7 +834,7 @@ export default function ProfileScreen() {
     } catch (err) {
       console.error("Failed to reject request:", err);
 
-      alert("Failed to reject request. Please try again.");
+      alert(t('profile.failedRejectRequest'));
     }
   };
 
@@ -680,29 +859,33 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSwitchRole = async (targetRole: 'buyer' | 'seller', newSellerType?: 'individual' | 'company') => {
+  const handleSwitchRole = async (
+    targetRole: 'buyer' | 'seller',
+    newSellerType?: 'individual' | 'company',
+    newAccountType?: 'individual' | 'dealer',
+  ) => {
     try {
       setIsSwitchingRole(true);
-      const result = await switchAccountRole(targetRole, newSellerType);
+      const result = await switchAccountRole(targetRole, newSellerType, newAccountType);
       const updatedUser = result.data?.user;
       if (updatedUser) {
-        await updateStoredAuthUser({ role: updatedUser.role, sellerType: updatedUser.sellerType ?? null });
+        await updateStoredAuthUser({
+          role: updatedUser.role,
+          sellerType: updatedUser.sellerType ?? null,
+          accountType: updatedUser.accountType,
+          isBroker: updatedUser.isBroker,
+        });
         await refreshUser();
       }
       setShowRoleSwitchModal(false);
       await checkAuthStatus();
       const msg = targetRole === 'seller'
-        ? 'Account switched to seller. Complete verification to start listing.'
-        : 'Account switched to buyer.';
-      if (isWeb && typeof window !== 'undefined') {
-        window.alert(msg);
-      } else {
-        Alert.alert('Done', msg);
-      }
+        ? t('profile.accountSwitchedToSeller')
+        : t('profile.accountSwitchedToBuyer');
+      setToast({ title: t('profile.accountUpdated'), body: msg, icon: 'checkmark.circle.fill' });
     } catch (err: any) {
-      const msg = err?.message || 'Failed to switch account type';
-      if (isWeb && typeof window !== 'undefined') window.alert(`Error\n\n${msg}`);
-      else Alert.alert('Error', msg);
+      const msg = err?.message || t('profile.failedSwitchAccountType');
+      setToast({ title: t('profile.updateFailed'), body: msg, icon: 'exclamationmark.circle.fill' });
     } finally {
       setIsSwitchingRole(false);
     }
@@ -710,23 +893,23 @@ export default function ProfileScreen() {
 
   const handleBecomeSeller = () => {
     const tracked = authUser?.sellerType;
-    // Returning seller: sellerType already set from their previous seller account
-    if (tracked === 'company') {
-      handleSwitchRole('seller', 'company');
-    } else if (tracked === 'individual') {
-      handleSwitchRole('seller', 'individual');
+    // Returning seller: sellerType (and whether they were a dealer) is already
+    // set from their previous seller account — restore it exactly.
+    if (tracked === 'individual' || tracked === 'company') {
+      handleSwitchRole('seller', tracked, authUser?.accountType === 'dealer' ? 'dealer' : 'individual');
     } else {
-      // First-time seller: sellerType is null, show picker modal
+      // First-time seller: sellerType is null, show the Individual vs Dealer picker.
+      // Company is intentionally excluded here — it requires full registration.
       setShowRoleSwitchModal(true);
     }
   };
 
   const themeModeLabel =
     selectedThemeMode === "system"
-      ? "System"
+      ? t('profile.themeSystem')
       : selectedThemeMode === "dark"
-        ? "Dark"
-        : "Light";
+        ? t('profile.themeDark')
+        : t('profile.themeLight');
 
   // Loading state
 
@@ -742,7 +925,7 @@ export default function ProfileScreen() {
           },
         ]}
       >
-        <ThemedText>Loading...</ThemedText>
+        <ThemedText>{t('profile.loading')}</ThemedText>
       </View>
     );
   }
@@ -758,6 +941,15 @@ export default function ProfileScreen() {
   if (userType === "seller") {
     return (
       <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+        {!!toast && (
+          <Toast
+            visible={!!toast}
+            title={toast.title}
+            body={toast.body}
+            icon={toast.icon}
+            onHide={() => setToast(null)}
+          />
+        )}
         {/* Header */}
 
         <View
@@ -777,7 +969,7 @@ export default function ProfileScreen() {
           ]}
         >
           <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-            My Seller Profile
+            {t('profile.mySellerProfile')}
           </ThemedText>
 
           <TouchableOpacity
@@ -855,14 +1047,14 @@ export default function ProfileScreen() {
 
               <View style={styles.userDetails}>
                 <ThemedText style={styles.userName}>
-  {authUser?.fullName || "Seller"}{authUser?.sellerType ? ` - ${authUser.sellerType === 'company' ? 'Business' : 'Individual'}` : ''}
+  {authUser?.fullName || t('profile.sellerFallback')}{authUser?.sellerType ? ` - ${authUser.sellerType === 'company' ? t('profile.business') : t('profile.individual')}` : ''}
 </ThemedText>
 
                 {/* Green name indicator for individual sellers who paid Credits Fee */}
                 {authUser?.sellerType === 'individual' && authUser?.hasPaidVerificationFee && (
                   <View style={[styles.verifiedBadge, { backgroundColor: '#16A34A15', borderColor: '#16A34A40', marginTop: 4 }]}>
                     <IconSymbol name="checkmark.seal.fill" size={10} color="#16A34A" />
-                    <ThemedText style={{ color: '#16A34A', fontSize: 11, fontWeight: '600' }}>Verified Fee Paid</ThemedText>
+                    <ThemedText style={{ color: '#16A34A', fontSize: 11, fontWeight: '600' }}>{t('profile.verifiedFeePaid')}</ThemedText>
                   </View>
                 )}
 
@@ -890,7 +1082,7 @@ export default function ProfileScreen() {
                     <ThemedText
                       style={[styles.verifiedText, { color: colors.text }]}
                     >
-                      Verified Seller
+                      {t('profile.verifiedSeller')}
                     </ThemedText>
                   </View>
                 )}
@@ -914,7 +1106,7 @@ export default function ProfileScreen() {
                     <ThemedText
                       style={[styles.verifiedText, { color: colors.text }]}
                     >
-                      Verification Pending
+                      {t('profile.verificationPending')}
                     </ThemedText>
                   </View>
                 )}
@@ -938,7 +1130,7 @@ export default function ProfileScreen() {
                     <ThemedText
                       style={[styles.verifiedText, { color: colors.text }]}
                     >
-                      Verification Rejected
+                      {t('profile.verificationRejected')}
                     </ThemedText>
                   </View>
                 )}
@@ -961,7 +1153,7 @@ export default function ProfileScreen() {
                   <ThemedText
                     style={[styles.messageQuickText, { color: colors.text }]}
                   >
-                    Messages
+                    {t('profile.messages')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -988,7 +1180,7 @@ export default function ProfileScreen() {
                 </ThemedText>
 
                 <ThemedText style={[styles.statLabel, { color: colors.icon }]}>
-                  Cars Listed
+                  {t('profile.carsListed')}
                 </ThemedText>
               </View>
 
@@ -1005,7 +1197,7 @@ export default function ProfileScreen() {
                 </ThemedText>
 
                 <ThemedText style={[styles.statLabel, { color: colors.icon }]}>
-                  Total Views
+                  {t('profile.totalViews')}
                 </ThemedText>
               </View>
 
@@ -1022,7 +1214,7 @@ export default function ProfileScreen() {
                 </ThemedText>
 
                 <ThemedText style={[styles.statLabel, { color: colors.icon }]}>
-                  Orders
+                  {t('profile.orders')}
                 </ThemedText>
               </View>
             </View>
@@ -1048,18 +1240,18 @@ export default function ProfileScreen() {
                     <ThemedText
                       style={{ color: colors.text, fontWeight: "600" }}
                     >
-                      {hasSub ? 'Dealership Subscription Active' : 'No Active Subscription'}
+                      {hasSub ? t('profile.dealershipSubscriptionActive') : t('profile.noActiveSubscription')}
                     </ThemedText>
                     {hasSub && subscription ? (
                       <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-                        {subscription.status === 'trial' ? 'Free trial — ' : ''}{getSubscriptionRemainingDays(subscription)} days remaining (expires{' '}
+                        {subscription.status === 'trial' ? t('profile.freeTrialPrefix') : ''}{getSubscriptionRemainingDays(subscription)} {t('profile.daysRemainingExpires')}{' '}
                         {new Date(subscription.expiresAt).toLocaleDateString()})
                       </ThemedText>
                     ) : (
                       <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
                         {subscription?.status === 'expired'
-                          ? 'Your subscription has ended. Subscribe to continue listing.'
-                          : 'Subscribe to list unlimited cars and get a verified business badge.'}
+                          ? t('profile.subscriptionEndedResubscribe')
+                          : t('profile.subscribeUnlimitedCars')}
                       </ThemedText>
                     )}
                   </View>
@@ -1071,14 +1263,14 @@ export default function ProfileScreen() {
                       onPress={() => openSubscriptionModal('dealership_monthly')}
                       disabled={isProcessingSubscription}
                     >
-                      <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Subscribe Monthly</ThemedText>
+                      <ThemedText style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>{t('profile.subscribeMonthly')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.rejectButton, { borderColor: colors.border, flex: 1, opacity: isProcessingSubscription ? 0.6 : 1 }]}
                       onPress={() => openSubscriptionModal('dealership_annual')}
                       disabled={isProcessingSubscription}
                     >
-                      <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 12 }}>Subscribe Annual</ThemedText>
+                      <ThemedText style={{ color: colors.text, fontWeight: '600', fontSize: 12 }}>{t('profile.subscribeAnnual')}</ThemedText>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1092,12 +1284,12 @@ export default function ProfileScreen() {
                   <IconSymbol name="creditcard.fill" size={20} color={colors.primary} />
                   <View style={styles.subscriptionStatusText}>
                     <ThemedText style={{ color: colors.text, fontWeight: "600" }}>
-                      {hasPaidVerificationFee ? 'Credits Fee Paid' : 'Credits Fee Required'}
+                      {hasPaidVerificationFee ? t('profile.creditsFeePaid') : t('profile.creditsFeeRequired')}
                     </ThemedText>
                     <ThemedText style={{ color: colors.icon, fontSize: 13, marginTop: 2 }}>
                       {hasListingCredit
-                        ? `${listingCredits} listing credit${listingCredits !== 1 ? 's' : ''} available`
-                        : 'No listing credits. Purchase a listing fee to list your vehicle by adding your first listing.'}
+                        ? t('profile.listingCreditsAvailable', { count: listingCredits, plural: listingCredits !== 1 ? 's' : '' })
+                        : t('profile.noListingCreditsDesc')}
                     </ThemedText>
                     {hasListingCredit && listingCredits > 0 && (
                       <View style={{ flexDirection: 'row', gap: 4, marginTop: 6 }}>
@@ -1107,7 +1299,7 @@ export default function ProfileScreen() {
                           </ThemedText>
                         </View>
                         <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 1 }}>
-                          listing credit{listingCredits !== 1 ? 's' : ''} remaining
+                          {t('profile.listingCreditsRemaining', { plural: listingCredits !== 1 ? 's' : '' })}
                         </ThemedText>
                       </View>
                     )}
@@ -1145,7 +1337,7 @@ export default function ProfileScreen() {
                     },
                   ]}
                 >
-                  My Cars
+                  {t('profile.myCars')}
                 </ThemedText>
               </TouchableOpacity>
 
@@ -1172,7 +1364,7 @@ export default function ProfileScreen() {
                       },
                     ]}
                   >
-                    Rejected (
+                    {t('profile.rejected')} (
                     {myVehicles.filter((v) => v.status === "rejected").length})
                   </ThemedText>
                 </TouchableOpacity>
@@ -1198,7 +1390,7 @@ export default function ProfileScreen() {
                     },
                   ]}
                 >
-                  Orders
+                  {t('profile.orders')}
                 </ThemedText>
               </TouchableOpacity>
 
@@ -1222,7 +1414,7 @@ export default function ProfileScreen() {
                     },
                   ]}
                 >
-                  Sold Out (
+                  {t('profile.soldOut')} (
                   {myVehicles.filter((v) => v.status === "sold").length})
                 </ThemedText>
               </TouchableOpacity>
@@ -1247,7 +1439,7 @@ export default function ProfileScreen() {
                     },
                   ]}
                 >
-                  Preferences
+                  {t('profile.preferences')}
                 </ThemedText>
               </TouchableOpacity>
             </View>
@@ -1328,7 +1520,7 @@ export default function ProfileScreen() {
                   ) : myVehicles.length === 0 ? (
                     <View style={styles.emptyRequests}>
                       <ThemedText style={{ color: colors.icon }}>
-                        No vehicles listed yet
+                        {t('profile.noVehiclesListedYet')}
                       </ThemedText>
 
                       <TouchableOpacity
@@ -1341,7 +1533,7 @@ export default function ProfileScreen() {
                         <ThemedText
                           style={{ color: "#fff", fontWeight: "600" }}
                         >
-                          List Your First Vehicle
+                          {t('profile.listYourFirstVehicle')}
                         </ThemedText>
                       </TouchableOpacity>
                     </View>
@@ -1451,10 +1643,18 @@ export default function ProfileScreen() {
                                 ]}
                               >
                                 {vehicle.status === "active"
-                                  ? "Verified"
+                                  ? t('profile.verifiedStatus')
                                   : vehicle.status}
                               </ThemedText>
                             </View>
+
+                            <SellerStockControl
+                              vehicle={vehicle}
+                              colors={colors}
+                              t={t}
+                              busy={reducingStockId === vehicle.id}
+                              onReduce={handleReduceStock}
+                            />
                           </View>
                         </TouchableOpacity>
 
@@ -1550,7 +1750,7 @@ export default function ProfileScreen() {
                     0 ? (
                     <View style={styles.emptyRequests}>
                       <ThemedText style={{ color: colors.icon }}>
-                        No sold vehicles yet
+                        {t('profile.noSoldVehiclesYet')}
                       </ThemedText>
                     </View>
                   ) : (
@@ -1621,7 +1821,7 @@ export default function ProfileScreen() {
                                     { color: "#DC2626" },
                                   ]}
                                 >
-                                  Sold Out
+                                  {t('profile.soldOut')}
                                 </ThemedText>
                               </View>
                             </View>
@@ -1720,13 +1920,13 @@ export default function ProfileScreen() {
                       <ThemedText
                         style={[styles.emptyCarsTitle, { color: colors.text }]}
                       >
-                        No rejected cars
+                        {t('profile.noRejectedCars')}
                       </ThemedText>
 
                       <ThemedText
                         style={[styles.emptyCarsText, { color: colors.icon }]}
                       >
-                        Your rejected vehicles will appear here
+                        {t('profile.rejectedVehiclesAppearHere')}
                       </ThemedText>
                     </View>
                   ) : (
@@ -1782,7 +1982,7 @@ export default function ProfileScreen() {
                               <ThemedText
                                 style={[styles.carStatus, { color: "#721C24" }]}
                               >
-                                REJECTED
+                                {t('profile.rejectedStatus')}
                               </ThemedText>
                             </View>
                           </TouchableOpacity>
@@ -1804,7 +2004,7 @@ export default function ProfileScreen() {
                               />
 
                               <ThemedText style={styles.editButtonText}>
-                                Resubmit
+                                {t('profile.resubmit')}
                               </ThemedText>
                             </TouchableOpacity>
 
@@ -1882,7 +2082,7 @@ export default function ProfileScreen() {
                   ) : contactRequests.length === 0 ? (
                     <View style={styles.emptyRequests}>
                       <ThemedText style={{ color: colors.icon }}>
-                        No orders yet
+                        {t('profile.noOrdersYet')}
                       </ThemedText>
                     </View>
                   ) : selectedVehicleOrders ? (
@@ -1900,7 +2100,7 @@ export default function ProfileScreen() {
                         <ThemedText
                           style={{ color: colors.primary, fontWeight: "600" }}
                         >
-                          Back to Orders
+                          {t('profile.backToOrders')}
                         </ThemedText>
                       </TouchableOpacity>
 
@@ -1937,7 +2137,7 @@ export default function ProfileScreen() {
                                 <ThemedText style={styles.carTitle}>
                                   {firstRequest?.vehicleTitle ||
                                     firstRequest?.vehicle?.title ||
-                                    "Vehicle"}
+                                    t('profile.vehicleFallback')}
                                 </ThemedText>
                                 <ThemedText
                                   style={[
@@ -1945,8 +2145,7 @@ export default function ProfileScreen() {
                                     { color: colors.primary },
                                   ]}
                                 >
-                                  {vehicleRequests.length} order
-                                  {vehicleRequests.length !== 1 ? "s" : ""}
+                                  {t('profile.orderCount', { count: vehicleRequests.length, plural: vehicleRequests.length !== 1 ? "s" : "" })}
                                 </ThemedText>
                                 {selectedVehicleId ? (
                                   <TouchableOpacity
@@ -1968,7 +2167,7 @@ export default function ProfileScreen() {
                                         fontWeight: "600",
                                       }}
                                     >
-                                      Mark as Sold Out
+                                      {t('profile.markAsSoldOut')}
                                     </ThemedText>
                                   </TouchableOpacity>
                                 ) : null}
@@ -1983,7 +2182,7 @@ export default function ProfileScreen() {
                         type="defaultSemiBold"
                         style={{ marginBottom: 12 }}
                       >
-                        Buyers
+                        {t('profile.buyers')}
                       </ThemedText>
                       {contactRequests
                         .filter((r) => r.vehicleId === selectedVehicleOrders)
@@ -2001,7 +2200,7 @@ export default function ProfileScreen() {
                           >
                             <View style={styles.requestHeader}>
                               <ThemedText style={styles.requestUser}>
-                                {request.buyerName || "Buyer"}
+                                {request.buyerName || t('profile.buyerFallback')}
                               </ThemedText>
                               <View
                                 style={[
@@ -2095,7 +2294,7 @@ export default function ProfileScreen() {
                                 <ThemedText
                                   style={{ color: "#fff", fontWeight: "600" }}
                                 >
-                                  Chat with Buyer
+                                  {t('profile.chatWithBuyer')}
                                 </ThemedText>
                               </TouchableOpacity>
                             </View>
@@ -2118,7 +2317,7 @@ export default function ProfileScreen() {
                                       fontWeight: "600",
                                     }}
                                   >
-                                    Reject
+                                    {t('profile.reject')}
                                   </ThemedText>
                                 </TouchableOpacity>
                                 <TouchableOpacity
@@ -2133,7 +2332,7 @@ export default function ProfileScreen() {
                                   <ThemedText
                                     style={{ color: "#fff", fontWeight: "600" }}
                                   >
-                                    Approve
+                                    {t('profile.approve')}
                                   </ThemedText>
                                 </TouchableOpacity>
                               </View>
@@ -2155,7 +2354,7 @@ export default function ProfileScreen() {
                             vehicleTitle:
                               request.vehicleTitle ||
                               vehicle?.title ||
-                              "Vehicle",
+                              t('profile.vehicleFallback'),
                             vehicleImage: vehicle?.images?.[0],
                             orders: [],
                           });
@@ -2200,8 +2399,7 @@ export default function ProfileScreen() {
                                   { color: colors.primary },
                                 ]}
                               >
-                                {vehicle.orders.length} order
-                                {vehicle.orders.length !== 1 ? "s" : ""}
+                                {t('profile.orderCount', { count: vehicle.orders.length, plural: vehicle.orders.length !== 1 ? "s" : "" })}
                               </ThemedText>
                               <View
                                 style={[
@@ -2224,12 +2422,11 @@ export default function ProfileScreen() {
                                     { color: colors.primary },
                                   ]}
                                 >
-                                  {
-                                    vehicle.orders.filter(
-                                      (o) => o.status === "pending",
-                                    ).length
-                                  }{" "}
-                                  pending
+                                  {t('profile.pendingCount', {
+                                    count: vehicle.orders.filter(
+                                      (o: ContactRequestResponse) => o.status === "pending",
+                                    ).length,
+                                  })}
                                 </ThemedText>
                               </View>
                             </View>
@@ -2247,7 +2444,7 @@ export default function ProfileScreen() {
                             }
                           >
                             <ThemedText style={styles.orderViewBtnText}>
-                              View
+                              {t('profile.view')}
                             </ThemedText>
                             <IconSymbol
                               name="chevron.right"
@@ -2272,7 +2469,7 @@ export default function ProfileScreen() {
                   <ThemedText
                     style={[styles.menuSectionTitle, { color: colors.icon }]}
                   >
-                    Preferences
+                    {t('profile.preferences')}
                   </ThemedText>
 
                   <View
@@ -2286,7 +2483,7 @@ export default function ProfileScreen() {
                   >
                     <MenuItem
                       icon="pencil"
-                      title="Edit Profile"
+                      title={t('profile.editProfile')}
                       colors={colors}
                       onPress={() => router.push("/settings/account")}
                     />
@@ -2294,7 +2491,7 @@ export default function ProfileScreen() {
                     {userType === "seller" && (
                       <MenuItem
                         icon="car.fill"
-                        title="All My Listings"
+                        title={t('profile.allMyListings')}
                         colors={colors}
                         onPress={() => router.push("/listings")}
                       />
@@ -2302,35 +2499,35 @@ export default function ProfileScreen() {
 
                     <MenuItem
                       icon="heart.fill"
-                      title="Saved Vehicles"
+                      title={t('profile.savedVehicles')}
                       colors={colors}
                       onPress={() => router.push("/favorites")}
                     />
 
                     <MenuItem
                       icon="chevron.right"
-                      title="Notifications"
+                      title={t('profile.notifications')}
                       colors={colors}
                       onPress={() => router.push("/settings/notifications")}
                     />
 
                     <MenuItem
                       icon="chevron.right"
-                      title="Privacy & Security"
+                      title={t('profile.privacySec')}
                       colors={colors}
                       onPress={() => router.push("/settings/privacy")}
                     />
 
                     <MenuItem
                       icon="exclamationmark.triangle.fill"
-                      title="Report an Issue"
+                      title={t('profile.reportIssue')}
                       colors={colors}
                       onPress={() => router.push("/report")}
                     />
 
                     <MenuItem
                       icon="magnifyingglass"
-                      title="Language / Ururimi"
+                      title={t('profile.languageMenu')}
                       colors={colors}
                       onPress={() => setShowLanguages(!showLanguages)}
                       isDropdown={showLanguages}
@@ -2361,7 +2558,7 @@ export default function ProfileScreen() {
                             <ThemedText
                               style={[styles.langText, { color: colors.text }]}
                             >
-                              English
+                              {t('profile.languageEnglish')}
                             </ThemedText>
                           </View>
                         </TouchableOpacity>
@@ -2381,7 +2578,7 @@ export default function ProfileScreen() {
                             <ThemedText
                               style={[styles.langText, { color: colors.text }]}
                             >
-                              Français
+                              {t('profile.languageFrench')}
                             </ThemedText>
                           </View>
                         </TouchableOpacity>
@@ -2401,7 +2598,7 @@ export default function ProfileScreen() {
                             <ThemedText
                               style={[styles.langText, { color: colors.text }]}
                             >
-                              Kinyarwanda
+                              {t('profile.languageKinyarwanda')}
                             </ThemedText>
                           </View>
                         </TouchableOpacity>
@@ -2410,7 +2607,7 @@ export default function ProfileScreen() {
 
                     <MenuItem
                       icon="chevron.right"
-                      title={`Dark Mode (${themeModeLabel})`}
+                      title={t('profile.darkModeWithValue', { mode: themeModeLabel })}
                       colors={colors}
                       onPress={() => setShowThemeOptions(!showThemeOptions)}
                       isDropdown={showThemeOptions}
@@ -2447,7 +2644,7 @@ export default function ProfileScreen() {
                               },
                             ]}
                           >
-                            System
+                            {t('profile.themeSystem')}
                           </ThemedText>
                         </TouchableOpacity>
 
@@ -2472,7 +2669,7 @@ export default function ProfileScreen() {
                               },
                             ]}
                           >
-                            Light
+                            {t('profile.themeLight')}
                           </ThemedText>
                         </TouchableOpacity>
 
@@ -2497,7 +2694,7 @@ export default function ProfileScreen() {
                               },
                             ]}
                           >
-                            Dark
+                            {t('profile.themeDark')}
                           </ThemedText>
                         </TouchableOpacity>
                       </View>
@@ -2505,7 +2702,7 @@ export default function ProfileScreen() {
 
                     <MenuItem
                       icon="magnifyingglass"
-                      title="Help & Support"
+                      title={t('profile.helpSupport')}
                       colors={colors}
                       onPress={() => router.push("/contact")}
                       isLast
@@ -2516,10 +2713,19 @@ export default function ProfileScreen() {
                   {authUser?.role !== 'admin' && (
                     <>
                       <ThemedText style={[styles.menuSectionTitle, { color: colors.icon, marginTop: 20 }]}>
-                        Account Type
+                        {t('profile.accountType')}
                       </ThemedText>
                       <View style={[styles.menuCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                         {(() => {
+                          if (authUser?.accountType === 'company') {
+                            return (
+                              <View style={{ padding: 16 }}>
+                                <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                                  {t('profile.companyCannotSwitch')}
+                                </ThemedText>
+                              </View>
+                            );
+                          }
                           const accountAgeMs = authUser?.createdAt ? Date.now() - new Date(authUser.createdAt).getTime() : Infinity;
                           const daysRemaining = accountAgeMs < 2 * 86400000
                             ? Math.ceil((2 * 86400000 - accountAgeMs) / 86400000)
@@ -2528,7 +2734,7 @@ export default function ProfileScreen() {
                             return (
                               <View style={{ padding: 16 }}>
                                 <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-                                  Account switching available in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}.
+                                  {t('profile.switchAvailableInDays', { days: daysRemaining, plural: daysRemaining !== 1 ? 's' : '' })}
                                 </ThemedText>
                               </View>
                             );
@@ -2536,7 +2742,7 @@ export default function ProfileScreen() {
                           return (
                             <MenuItem
                               icon="person.2.fill"
-                              title="Switch to Buyer Account"
+                              title={t('profile.switchToBuyerAccount')}
                               colors={colors}
                               onPress={() => setShowRoleSwitchModal(true)}
                               isLast
@@ -2565,7 +2771,7 @@ export default function ProfileScreen() {
                         { color: isDark ? "#FCA5A5" : "#DC2626" },
                       ]}
                     >
-                      Logout
+                      {t('profile.logout')}
                     </ThemedText>
                   </TouchableOpacity>
                 </View>
@@ -2603,7 +2809,7 @@ export default function ProfileScreen() {
               />
 
               <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-                Menu
+                {t('profile.menu')}
               </ThemedText>
 
               <TouchableOpacity
@@ -2613,7 +2819,7 @@ export default function ProfileScreen() {
                   router.push("/contact");
                 }}
               >
-                <ThemedText style={styles.sheetItemText}>Support</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('profile.support')}</ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2621,7 +2827,7 @@ export default function ProfileScreen() {
                 onPress={() => setShowCurrencyOptions((prev) => !prev)}
               >
                 <View style={styles.currencyRow}>
-                  <ThemedText style={styles.sheetItemText}>Currency</ThemedText>
+                  <ThemedText style={styles.sheetItemText}>{t('profile.currency')}</ThemedText>
 
                   <View style={styles.currencyRowRight}>
                     <ThemedText
@@ -2693,7 +2899,7 @@ export default function ProfileScreen() {
               >
                 <View style={styles.currencyRow}>
                   <ThemedText style={styles.sheetItemText}>
-                    Dark Mode
+                    {t('profile.darkMode')}
                   </ThemedText>
 
                   <View style={styles.currencyRowRight}>
@@ -2777,7 +2983,7 @@ export default function ProfileScreen() {
                     { color: isDark ? "#FCA5A5" : "#DC2626" },
                   ]}
                 >
-                  Logout
+                  {t('profile.logout')}
                 </ThemedText>
               </TouchableOpacity>
             </Pressable>
@@ -2808,7 +3014,7 @@ export default function ProfileScreen() {
               />
 
               <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-                Profile Actions
+                {t('profile.profileActions')}
               </ThemedText>
 
               <TouchableOpacity
@@ -2818,7 +3024,7 @@ export default function ProfileScreen() {
                   router.push("/settings/account");
                 }}
               >
-                <ThemedText style={styles.sheetItemText}>Edit Profile</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('profile.editProfile')}</ThemedText>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -2826,7 +3032,16 @@ export default function ProfileScreen() {
                 onPress={pickProfileImage}
               >
                 <ThemedText style={styles.sheetItemText}>
-                  Change Profile Picture
+                  {t('profile.changeProfilePicture')}
+                </ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={takeProfilePhoto}
+              >
+                <ThemedText style={styles.sheetItemText}>
+                  {t('profile.takePhoto')}
                 </ThemedText>
               </TouchableOpacity>
 
@@ -2837,7 +3052,7 @@ export default function ProfileScreen() {
                   router.push("/sell");
                 }}
               >
-                <ThemedText style={styles.sheetItemText}>Sell a Car</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('profile.sellACar')}</ThemedText>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -2848,8 +3063,8 @@ export default function ProfileScreen() {
         visible={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onConfirm={handlePaymentConfirm}
-        title="Dealership Subscription"
-        description="Pay via Mobile Money to activate your dealership subscription"
+        title={t('profile.dealershipSubscription')}
+        description={t('profile.payViaMobileMoney')}
         amount={Number(
           selectedPlanForPayment === 'dealership_annual'
             ? configPrices['dealership_annual_price']
@@ -2910,14 +3125,13 @@ export default function ProfileScreen() {
                 />
 
                 <ThemedText type="defaultSemiBold" style={styles.modalTitle}>
-                  Delete Listing
+                  {t('profile.deleteListing')}
                 </ThemedText>
 
                 <ThemedText
                   style={[styles.modalSubtitle, { color: colors.icon }]}
                 >
-                  This action cannot be undone. To confirm, please type the car
-                  name below.
+                  {t('profile.deleteListingDesc')}
                 </ThemedText>
               </View>
 
@@ -2925,7 +3139,7 @@ export default function ProfileScreen() {
                 <ThemedText
                   style={[styles.carNameLabel, { color: colors.text }]}
                 >
-                  Car name to delete:
+                  {t('profile.carNameToDelete')}
                 </ThemedText>
 
                 <ThemedText
@@ -2949,7 +3163,7 @@ export default function ProfileScreen() {
                       color: colors.text,
                     },
                   ]}
-                  placeholder="Type car name here"
+                  placeholder={t('profile.typeCarNameHere')}
                   placeholderTextColor={colors.icon}
                   value={confirmText}
                   onChangeText={setConfirmText}
@@ -2959,7 +3173,7 @@ export default function ProfileScreen() {
 
                 {confirmText && confirmText !== vehicleToDelete?.title && (
                   <ThemedText style={styles.errorText}>
-                    Car name doesn't match
+                    {t('profile.carNameDoesNotMatch')}
                   </ThemedText>
                 )}
               </View>
@@ -2970,7 +3184,7 @@ export default function ProfileScreen() {
                   onPress={handleCloseDeleteModal}
                   disabled={isDeleting}
                 >
-                  <ThemedText style={{ fontWeight: "600" }}>Cancel</ThemedText>
+                  <ThemedText style={{ fontWeight: "600" }}>{t('profile.cancel')}</ThemedText>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -2991,7 +3205,7 @@ export default function ProfileScreen() {
                   }
                 >
                   <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
-                    {isDeleting ? "Deleting..." : "Delete"}
+                    {isDeleting ? t('profile.deleting') : t('profile.delete')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -3009,9 +3223,9 @@ export default function ProfileScreen() {
           <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
             <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
               <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Switch to Buyer Account</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>{t('profile.switchToBuyerConfirmTitle')}</ThemedText>
               <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 20, textAlign: 'center' }}>
-                Your listings will remain saved. You can switch back to seller at any time.
+                {t('profile.switchToBuyerConfirmDesc')}
               </ThemedText>
               <TouchableOpacity
                 style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
@@ -3019,11 +3233,11 @@ export default function ProfileScreen() {
                 disabled={isSwitchingRole}
               >
                 <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
-                  {isSwitchingRole ? 'Switching...' : 'Confirm — Switch to Buyer'}
+                  {isSwitchingRole ? t('profile.switching') : t('profile.confirmSwitchToBuyer')}
                 </ThemedText>
               </TouchableOpacity>
               <TouchableOpacity style={{ padding: 16, alignItems: 'center' }} onPress={() => setShowRoleSwitchModal(false)} disabled={isSwitchingRole}>
-                <ThemedText style={{ color: colors.icon }}>Cancel</ThemedText>
+                <ThemedText style={{ color: colors.icon }}>{t('profile.cancel')}</ThemedText>
               </TouchableOpacity>
             </Pressable>
           </Pressable>
@@ -3055,7 +3269,7 @@ export default function ProfileScreen() {
         ]}
       >
         <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
-          My Profile
+          {t('profile.myProfile')}
         </ThemedText>
 
         <TouchableOpacity
@@ -3130,7 +3344,7 @@ export default function ProfileScreen() {
 
             <View style={styles.userDetails}>
               <ThemedText style={styles.userName}>
-                {authUser?.fullName || "Buyer"}
+                {authUser?.fullName || t('profile.buyerFallback')}
               </ThemedText>
 
               <ThemedText
@@ -3158,7 +3372,7 @@ export default function ProfileScreen() {
                   <ThemedText
                     style={[styles.verifiedText, { color: colors.text }]}
                   >
-                    Verified Buyer
+                    {t('profile.verifiedBuyer')}
                   </ThemedText>
                 </View>
               )}
@@ -3193,7 +3407,7 @@ export default function ProfileScreen() {
                   },
                 ]}
               >
-                Activity
+                {t('profile.activity')}
               </ThemedText>
             </TouchableOpacity>
 
@@ -3217,7 +3431,7 @@ export default function ProfileScreen() {
                   },
                 ]}
               >
-                Preferences
+                {t('profile.preferences')}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -3236,7 +3450,7 @@ export default function ProfileScreen() {
                 <ThemedText
                   style={[styles.menuSectionTitle, { color: colors.icon }]}
                 >
-                  My Activity
+                  {t('profile.myActivity')}
                 </ThemedText>
 
                 <View
@@ -3250,21 +3464,21 @@ export default function ProfileScreen() {
                 >
                   <MenuItem
                     icon="heart.fill"
-                    title="Saved Vehicles"
+                    title={t('profile.savedVehicles')}
                     colors={colors}
                     onPress={() => router.push("/favorites")}
                   />
 
                   <MenuItem
                     icon="message.fill"
-                    title="Messages"
+                    title={t('profile.messages')}
                     colors={colors}
                     onPress={() => router.push("/messages")}
                   />
 
                   <MenuItem
                     icon="car.fill"
-                    title="My Cart"
+                    title={t('profile.myCart')}
                     colors={colors}
                     onPress={() => router.push("/order" as any)}
                     isLast
@@ -3280,7 +3494,7 @@ export default function ProfileScreen() {
                 <ThemedText
                   style={[styles.menuSectionTitle, { color: colors.icon }]}
                 >
-                  Preferences
+                  {t('profile.preferences')}
                 </ThemedText>
 
                 <View
@@ -3294,42 +3508,42 @@ export default function ProfileScreen() {
                 >
                   <MenuItem
                     icon="pencil"
-                    title="Edit Profile"
+                    title={t('profile.editProfile')}
                     colors={colors}
                     onPress={() => router.push("/settings/account")}
                   />
 
                   <MenuItem
                     icon="heart.fill"
-                    title="Saved Vehicles"
+                    title={t('profile.savedVehicles')}
                     colors={colors}
                     onPress={() => router.push("/favorites")}
                   />
 
                   <MenuItem
                     icon="chevron.right"
-                    title="Notifications"
+                    title={t('profile.notifications')}
                     colors={colors}
                     onPress={() => router.push("/settings/notifications")}
                   />
 
                   <MenuItem
                     icon="chevron.right"
-                    title="Privacy & Security"
+                    title={t('profile.privacySec')}
                     colors={colors}
                     onPress={() => router.push("/settings/privacy")}
                   />
 
                   <MenuItem
                     icon="exclamationmark.triangle.fill"
-                    title="Report an Issue"
+                    title={t('profile.reportIssue')}
                     colors={colors}
                     onPress={() => router.push("/report")}
                   />
 
                   <MenuItem
                     icon="magnifyingglass"
-                    title="Language / Ururimi"
+                    title={t('profile.languageMenu')}
                     colors={colors}
                     onPress={() => setShowLanguages(!showLanguages)}
                     isDropdown={showLanguages}
@@ -3360,7 +3574,7 @@ export default function ProfileScreen() {
                           <ThemedText
                             style={[styles.langText, { color: colors.text }]}
                           >
-                            English
+                            {t('profile.languageEnglish')}
                           </ThemedText>
                         </View>
                       </TouchableOpacity>
@@ -3380,7 +3594,7 @@ export default function ProfileScreen() {
                           <ThemedText
                             style={[styles.langText, { color: colors.text }]}
                           >
-                            Français
+                            {t('profile.languageFrench')}
                           </ThemedText>
                         </View>
                       </TouchableOpacity>
@@ -3400,7 +3614,7 @@ export default function ProfileScreen() {
                           <ThemedText
                             style={[styles.langText, { color: colors.text }]}
                           >
-                            Kinyarwanda
+                            {t('profile.languageKinyarwanda')}
                           </ThemedText>
                         </View>
                       </TouchableOpacity>
@@ -3409,7 +3623,7 @@ export default function ProfileScreen() {
 
                   <MenuItem
                     icon="chevron.right"
-                    title={`Dark Mode (${themeModeLabel})`}
+                    title={t('profile.darkModeWithValue', { mode: themeModeLabel })}
                     colors={colors}
                     onPress={() => setShowThemeOptions(!showThemeOptions)}
                     isDropdown={showThemeOptions}
@@ -3446,7 +3660,7 @@ export default function ProfileScreen() {
                             },
                           ]}
                         >
-                          System
+                          {t('profile.themeSystem')}
                         </ThemedText>
                       </TouchableOpacity>
 
@@ -3471,7 +3685,7 @@ export default function ProfileScreen() {
                             },
                           ]}
                         >
-                          Light
+                          {t('profile.themeLight')}
                         </ThemedText>
                       </TouchableOpacity>
 
@@ -3496,7 +3710,7 @@ export default function ProfileScreen() {
                             },
                           ]}
                         >
-                          Dark
+                          {t('profile.themeDark')}
                         </ThemedText>
                       </TouchableOpacity>
                     </View>
@@ -3504,7 +3718,7 @@ export default function ProfileScreen() {
 
                   <MenuItem
                     icon="magnifyingglass"
-                    title="Help & Support"
+                    title={t('profile.helpSupport')}
                     colors={colors}
                     onPress={() => router.push("/contact")}
                     isLast
@@ -3515,10 +3729,19 @@ export default function ProfileScreen() {
                 {authUser?.role !== 'admin' && (
                   <>
                     <ThemedText style={[styles.menuSectionTitle, { color: colors.icon, marginTop: 20 }]}>
-                      Account Type
+                      {t('profile.accountType')}
                     </ThemedText>
                     <View style={[styles.menuCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                       {(() => {
+                        if (authUser?.accountType === 'company') {
+                          return (
+                            <View style={{ padding: 16 }}>
+                              <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
+                                {t('profile.companyCannotSwitch')}
+                              </ThemedText>
+                            </View>
+                          );
+                        }
                         const accountAgeMs = authUser?.createdAt ? Date.now() - new Date(authUser.createdAt).getTime() : Infinity;
                         const daysRemaining = accountAgeMs < 2 * 86400000
                           ? Math.ceil((2 * 86400000 - accountAgeMs) / 86400000)
@@ -3527,7 +3750,7 @@ export default function ProfileScreen() {
                           return (
                             <View style={{ padding: 16 }}>
                               <ThemedText style={{ color: colors.icon, fontSize: 13 }}>
-                                Account switching available in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}.
+                                {t('profile.switchAvailableInDays', { days: daysRemaining, plural: daysRemaining !== 1 ? 's' : '' })}
                               </ThemedText>
                             </View>
                           );
@@ -3535,7 +3758,7 @@ export default function ProfileScreen() {
                         return (
                           <MenuItem
                             icon="person.2.fill"
-                            title="Become a Seller"
+                            title={t('profile.becomeASeller')}
                             colors={colors}
                             onPress={handleBecomeSeller}
                             isLast
@@ -3564,7 +3787,7 @@ export default function ProfileScreen() {
                       { color: isDark ? "#FCA5A5" : "#DC2626" },
                     ]}
                   >
-                    Logout
+                    {t('profile.logout')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -3602,7 +3825,7 @@ export default function ProfileScreen() {
             />
 
             <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-              Menu
+              {t('profile.menu')}
             </ThemedText>
 
             <TouchableOpacity
@@ -3612,7 +3835,7 @@ export default function ProfileScreen() {
                 router.push("/contact");
               }}
             >
-              <ThemedText style={styles.sheetItemText}>Support</ThemedText>
+              <ThemedText style={styles.sheetItemText}>{t('profile.support')}</ThemedText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -3620,7 +3843,7 @@ export default function ProfileScreen() {
               onPress={() => setShowCurrencyOptions((prev) => !prev)}
             >
               <View style={styles.currencyRow}>
-                <ThemedText style={styles.sheetItemText}>Currency</ThemedText>
+                <ThemedText style={styles.sheetItemText}>{t('profile.currency')}</ThemedText>
 
                 <View style={styles.currencyRowRight}>
                   <ThemedText
@@ -3693,7 +3916,7 @@ export default function ProfileScreen() {
               onPress={handleLogout}
             >
               <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>
-                Logout
+                {t('profile.logout')}
               </ThemedText>
             </TouchableOpacity>
           </Pressable>
@@ -3724,7 +3947,7 @@ export default function ProfileScreen() {
             />
 
             <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-              Profile Actions
+              {t('profile.profileActions')}
             </ThemedText>
 
             <TouchableOpacity
@@ -3734,7 +3957,7 @@ export default function ProfileScreen() {
                 router.push("/settings/account");
               }}
             >
-              <ThemedText style={styles.sheetItemText}>Edit Profile</ThemedText>
+              <ThemedText style={styles.sheetItemText}>{t('profile.editProfile')}</ThemedText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -3742,7 +3965,16 @@ export default function ProfileScreen() {
               onPress={pickProfileImage}
             >
               <ThemedText style={styles.sheetItemText}>
-                Change Profile Picture
+                {t('profile.changeProfilePicture')}
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sheetItem, { borderColor: colors.border }]}
+              onPress={takeProfilePhoto}
+            >
+              <ThemedText style={styles.sheetItemText}>
+                {t('profile.takePhoto')}
               </ThemedText>
             </TouchableOpacity>
 
@@ -3753,7 +3985,7 @@ export default function ProfileScreen() {
 
  
   
-      {/* Role Switch Modal (Buyer → Seller) */}
+      {/* Role Switch Modal (Buyer → Seller) - Individual or Dealer only (Company requires full registration) */}
       <Modal
         transparent
         animationType="slide"
@@ -3763,40 +3995,48 @@ export default function ProfileScreen() {
         <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
           <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
             <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
-            <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>Become a Seller</ThemedText>
+            <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>{t('profile.becomeSellerTitle')}</ThemedText>
             <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 16, textAlign: 'center' }}>
-              What type of seller are you? 
+              {t('profile.chooseHowToSell')}
             </ThemedText>
 
-            <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginBottom: 20 }}>
+            <View style={{ paddingHorizontal: 20, marginBottom: 20, gap: 12 }}>
               <TouchableOpacity
-                style={{ flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', borderColor: roleSwitchSellerType === 'individual' ? colors.primary : colors.border, backgroundColor: roleSwitchSellerType === 'individual' ? `${colors.primary}15` : colors.card }}
-                onPress={() => setRoleSwitchSellerType('individual')}
+                onPress={() => setBecomeSellerAccountType('individual')}
+                style={{
+                  padding: 20, borderRadius: 12, borderWidth: 2, alignItems: 'center',
+                  borderColor: becomeSellerAccountType === 'individual' ? colors.primary : colors.border,
+                  backgroundColor: becomeSellerAccountType === 'individual' ? `${colors.primary}15` : colors.card,
+                }}
               >
-                <IconSymbol name="person.fill" size={24} color={roleSwitchSellerType === 'individual' ? colors.primary : colors.icon} />
-                <ThemedText style={{ fontWeight: '600', marginTop: 8, color: roleSwitchSellerType === 'individual' ? colors.primary : colors.text }}>Individual</ThemedText>
-                <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 4, textAlign: 'center' }}>Sell your own cars</ThemedText>
+                <IconSymbol name="person.fill" size={32} color={becomeSellerAccountType === 'individual' ? colors.primary : colors.icon} />
+                <ThemedText style={{ fontWeight: '600', marginTop: 12, fontSize: 16, color: becomeSellerAccountType === 'individual' ? colors.primary : colors.text }}>{t('profile.individualSeller')}</ThemedText>
+                <ThemedText style={{ fontSize: 13, color: colors.icon, marginTop: 6, textAlign: 'center' }}>{t('profile.sellOwnCarsDesc')}</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flex: 1, padding: 16, borderRadius: 12, borderWidth: 2, alignItems: 'center', borderColor: roleSwitchSellerType === 'company' ? colors.primary : colors.border, backgroundColor: roleSwitchSellerType === 'company' ? `${colors.primary}15` : colors.card }}
-                onPress={() => setRoleSwitchSellerType('company')}
+                onPress={() => setBecomeSellerAccountType('dealer')}
+                style={{
+                  padding: 20, borderRadius: 12, borderWidth: 2, alignItems: 'center',
+                  borderColor: becomeSellerAccountType === 'dealer' ? colors.primary : colors.border,
+                  backgroundColor: becomeSellerAccountType === 'dealer' ? `${colors.primary}15` : colors.card,
+                }}
               >
-                <IconSymbol name="building.2.fill" size={24} color={roleSwitchSellerType === 'company' ? colors.primary : colors.icon} />
-                <ThemedText style={{ fontWeight: '600', marginTop: 8, color: roleSwitchSellerType === 'company' ? colors.primary : colors.text }}>Business</ThemedText>
-                <ThemedText style={{ fontSize: 12, color: colors.icon, marginTop: 4, textAlign: 'center' }}>Dealership / company</ThemedText>
+                <IconSymbol name="briefcase.fill" size={32} color={becomeSellerAccountType === 'dealer' ? colors.primary : colors.icon} />
+                <ThemedText style={{ fontWeight: '600', marginTop: 12, fontSize: 16, color: becomeSellerAccountType === 'dealer' ? colors.primary : colors.text }}>{t('profile.dealer')}</ThemedText>
+                <ThemedText style={{ fontSize: 13, color: colors.icon, marginTop: 6, textAlign: 'center' }}>{t('profile.dealerDesc')}</ThemedText>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
-              onPress={() => handleSwitchRole('seller', roleSwitchSellerType)}
+              onPress={() => handleSwitchRole('seller', 'individual', becomeSellerAccountType)}
               disabled={isSwitchingRole}
             >
               <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
-                {isSwitchingRole ? 'Switching...' : 'Confirm — Become a Seller'}
+                {isSwitchingRole ? t('profile.switching') : t('profile.confirmBecomeSeller')}
               </ThemedText>
             </TouchableOpacity>
             <TouchableOpacity style={{ padding: 16, alignItems: 'center' }} onPress={() => setShowRoleSwitchModal(false)} disabled={isSwitchingRole}>
-              <ThemedText style={{ color: colors.icon }}>Cancel</ThemedText>
+              <ThemedText style={{ color: colors.icon }}>{t('profile.cancel')}</ThemedText>
             </TouchableOpacity>
           </Pressable>
         </Pressable>

@@ -1,4 +1,4 @@
-import {
+﻿import {
   StyleSheet,
   TextInput,
   ScrollView,
@@ -54,39 +54,34 @@ const USAGE_STATUS_FILTERS = [
 
 // Price filters are now dynamically generated based on selected currency
 
-const SORT_OPTIONS = [
-  {
-    id: "newest",
-    label: "Newest Listed",
-    description: "Most recently added vehicles first",
-  },
-  {
-    id: "price_high_low",
-    label: "Price: High to Low",
-    description: "Most expensive first",
-  },
-  {
-    id: "price_low_high",
-    label: "Price: Low to High",
-    description: "Most affordable first",
-  },
-  {
-    id: "year_new_old",
-    label: "Year: Newest First",
-    description: "Latest model years",
-  },
-  {
-    id: "year_old_new",
-    label: "Year: Oldest First",
-    description: "Classic and older vehicles",
-  },
-  { id: "title_az", label: "Name: A to Z", description: "Alphabetical order" },
-  {
-    id: "rwanda_entry_new",
-    label: "Recently in Rwanda",
-    description: "Newly arrived imports",
-  },
+const SORT_OPTION_IDS = [
+  "newest",
+  "price_high_low",
+  "price_low_high",
+  "year_new_old",
+  "year_old_new",
+  "title_az",
+  "rwanda_entry_new",
 ] as const;
+
+const SORT_OPTION_KEY_MAP: Record<(typeof SORT_OPTION_IDS)[number], string> = {
+  newest: "newest",
+  price_high_low: "priceHighLow",
+  price_low_high: "priceLowHigh",
+  year_new_old: "yearNewOld",
+  year_old_new: "yearOldNew",
+  title_az: "titleAz",
+  rwanda_entry_new: "rwandaEntryNew",
+};
+
+// Built from translations at render time so labels stay localized.
+function getSortOptions(t: (key: string) => string) {
+  return SORT_OPTION_IDS.map((id) => ({
+    id,
+    label: t(`explore.sortOptions.${SORT_OPTION_KEY_MAP[id]}.label`),
+    description: t(`explore.sortOptions.${SORT_OPTION_KEY_MAP[id]}.description`),
+  }));
+}
 
 const MIN_PRICE_RWF = 0; // Allow filtering from 0
 const MAX_PRICE_RWF = 100000000; // 100M FRW maximum
@@ -117,6 +112,20 @@ const getColorHex = (colorName: string): string =>
   COLOR_MAP[colorName] || "#6B7280";
 
 type UsageStatusFilter = (typeof USAGE_STATUS_FILTERS)[number];
+
+const USAGE_STATUS_LABEL_KEY_MAP: Record<UsageStatusFilter, string> = {
+  "Brand New": "brandNew",
+  "Imported Used": "importedUsed",
+  "Used In Rwanda": "usedInRwanda",
+};
+
+// Maps a raw usage-status filter value (used as the API/query value) to a
+// localized display label, without altering the underlying filter value.
+function getUsageStatusLabel(value: string, t: (key: string) => string) {
+  const key = USAGE_STATUS_LABEL_KEY_MAP[value as UsageStatusFilter];
+  return key ? t(`explore.usageStatusLabels.${key}`) : value;
+}
+
 type PriceFilterId =
   | "under_500k"
   | "500k_2m"
@@ -127,7 +136,7 @@ type PriceFilterId =
   | "15k_30k"
   | "30k_50k"
   | "50k_plus";
-type SortOptionId = (typeof SORT_OPTIONS)[number]["id"];
+type SortOptionId = (typeof SORT_OPTION_IDS)[number];
 
 const IMAGE_COUNT_LIMIT = 10;
 
@@ -203,6 +212,7 @@ export default function ExploreScreen() {
   const isLg = isWeb && width >= 1024 && width < 1440;
   const isXl = isWeb && width >= 1440 && width < 1920;
   const is2Xl = isWeb && width >= 1920;
+  const SORT_OPTIONS = useMemo(() => getSortOptions(t), [t]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -234,6 +244,8 @@ export default function ExploreScreen() {
   const [selectedSort, setSelectedSort] = useState<SortOptionId>("newest");
   const [showLoginToast, setShowLoginToast] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     const loginRedirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -363,7 +375,8 @@ export default function ExploreScreen() {
       status: "active",
       sort: selectedSort,
       q: searchQuery.trim() || undefined,
-      type: cat !== "All" ? cat : selectedModelTypes.length === 1 ? selectedModelTypes[0] : undefined,
+      type: cat !== "All" ? cat : undefined,
+      model: selectedModelTypes.length ? selectedModelTypes : undefined,
       brand: selectedBrands.length ? selectedBrands : undefined,
       color: selectedColors.length ? selectedColors : undefined,
       usageStatus: selectedUsageStatuses.length ? selectedUsageStatuses : undefined,
@@ -642,7 +655,7 @@ export default function ExploreScreen() {
               color="#F59E0B"
             />
             <ThemedText style={styles.toastText}>
-              You must first login
+              {t('explore.mustLoginFirst')}
             </ThemedText>
           </View>
         </View>
@@ -651,6 +664,7 @@ export default function ExploreScreen() {
         // Web Layout with Left Sidebar Filters
         <View style={styles.webContainer}>
           {/* Left Sidebar - Filters */}
+          {showFilters && (
           <View
             style={[
               styles.webSidebar,
@@ -667,16 +681,25 @@ export default function ExploreScreen() {
                   { borderBottomColor: colors.border },
                 ]}
               >
-                <ThemedText
-                  type="defaultSemiBold"
-                  style={styles.webSidebarTitle}
-                >
-                  Smart Filters
-                </ThemedText>
+                <View style={styles.webSidebarHeaderTop}>
+                  <ThemedText
+                    type="defaultSemiBold"
+                    style={styles.webSidebarTitle}
+                  >
+                    {t('explore.smartFilters')}
+                  </ThemedText>
+                  <TouchableOpacity
+                    onPress={() => setShowFilters(false)}
+                    accessibilityLabel={t('explore.clear')}
+                    style={styles.sidebarDismissBtn}
+                  >
+                    <IconSymbol name="xmark" size={18} color={colors.icon} />
+                  </TouchableOpacity>
+                </View>
                 <ThemedText
                   style={[styles.webSidebarSubtitle, { color: colors.icon }]}
                 >
-                  Find your dream car faster
+                  {t('explore.findDreamCarFaster')}
                 </ThemedText>
                 <View
                   style={[
@@ -690,7 +713,7 @@ export default function ExploreScreen() {
                       { color: colors.primary },
                     ]}
                   >
-                    {activeDesktopFilterCount} active
+                    {t('explore.activeCount', { count: activeDesktopFilterCount })}
                   </ThemedText>
                 </View>
               </View>
@@ -700,7 +723,7 @@ export default function ExploreScreen() {
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="list" size={14} color={colors.icon} />
                   <ThemedText style={styles.webFilterLabel}>
-                    Category
+                    {t('explore.category')}
                   </ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
@@ -734,7 +757,7 @@ export default function ExploreScreen() {
                         fontWeight: selectedCategory === "All" ? "600" : "500",
                       }}
                     >
-                      All
+                      {t('explore.all')}
                     </ThemedText>
                   </TouchableOpacity>
                   {categories.map((cat) => (
@@ -787,7 +810,7 @@ export default function ExploreScreen() {
                     color={colors.icon}
                   />
                   <ThemedText style={styles.webFilterLabel}>
-                    Usage Status
+                    {t('explore.usageStatus')}
                   </ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
@@ -822,7 +845,7 @@ export default function ExploreScreen() {
                           }}
                           numberOfLines={1}
                         >
-                          {item}
+                          {getUsageStatusLabel(item, t)}
                         </ThemedText>
                       </TouchableOpacity>
                     );
@@ -834,7 +857,7 @@ export default function ExploreScreen() {
               <View style={styles.webFilterSection}>
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="car.fill" size={14} color={colors.icon} />
-                  <ThemedText style={styles.webFilterLabel}>Brand</ThemedText>
+                  <ThemedText style={styles.webFilterLabel}>{t('explore.brand')}</ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
                   {brandFilters.map((brand) => {
@@ -880,7 +903,7 @@ export default function ExploreScreen() {
               <View style={styles.webFilterSection}>
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="photo" size={14} color={colors.icon} />
-                  <ThemedText style={styles.webFilterLabel}>Color</ThemedText>
+                  <ThemedText style={styles.webFilterLabel}>{t('explore.color')}</ThemedText>
                 </View>
                 <View style={styles.colorCirclesWrap}>
                   {colorFilters.map((color) => {
@@ -926,7 +949,7 @@ export default function ExploreScreen() {
                     color={colors.icon}
                   />
                   <ThemedText style={styles.webFilterLabel}>
-                    Price Range
+                    {t('explore.priceRange')}
                   </ThemedText>
                 </View>
                 <View
@@ -941,10 +964,10 @@ export default function ExploreScreen() {
                   <ThemedText
                     style={[styles.webRangeHint, { color: colors.icon }]}
                   >
-                    Set your budget range
+                    {t('explore.setBudgetRange')}
                   </ThemedText>
                   <ThemedText style={{ color: colors.icon, fontSize: 12 }}>
-                    Min: {formatFilterPrice(customMinPrice)}
+                    {t('explore.minPrefix')} {formatFilterPrice(customMinPrice)}
                   </ThemedText>
                   <RangeSlider
                     value={customMinPrice}
@@ -958,7 +981,7 @@ export default function ExploreScreen() {
                   <ThemedText
                     style={{ color: colors.icon, fontSize: 12, marginTop: 8 }}
                   >
-                    Max: {formatFilterPrice(customMaxPrice)}
+                    {t('explore.maxPrefix')} {formatFilterPrice(customMaxPrice)}
                   </ThemedText>
                   <RangeSlider
                     value={customMaxPrice}
@@ -996,12 +1019,26 @@ export default function ExploreScreen() {
                   <ThemedText
                     style={{ color: colors.primary, fontWeight: "600" }}
                   >
-                    Reset Filters
+                    {t('explore.resetFilters')}
                   </ThemedText>
                 </TouchableOpacity>
               )}
             </ScrollView>
           </View>
+          )}
+
+          {/* Left-edge reopen indicator (shown when the sidebar is dismissed) */}
+          {!showFilters && (
+            <TouchableOpacity
+              style={[styles.sidebarReopenTab, { backgroundColor: colors.primary }]}
+              onPress={() => setShowFilters(true)}
+              accessibilityLabel={t('explore.showFilters')}
+              activeOpacity={0.85}
+            >
+              <IconSymbol name="line.3.horizontal.decrease.circle.fill" size={22} color="#fff" />
+              <ThemedText style={styles.sidebarReopenTabText}>{t('explore.showFilters')}</ThemedText>
+            </TouchableOpacity>
+          )}
 
           {/* Main Content - Search & Results */}
           <View style={styles.webMainContent}>
@@ -1011,7 +1048,9 @@ export default function ExploreScreen() {
               contentContainerStyle={[
                 styles.webResultsContent,
                 {
-                  paddingHorizontal: is2Xl ? 300 : isXl ? 160 : isLg ? 80 : 40,
+                  paddingHorizontal: !showFilters
+                    ? (is2Xl ? 400 : isXl ? 200 : isLg ? 120 : 60)
+                    : (is2Xl ? 300 : isXl ? 160 : isLg ? 80 : 40),
                 },
               ]}
               onScroll={handleScroll}
@@ -1037,14 +1076,15 @@ export default function ExploreScreen() {
                     styles.webSearchContainer,
                     {
                       backgroundColor: colors.background,
-                      borderColor: colors.border,
+                      borderColor: isSearchFocused ? colors.primary : colors.border,
+                      borderWidth: isSearchFocused ? 3 : 2,
                     },
                   ]}
                 >
                   <IconSymbol
                     name="magnifyingglass"
                     size={20}
-                    color={colors.icon}
+                    color={isSearchFocused ? colors.primary : colors.icon}
                   />
                   <TextInput
                     style={[styles.webSearchInput, { color: colors.text }]}
@@ -1052,12 +1092,29 @@ export default function ExploreScreen() {
                     placeholderTextColor={colors.icon}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
                   />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.searchClearBtn}
+                      onPress={() => setSearchQuery("")}
+                      accessibilityLabel={t('explore.clear')}
+                    >
+                      <IconSymbol name="xmark.circle.fill" size={18} color={colors.icon} />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={[styles.filterToggleBtn, { borderColor: colors.border }]}
+                    onPress={() => setShowFilters((prev) => !prev)}
+                  >
+                    <IconSymbol name={showFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.circle"} size={20} color={colors.primary} />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.webSortRow}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                     <ThemedText style={{ color: colors.icon }}>
-                      {total} results
+                      {t('explore.resultsCount', { count: total })}
                     </ThemedText>
                     {selectedCategory !== "All" && (
                       <View
@@ -1128,7 +1185,7 @@ export default function ExploreScreen() {
                         ]}
                       >
                         <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
-                          {usage}
+                          {getUsageStatusLabel(usage, t)}
                         </ThemedText>
                         <TouchableOpacity
                           onPress={() =>
@@ -1169,7 +1226,10 @@ export default function ExploreScreen() {
                         ]}
                       >
                         <ThemedText style={[styles.filterPillText, { color: colors.text }]}>
-                          {selectedMileageRange.min.toLocaleString()} - {selectedMileageRange.max >= 999999999 ? "∞" : selectedMileageRange.max.toLocaleString()} km
+                          {t('explore.mileageRangeKm', {
+                            min: selectedMileageRange.min.toLocaleString(),
+                            max: selectedMileageRange.max >= 999999999 ? "∞" : selectedMileageRange.max.toLocaleString(),
+                          })}
                         </ThemedText>
                         <TouchableOpacity
                           onPress={() => setSelectedMileageRange(null)}
@@ -1279,7 +1339,7 @@ export default function ExploreScreen() {
               {!isLoading && !isLoadingMore && vehicles.length === 0 && (
                 <View style={styles.webEmptyState}>
                   <ThemedText style={{ color: colors.icon }}>
-                    No vehicles match your filters.
+                    {t('explore.noVehiclesFilters')}
                   </ThemedText>
                 </View>
               )}
@@ -1327,6 +1387,15 @@ export default function ExploreScreen() {
                     pointerEvents="none"
                   />
                 </TouchableOpacity>
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.searchClearBtn}
+                    onPress={() => setSearchQuery("")}
+                    accessibilityLabel={t('explore.clear')}
+                  >
+                    <IconSymbol name="xmark.circle.fill" size={18} color={colors.icon} />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={[
                     styles.filterIconBtn,
@@ -1340,7 +1409,7 @@ export default function ExploreScreen() {
                   <ThemedText
                     style={[styles.filterTriggerText, { color: colors.primary }]}
                   >
-                    Filters
+                    {t('explore.filters')}
                   </ThemedText>
                   <IconSymbol
                     name="chevron.down"
@@ -1400,7 +1469,7 @@ export default function ExploreScreen() {
                       },
                     ]}
                   >
-                    All
+                    {t('explore.all')}
                   </ThemedText>
                 </TouchableOpacity>
                 {categories.map((cat) => (
@@ -1538,7 +1607,7 @@ export default function ExploreScreen() {
                       isFavorited={isFavorited(vehicle.id)}
                       onPress={() => goToVehicle(vehicle.id)}
                       onToggleFavorite={() => handleToggleFavorite(vehicle.id)}
-                      style={{ width: "48%" }}
+                      style={{ width: "100%" }}
                     />
                   ))}
               {isLoadingMore && (
@@ -1549,7 +1618,7 @@ export default function ExploreScreen() {
               {!isLoading && !isLoadingMore && vehicles.length === 0 && (
                 <View style={styles.emptyState}>
                   <ThemedText style={{ color: colors.icon }}>
-                    No vehicles match your selected filters.
+                    {t('explore.noVehiclesSelectedFilters')}
                   </ThemedText>
                 </View>
               )}
@@ -1584,15 +1653,21 @@ export default function ExploreScreen() {
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderLeft}>
                 <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>
-                  Smart Filters
+                  {t('explore.smartFilters')}
                 </ThemedText>
                 <ThemedText
                   style={[styles.sheetSubtitle, { color: colors.icon }]}
                 >
-                  Find your dream car faster
+                  {t('explore.findDreamCarFaster')}
                 </ThemedText>
               </View>
               <View style={styles.sheetHeaderRight}>
+                <TouchableOpacity
+                  style={styles.sheetCloseBtn}
+                  onPress={() => setShowFilterSheet(false)}
+                >
+                  <IconSymbol name="xmark" size={20} color={colors.icon} />
+                </TouchableOpacity>
                 <View
                   style={[
                     styles.sheetActiveBadge,
@@ -1605,7 +1680,7 @@ export default function ExploreScreen() {
                       { color: colors.primary },
                     ]}
                   >
-                    {mobileActiveFilterCount} active
+                    {t('explore.activeCount', { count: mobileActiveFilterCount })}
                   </ThemedText>
                 </View>
                 <TouchableOpacity
@@ -1630,7 +1705,7 @@ export default function ExploreScreen() {
                       fontSize: 12,
                     }}
                   >
-                    Clear
+                    {t('explore.clear')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>
@@ -1649,7 +1724,7 @@ export default function ExploreScreen() {
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="list" size={14} color={colors.icon} />
                   <ThemedText style={styles.webFilterLabel}>
-                    Category
+                    {t('explore.category')}
                   </ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
@@ -1683,7 +1758,7 @@ export default function ExploreScreen() {
                         fontWeight: selectedCategory === "All" ? "600" : "500",
                       }}
                     >
-                      All
+                      {t('explore.all')}
                     </ThemedText>
                   </TouchableOpacity>
                   {categories.map((cat) => (
@@ -1736,7 +1811,7 @@ export default function ExploreScreen() {
                     color={colors.icon}
                   />
                   <ThemedText style={styles.webFilterLabel}>
-                    Usage Status
+                    {t('explore.usageStatus')}
                   </ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
@@ -1771,7 +1846,7 @@ export default function ExploreScreen() {
                           }}
                           numberOfLines={1}
                         >
-                          {item}
+                          {getUsageStatusLabel(item, t)}
                         </ThemedText>
                       </TouchableOpacity>
                     );
@@ -1783,7 +1858,7 @@ export default function ExploreScreen() {
               <View style={styles.webFilterSection}>
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="car.fill" size={14} color={colors.icon} />
-                  <ThemedText style={styles.webFilterLabel}>Brand</ThemedText>
+                  <ThemedText style={styles.webFilterLabel}>{t('explore.brand')}</ThemedText>
                 </View>
                 <View style={styles.brandGrid}>
                   {brandFilters.map((brand) => {
@@ -1829,7 +1904,7 @@ export default function ExploreScreen() {
               <View style={styles.webFilterSection}>
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="photo" size={14} color={colors.icon} />
-                  <ThemedText style={styles.webFilterLabel}>Color</ThemedText>
+                  <ThemedText style={styles.webFilterLabel}>{t('explore.color')}</ThemedText>
                 </View>
                 <View style={styles.colorCirclesWrap}>
                   {colorFilters.map((color) => {
@@ -1870,7 +1945,7 @@ export default function ExploreScreen() {
               <View style={styles.webFilterSection}>
                 <View style={styles.webFilterHeadingRow}>
                   <IconSymbol name="creditcard.fill" size={14} color={colors.icon} />
-                  <ThemedText style={styles.webFilterLabel}>Price Range</ThemedText>
+                  <ThemedText style={styles.webFilterLabel}>{t('explore.priceRange')}</ThemedText>
                 </View>
                 <View
                   style={[
@@ -1882,7 +1957,7 @@ export default function ExploreScreen() {
                   ]}
                 >
                   <View style={styles.priceRangeRow}>
-                    <ThemedText style={styles.priceRangeLabel}>From</ThemedText>
+                    <ThemedText style={styles.priceRangeLabel}>{t('explore.from')}</ThemedText>
                     <ThemedText
                       style={[
                         styles.priceRangeValue,
@@ -1903,7 +1978,7 @@ export default function ExploreScreen() {
                   />
 
                   <View style={[styles.priceRangeRow, { marginTop: 8 }]}>
-                    <ThemedText style={styles.priceRangeLabel}>To</ThemedText>
+                    <ThemedText style={styles.priceRangeLabel}>{t('explore.to')}</ThemedText>
                     <ThemedText
                       style={[
                         styles.priceRangeValue,
@@ -1931,7 +2006,7 @@ export default function ExploreScreen() {
               onPress={() => setShowFilterSheet(false)}
             >
               <ThemedText style={[styles.applyBtnText,{}]}>
-                Show {total} vehicles
+                {t('explore.showVehiclesCount', { count: total })}
               </ThemedText>
             </TouchableOpacity>
           </View>
@@ -1958,7 +2033,7 @@ export default function ExploreScreen() {
             >
               <View style={styles.webSortHeader}>
                 <ThemedText type="defaultSemiBold" style={styles.webSortTitle}>
-                  Sort By
+                  {t('explore.sortBy')}
                 </ThemedText>
                 <TouchableOpacity onPress={() => setShowSortSheet(false)}>
                   <ThemedText style={{ color: colors.icon, fontSize: 20 }}>
@@ -2069,7 +2144,7 @@ export default function ExploreScreen() {
                   type="defaultSemiBold"
                   style={styles.sortSheetTitle}
                 >
-                  Sort By
+                  {t('explore.sortBy')}
                 </ThemedText>
                 <TouchableOpacity onPress={() => setShowSortSheet(false)}>
                   <ThemedText style={{ color: colors.icon, fontSize: 24 }}>
@@ -2215,7 +2290,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 2,
     paddingHorizontal: 16,
     height: 48,
     position: "relative",
@@ -2226,6 +2301,7 @@ const styles = StyleSheet.create({
   searchInput: {
     height: "100%",
     fontSize: 15,
+    outlineStyle: "none" as any,
   },
   searchTapArea: {
     flex: 1,
@@ -2299,12 +2375,11 @@ const styles = StyleSheet.create({
   },
   resultsGrid: {
     paddingHorizontal: 12,
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "column",
     gap: 10,
   },
   resultCard: {
-    width: "48%",
+    width: "100%",
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: "hidden",
@@ -2496,6 +2571,13 @@ const styles = StyleSheet.create({
   sheetActiveBadgeText: {
     fontSize: 11,
     fontWeight: "700",
+  },
+  sheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sheetClearBtn: {
     flexDirection: "row",
@@ -2697,6 +2779,37 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderBottomWidth: 1,
   },
+  webSidebarHeaderTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sidebarDismissBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sidebarReopenTab: {
+    position: "absolute",
+    left: 0,
+    top: 120,
+    zIndex: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderTopRightRadius: 12,
+    borderBottomRightRadius: 12,
+    ...Elevation.raised,
+  },
+  sidebarReopenTabText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   webSidebarTitle: {
     fontSize: 22,
     marginBottom: 4,
@@ -2754,6 +2867,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontWeight: "500",
   },
+  filterToggleBtn: {
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchClearBtn: {
+    marginLeft: 6,
+    padding: 4,
+  },
   webClearBtn: {
     marginTop: 8,
     borderWidth: 1,
@@ -2790,6 +2916,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 12,
     fontSize: 16,
+    outlineStyle: "none" as any,
   },
   webSortRow: {
     flexDirection: "row",

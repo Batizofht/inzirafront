@@ -1,4 +1,5 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { PageHead } from '@/components/page-head';
 import { ThemedText } from '@/components/themed-text';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
@@ -21,9 +22,13 @@ export default function VerificationProcessScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const [monthly, setMonthly] = useState<TransparencyItem[]>([]);
+  const steps = t('legal.verificationProcess.steps', { returnObjects: true }) as string[];
+  const tierItems = t('legal.verificationProcess.tierItems', { returnObjects: true }) as string[];
+  const revocationItems = t('legal.verificationProcess.revocationItems', { returnObjects: true }) as string[];
 
   useEffect(() => {
     let mounted = true;
@@ -49,38 +54,36 @@ export default function VerificationProcessScreen() {
         url="https://inzira.co/verification-process"
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">How Inzira Verification Works</ThemedText>
-        <ThemedText style={styles.item}>1. Seller identity document verification</ThemedText>
-        <ThemedText style={styles.item}>2. Phone verification and account linkage</ThemedText>
-        <ThemedText style={styles.item}>3. Ownership and listing quality review</ThemedText>
-        <ThemedText style={styles.item}>4. Admin approval, rejection, or resubmission</ThemedText>
+        <ThemedText type="title">{t('legal.verificationProcess.title')}</ThemedText>
+        {steps.map((step, i) => (
+          <ThemedText key={i} style={styles.item}>{step}</ThemedText>
+        ))}
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <ThemedText type="defaultSemiBold">Seller Tier Criteria</ThemedText>
-          <ThemedText style={styles.item}>• Verified: Phone verified + active verification request</ThemedText>
-          <ThemedText style={styles.item}>• Trusted: Approved identity verification + profile location</ThemedText>
-          <ThemedText style={styles.item}>• Dealer Pro: Trusted criteria + active seller subscription</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('legal.verificationProcess.tierTitle')}</ThemedText>
+          {tierItems.map((item, i) => (
+            <ThemedText key={i} style={styles.item}>{item}</ThemedText>
+          ))}
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <ThemedText type="defaultSemiBold">Tier Revocation Rules</ThemedText>
-          <ThemedText style={styles.item}>• Identity mismatch or forged documents</ThemedText>
-          <ThemedText style={styles.item}>• Validated repeated scam reports</ThemedText>
-          <ThemedText style={styles.item}>• Dealer Pro subscription expiry</ThemedText>
-          <ThemedText style={styles.item}>• Policy or moderation violations</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('legal.verificationProcess.revocationTitle')}</ThemedText>
+          {revocationItems.map((item, i) => (
+            <ThemedText key={i} style={styles.item}>{item}</ThemedText>
+          ))}
         </View>
 
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <ThemedText type="defaultSemiBold">Monthly Transparency Stats</ThemedText>
+          <ThemedText type="defaultSemiBold">{t('legal.verificationProcess.statsTitle')}</ThemedText>
           {monthly.length === 0 ? (
-            <ThemedText style={[styles.item, { color: colors.icon }]}>Transparency metrics will appear here after data sync.</ThemedText>
+            <ThemedText style={[styles.item, { color: colors.icon }]}>{t('legal.verificationProcess.statsEmpty')}</ThemedText>
           ) : (
             monthly.map((row) => (
               <View key={row.month} style={styles.statsRow}>
                 <ThemedText style={[styles.monthLabel, { color: colors.text }]}>{row.label}</ThemedText>
-                <ThemedText style={[styles.metric, { color: colors.icon }]}>Rejected listings: {row.rejectedListings}</ThemedText>
-                <ThemedText style={[styles.metric, { color: colors.icon }]}>Fraud attempts blocked: {row.fraudAttemptsBlocked}</ThemedText>
-                <ThemedText style={[styles.metric, { color: colors.icon }]}>Avg verification time: {row.avgVerificationHours}h</ThemedText>
+                <ThemedText style={[styles.metric, { color: colors.icon }]}>{t('legal.verificationProcess.rejectedListings')}: {row.rejectedListings}</ThemedText>
+                <ThemedText style={[styles.metric, { color: colors.icon }]}>{t('legal.verificationProcess.fraudBlocked')}: {row.fraudAttemptsBlocked}</ThemedText>
+                <ThemedText style={[styles.metric, { color: colors.icon }]}>{t('legal.verificationProcess.avgVerificationTime')}: {row.avgVerificationHours}h</ThemedText>
               </View>
             ))
           )}

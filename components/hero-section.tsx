@@ -17,13 +17,26 @@ import { Image } from "expo-image";
 import { isWeb } from "@/lib/platform";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { VEHICLE_BRAND_OPTIONS } from "@/constants/vehicle-brands";
+import { filterBrandGroups } from "@/constants/vehicle-brands";
 import { fetchModelsByBrand } from "@/lib/api-vehicles";
 import type { Category } from "@/lib/api-categories";
+import { useTranslation } from "react-i18next";
+import { OnboardingHint } from "@/components/onboarding-hint";
 
 interface HeroSectionProps {
   categories: Category[];
 }
+
+// Custom category icon images — used when a category's fuel-type icon has a matching
+// custom asset. Falls back to the existing IconSymbol mapping when not present.
+const CATEGORY_ICON_IMAGES: Record<string, any> = {
+  "car.fill": require('@/assets/customericons/petrol-pump.png'),
+  "fuelpump.fill": require('@/assets/customericons/petrol-pump.png'),
+  "drop.fill": require('@/assets/customericons/diesel.png'),
+  "leaf.fill": require('@/assets/customericons/hybrid.png'),
+  "bolt.car.fill": require('@/assets/customericons/chargingelectric.png'),
+
+};
 
 const MILEAGE_OPTIONS = [
   "Any",
@@ -37,6 +50,7 @@ const MILEAGE_OPTIONS = [
 ];
 
 export function HeroSection({ categories }: HeroSectionProps) {
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === "dark";
@@ -50,6 +64,9 @@ export function HeroSection({ categories }: HeroSectionProps) {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [hoveredField, setHoveredField] = useState<
+    "brand" | "model" | "mileage" | null
+  >(null);
 
   // Dropdown states
   const [showBrandDropdown, setShowBrandDropdown] = useState(false);
@@ -82,6 +99,9 @@ export function HeroSection({ categories }: HeroSectionProps) {
   } | null>(null);
 
   if (!isWeb || width < 768) return null;
+
+  const fieldActiveBg = isDark ? "rgba(96,165,250,0.14)" : "rgba(37,99,235,0.06)";
+  const fieldIconBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.045)";
 
   const isTabletWeb = width >= 768 && width < 1024;
   const isLg = width >= 1024 && width < 1440;
@@ -140,12 +160,9 @@ export function HeroSection({ categories }: HeroSectionProps) {
     }, [])
   );
 
-  // Filtered options
-  const filteredBrands = useMemo(() => {
-    const query = brandSearch.trim().toLowerCase();
-    if (!query) return VEHICLE_BRAND_OPTIONS;
-    return VEHICLE_BRAND_OPTIONS.filter((b) => b.toLowerCase().includes(query));
-  }, [brandSearch]);
+  // Brands grouped by origin (Japanese, Korean, …) for the picker. Grouping is
+  // display-only — the value stored/searched is still the plain brand name.
+  const filteredBrandGroups = useMemo(() => filterBrandGroups(brandSearch), [brandSearch]);
 
   const filteredModels = useMemo(() => {
     const query = modelSearch.trim().toLowerCase();
@@ -221,7 +238,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
       }
       const query = params.toString();
       router.push(`/explore${query ? `?${query}` : ""}` as any);
-    }, 3000);
+    }, 600);
   };
 
   const renderDropdown = (
@@ -262,12 +279,12 @@ export function HeroSection({ categories }: HeroSectionProps) {
             styles.heroLeft,
             { backgroundColor: isDark ? '#1E3A5F' : colors.primary, paddingHorizontal: heroPadding },
           ]}
-        >  
-        <ThemedText style={styles.heroTitle}>
-            Welcome To Inzira
+        >
+          <ThemedText style={styles.heroTitle}>
+            {t('hero.welcomeTitle')}
           </ThemedText>
           <View style={styles.heroTag}>
-            <ThemedText style={styles.heroTagText}>The Verified Car Marketplace</ThemedText>
+            <ThemedText style={styles.heroTagText}>{t('hero.tagline')}</ThemedText>
           </View>
 
         </View>
@@ -288,7 +305,10 @@ export function HeroSection({ categories }: HeroSectionProps) {
         style={[
           styles.searchCard,
           {
-            backgroundColor: colors.card,
+            // Light mode: page canvas is pure white, so the card needs a fill
+            // that's visibly off-white or it disappears into the page.
+            backgroundColor: isDark ? colors.card : '#F3F5F8',
+            borderColor: isDark ? colors.border : '#D8DDE6',
             marginHorizontal: is2Xl
               ? 200
               : isXl
@@ -302,7 +322,12 @@ export function HeroSection({ categories }: HeroSectionProps) {
         ]}
       >
         {/* Category Tabs */}
-        <View style={{ position: 'relative' }}>
+        <View style={{ position: 'relative', zIndex: 999999 }}>
+          {/* Painted first so it sits underneath the tabs — it shares the same
+              bottom edge as each tab's own border, and rendering it after the
+              ScrollView (as before) drew it on top, masking the active tab's
+              colored underline. */}
+          <View style={[styles.tabsDivider, { backgroundColor: colors.border }]} />
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -325,107 +350,185 @@ export function HeroSection({ categories }: HeroSectionProps) {
                     { color: selectedCategory === cat ? colors.primary : colors.text },
                   ]}
                 >
-                  {cat}
+                  {cat === "Cars" ? t('categories.cars') : cat}
                 </ThemedText>
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <View style={[styles.tabsDivider, { backgroundColor: colors.border }]} />
+
+          <OnboardingHint
+            id="mega-search"
+            text={t('hero.megaSearchHint')}
+            icon="magnifyingglass"
+            placement="bottom"
+            align="right"
+                   style={styles.browseTabHintOffset}
+          />
         </View>
 
         {/* Search Inputs Row */}
         <View style={[styles.inputsRow, { borderBottomColor: colors.border }]}>
-          {/* Brand Dropdown */}
           <View
-            style={[styles.inputWrapper, { flex: 1 }]}
-            ref={brandTriggerRef}
+            style={[
+              styles.fieldsBar,
+              {
+                backgroundColor: colors.background,
+                borderColor:
+                  showBrandDropdown || showModelDropdown || showMileageDropdown || hoveredField
+                    ? colors.primary
+                    : colors.border,
+              },
+            ]}
           >
-            <TouchableOpacity
-              style={[
-                styles.input,
-                {
-                  borderColor: (showBrandDropdown || (selectedBrand && selectedBrand !== "")) ? colors.primary : colors.border,
-                  backgroundColor: colors.background,
-                  borderWidth: (showBrandDropdown || (selectedBrand && selectedBrand !== "")) ? 1.5 : 1
-                },
-              ]}
-              onPress={openBrandDropdown}
-              activeOpacity={0.85}
-            >
-              <ThemedText style={[styles.inputLabel, { color: (showBrandDropdown || selectedBrand) ? colors.primary : colors.icon }]}>
-                Brand
-              </ThemedText>
-              <View style={styles.inputValueRow}>
-                <IconSymbol name="car.fill" size={14} color={selectedBrand ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
-                <ThemedText style={[styles.inputValue, { color: selectedBrand ? colors.text : colors.icon }]} numberOfLines={1}>
-                  {selectedBrand || "All brands"}
-                </ThemedText>
+            {/* Brand Dropdown */}
+            <View style={{ flex: 1 }} ref={brandTriggerRef}>
+              <Pressable
+                style={[
+                  styles.field,
+                  {
+                    backgroundColor:
+                      showBrandDropdown || selectedBrand || hoveredField === "brand"
+                        ? fieldActiveBg
+                        : "transparent",
+                  },
+                ]}
+                onPress={openBrandDropdown}
+                onHoverIn={() => setHoveredField("brand")}
+                onHoverOut={() => setHoveredField(null)}
+              >
+                <View
+                  style={[
+                    styles.fieldIcon,
+                    { backgroundColor: selectedBrand ? colors.primary : fieldIconBg },
+                  ]}
+                >
+                  <IconSymbol
+                    name="car.fill"
+                    size={15}
+                    color={selectedBrand ? "#fff" : colors.icon}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[
+                      styles.fieldLabel,
+                      { color: selectedBrand ? colors.primary : colors.icon },
+                    ]}
+                  >
+                    {t('hero.brand')}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.fieldValue, { color: selectedBrand ? colors.text : colors.icon }]}
+                    numberOfLines={1}
+                  >
+                    {selectedBrand || t('hero.allBrands')}
+                  </ThemedText>
+                </View>
                 <IconSymbol name="chevron.down" size={14} color={colors.icon} />
-              </View>
-            </TouchableOpacity>
-          </View>
+              </Pressable>
+              <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
+            </View>
 
-          {/* Model Dropdown */}
-          <View
-            style={[styles.inputWrapper, { flex: 1 }]}
-            ref={modelTriggerRef}
-          >
-            <TouchableOpacity
-              style={[
-                styles.input,
-                {
-                  borderColor: (showModelDropdown || (selectedModel && selectedBrand !== "")) ? colors.primary : colors.border,
-                  backgroundColor: colors.background,
-                  borderWidth: (showModelDropdown || (selectedModel && selectedBrand !== "")) ? 1.5 : 1
-                },
-              ]}
-              onPress={openModelDropdown}
-              activeOpacity={selectedBrand ? 0.85 : 1}
-              disabled={!selectedBrand}
-            >
-              <ThemedText style={[styles.inputLabel, { color: (showModelDropdown || selectedModel) ? colors.primary : colors.icon }]}>
-                Model
-              </ThemedText>
-              <View style={styles.inputValueRow}>
-                <IconSymbol name="list.bullet" size={14} color={selectedModel ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
-                <ThemedText style={[styles.inputValue, { color: selectedModel ? colors.text : colors.icon }]} numberOfLines={1}>
-                  {isLoadingModels
-                    ? "Loading..."
-                    : selectedModel || "All models"}
-                </ThemedText>
+            {/* Model Dropdown */}
+            <View style={{ flex: 1 }} ref={modelTriggerRef}>
+              <Pressable
+                style={[
+                  styles.field,
+                  {
+                    backgroundColor:
+                      showModelDropdown || selectedModel || hoveredField === "model"
+                        ? fieldActiveBg
+                        : "transparent",
+                    opacity: selectedBrand ? 1 : 0.55,
+                  },
+                ]}
+                onPress={openModelDropdown}
+                onHoverIn={() => selectedBrand && setHoveredField("model")}
+                onHoverOut={() => setHoveredField(null)}
+                disabled={!selectedBrand}
+              >
+                <View
+                  style={[
+                    styles.fieldIcon,
+                    { backgroundColor: selectedModel ? colors.primary : fieldIconBg },
+                  ]}
+                >
+                  <IconSymbol
+                    name="list.bullet"
+                    size={15}
+                    color={selectedModel ? "#fff" : colors.icon}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[
+                      styles.fieldLabel,
+                      { color: selectedModel ? colors.primary : colors.icon },
+                    ]}
+                  >
+                    {t('hero.model')}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.fieldValue, { color: selectedModel ? colors.text : colors.icon }]}
+                    numberOfLines={1}
+                  >
+                    {isLoadingModels
+                      ? t('hero.loadingModels')
+                      : selectedModel || t('hero.allModels')}
+                  </ThemedText>
+                </View>
                 <IconSymbol name="chevron.down" size={14} color={colors.icon} />
-              </View>
-            </TouchableOpacity>
-          </View>
+              </Pressable>
+              <View style={[styles.fieldDivider, { backgroundColor: colors.border }]} />
+            </View>
 
-          {/* Mileage Dropdown */}
-          <View
-            style={[styles.inputWrapper, { flex: 1 }]}
-            ref={mileageTriggerRef}
-          >
-            <TouchableOpacity
-              style={[
-                styles.input,
-                {
-                  borderColor: (showMileageDropdown || selectedMileage !== "Any") ? colors.primary : colors.border,
-                  backgroundColor: colors.background,
-                  borderWidth: (showMileageDropdown || selectedMileage !== "Any") ? 1.5 : 1,
-                },
-              ]}
-              onPress={openMileageDropdown}
-              activeOpacity={0.85}
-            >
-              <ThemedText style={[styles.inputLabel, { color: (showMileageDropdown || selectedMileage !== "Any") ? colors.primary : colors.icon }]}>
-                Mileage
-              </ThemedText>
-              <View style={styles.inputValueRow}>
-                <IconSymbol name="gauge" size={14} color={selectedMileage !== "Any" ? colors.primary : colors.icon} style={{ marginRight: 6 }} />
-                <ThemedText style={[styles.inputValue, { color: selectedMileage !== "Any" ? colors.text : colors.icon }]} numberOfLines={1}>
-                  {selectedMileage}
-                </ThemedText>
+            {/* Mileage Dropdown */}
+            <View style={{ flex: 1 }} ref={mileageTriggerRef}>
+              <Pressable
+                style={[
+                  styles.field,
+                  {
+                    backgroundColor:
+                      showMileageDropdown || selectedMileage !== "Any" || hoveredField === "mileage"
+                        ? fieldActiveBg
+                        : "transparent",
+                  },
+                ]}
+                onPress={openMileageDropdown}
+                onHoverIn={() => setHoveredField("mileage")}
+                onHoverOut={() => setHoveredField(null)}
+              >
+                <View
+                  style={[
+                    styles.fieldIcon,
+                    { backgroundColor: selectedMileage !== "Any" ? colors.primary : fieldIconBg },
+                  ]}
+                >
+                  <IconSymbol
+                    name="gauge"
+                    size={15}
+                    color={selectedMileage !== "Any" ? "#fff" : colors.icon}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText
+                    style={[
+                      styles.fieldLabel,
+                      { color: selectedMileage !== "Any" ? colors.primary : colors.icon },
+                    ]}
+                  >
+                    {t('hero.mileage')}
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.fieldValue, { color: selectedMileage !== "Any" ? colors.text : colors.icon }]}
+                    numberOfLines={1}
+                  >
+                    {selectedMileage === "Any" ? t('hero.mileageAny') : selectedMileage}
+                  </ThemedText>
+                </View>
                 <IconSymbol name="chevron.down" size={14} color={colors.icon} />
-              </View>
-            </TouchableOpacity>
+              </Pressable>
+            </View>
           </View>
 
           {/* Search Button */}
@@ -447,7 +550,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
               <>
                 <IconSymbol name="magnifyingglass" size={18} color="#fff" />
                 <ThemedText style={styles.searchButtonText}>
-                  Search Cars
+                  {t('hero.searchCars')}
                 </ThemedText>
               </>
             )}
@@ -476,7 +579,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
               <TextInput
                 value={brandSearch}
                 onChangeText={setBrandSearch}
-                placeholder="Search brands..."
+                placeholder={t('hero.searchBrandsPlaceholder')}
                 placeholderTextColor={colors.icon}
                 style={[styles.dropdownSearchInput, { color: colors.text }]}
                 autoFocus
@@ -499,38 +602,45 @@ export function HeroSection({ categories }: HeroSectionProps) {
                 <ThemedText
                   style={{ color: colors.primary, fontWeight: "700" }}
                 >
-                  All brands
+                  {t('hero.allBrands')}
                 </ThemedText>
               </TouchableOpacity>
-              {filteredBrands.map((brand) => (
-                <TouchableOpacity
-                  key={brand}
-                  style={[
-                    styles.dropdownItem,
-                    { borderBottomColor: colors.border },
-                  ]}
-                  onPress={() => {
-                    setSelectedBrand(brand);
-                    setShowBrandDropdown(false);
-                  }}
-                >
-                  <ThemedText
-                    style={{
-                      color:
-                        selectedBrand === brand ? colors.primary : colors.text,
-                      fontWeight: selectedBrand === brand ? "700" : "400",
-                    }}
-                  >
-                    {brand}
+              {filteredBrandGroups.map((group) => (
+                <View key={group.region}>
+                  <ThemedText style={[styles.brandGroupHeader, { color: colors.icon }]}>
+                    {group.region}
                   </ThemedText>
-                  {selectedBrand === brand && (
-                    <IconSymbol
-                      name="checkmark"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  )}
-                </TouchableOpacity>
+                  {group.brands.map((brand) => (
+                    <TouchableOpacity
+                      key={brand}
+                      style={[
+                        styles.dropdownItem,
+                        { borderBottomColor: colors.border },
+                      ]}
+                      onPress={() => {
+                        setSelectedBrand(brand);
+                        setShowBrandDropdown(false);
+                      }}
+                    >
+                      <ThemedText
+                        style={{
+                          color:
+                            selectedBrand === brand ? colors.primary : colors.text,
+                          fontWeight: selectedBrand === brand ? "700" : "400",
+                        }}
+                      >
+                        {brand}
+                      </ThemedText>
+                      {selectedBrand === brand && (
+                        <IconSymbol
+                          name="checkmark"
+                          size={16}
+                          color={colors.primary}
+                        />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
               ))}
             </ScrollView>
           </>,
@@ -558,7 +668,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
               <TextInput
                 value={modelSearch}
                 onChangeText={setModelSearch}
-                placeholder="Search models..."
+                placeholder={t('hero.searchModelsPlaceholder')}
                 placeholderTextColor={colors.icon}
                 style={[styles.dropdownSearchInput, { color: colors.text }]}
                 autoFocus
@@ -581,7 +691,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
                 <ThemedText
                   style={{ color: colors.primary, fontWeight: "700" }}
                 >
-                  All models
+                  {t('hero.allModels')}
                 </ThemedText>
               </TouchableOpacity>
               {filteredModels.map((model) => (
@@ -648,7 +758,7 @@ export function HeroSection({ categories }: HeroSectionProps) {
                     fontWeight: selectedMileage === mileage ? "700" : "400",
                   }}
                 >
-                  {mileage}
+                  {mileage === "Any" ? t('hero.mileageAny') : mileage}
                 </ThemedText>
                 {selectedMileage === mileage && (
                   <IconSymbol
@@ -664,9 +774,19 @@ export function HeroSection({ categories }: HeroSectionProps) {
 
         {/* Browse by Category */}
         <View style={styles.browseSection}>
-          <ThemedText style={[styles.browseLabel, { color: colors.icon }]}>
-            Browse by category
-          </ThemedText>
+          <View style={{ position: 'relative', alignSelf: 'flex-start', zIndex: 999999 }}>
+            <ThemedText style={[styles.browseLabel, { color: colors.icon }]}>
+              {t('hero.browseByCategory')}
+            </ThemedText>
+            <OnboardingHint
+              id="browse-category-desktop"
+              text={t('home.browseByCategoryHint')}
+              icon="square.grid.2x2"
+              placement="bottom"
+              align="left"
+              style={styles.browseCategoryHintOffset}
+            />
+          </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -675,16 +795,17 @@ export function HeroSection({ categories }: HeroSectionProps) {
             {categories?.slice(0, 8).map((cat, index) => {
               // Cute color palette for different categories
               const colorPalette = [
-                { bg: isDark ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.12)', icon: '#16A34A' }, // Green
-                { bg: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.12)', icon: '#2563EB' }, // Blue
-                { bg: isDark ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.12)', icon: '#9333EA' }, // Purple
                 { bg: isDark ? 'rgba(236, 72, 153, 0.2)' : 'rgba(236, 72, 153, 0.12)', icon: '#DB2777' }, // Pink
+                { bg: isDark ? 'rgba(255, 255, 255, 0.8)' : 'rgba(59, 130, 246, 0.12)', icon: '#2563EB' }, // Blue
+                { bg: isDark ? 'rgba(89, 78, 240, 0.2)' : 'rgba(15, 54, 228, 0.12)', icon: '#9333EA' }, // Purple
+                { bg: isDark ? 'rgba(77, 236, 72, 0.2)' : 'rgba(72, 236, 86, 0.12)', icon: '#DB2777' }, // Pink
                 { bg: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.12)', icon: '#D97706' }, // Orange
                 { bg: isDark ? 'rgba(20, 184, 166, 0.2)' : 'rgba(20, 184, 166, 0.12)', icon: '#0D9488' }, // Teal
                 { bg: isDark ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.12)', icon: '#4F46E5' }, // Indigo
                 { bg: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.12)', icon: '#DC2626' }, // Red
               ];
               const catColors = colorPalette[index % colorPalette.length];
+              const customIcon = CATEGORY_ICON_IMAGES[cat.icon || ''];
 
               return (
                 <TouchableOpacity
@@ -705,11 +826,15 @@ export function HeroSection({ categories }: HeroSectionProps) {
                       { backgroundColor: catColors.bg },
                     ]}
                   >
-                    <IconSymbol
-                      name={(cat.icon || "car.fill") as any}
-                      size={18}
-                      color={catColors.icon}
-                    />
+                    {customIcon ? (
+                      <Image source={customIcon} style={{ width: 40, height: 40 }} contentFit="contain" />
+                    ) : (
+                      <IconSymbol
+                        name={(cat.icon || "car.fill") as any}
+                        size={30}
+                        color={catColors.icon}
+                      />
+                    )}
                   </View>
                   <ThemedText style={styles.browseChipText}>
                     {cat.name}
@@ -727,6 +852,8 @@ export function HeroSection({ categories }: HeroSectionProps) {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+    position: "relative",
+    zIndex: 999999,
   },
   heroWrapper: {
     width: "100%",
@@ -779,13 +906,14 @@ const styles = StyleSheet.create({
   searchCard: {
     marginTop: -70,
     borderRadius: 16,
+    borderWidth: 2,
     padding: 24,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 10,
-    zIndex: 10,
+    zIndex: 999999,
     position: "relative",
   },
   categoryTabs: {
@@ -816,43 +944,56 @@ const styles = StyleSheet.create({
   },
   inputsRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 16,
+    alignItems: "stretch",
+    gap: 14,
     marginTop: 20,
     paddingBottom: 24,
     borderBottomWidth: 1,
   },
-  inputWrapper: {
-    position: "relative",
-  },
-  input: {
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    height: 62,
-    justifyContent: "center",
+  fieldsBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "stretch",
+    borderRadius: 14,
+    borderWidth: 2,
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
     elevation: 2,
   },
-  inputLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    marginBottom: 5,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  inputValueRow: {
+  field: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 16,
+    height: 64,
   },
-  inputValue: {
-    fontSize: 15,
+  fieldIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fieldLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    marginBottom: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  fieldValue: {
+    fontSize: 14,
     fontWeight: "600",
-    flex: 1,
+  },
+  fieldDivider: {
+    position: "absolute",
+    right: 0,
+    top: 12,
+    bottom: 12,
+    width: 1,
   },
   searchButton: {
     flexDirection: "row",
@@ -860,9 +1001,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     paddingHorizontal: 28,
-    paddingVertical: 18,
-    borderRadius: 12,
-    height: 62,
+    borderRadius: 14,
+    height: 64,
     shadowColor: "#2563EB",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -917,8 +1057,27 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderBottomWidth: 0,
   },
+  brandGroupHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+    opacity: 0.7,
+  },
   browseSection: {
     marginTop: 16,
+    position: "relative",
+    zIndex: 10,
+  },
+  browseCategoryHintOffset: {
+    marginTop: 62,
+  },
+  browseTabHintOffset:{
+    marginTop:100,
+    zIndex:999999
   },
   browseLabel: {
     fontSize: 13,
@@ -944,9 +1103,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 50,
+    height: 50,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },

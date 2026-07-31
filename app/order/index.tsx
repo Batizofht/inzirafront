@@ -1,4 +1,5 @@
 import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -19,6 +20,7 @@ export default function OrderScreen() {
     }
   }, []);
 
+  const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === 'dark';
@@ -77,23 +79,23 @@ export default function OrderScreen() {
   const statusMeta = (status: ContactRequestResponse['status']) => {
     if (status === 'approved') {
       return {
-        label: 'Seen by seller',
-        helper: 'Seller saw your order. Keep chatting to finalize.',
+        label: t('legal.order.seenBySeller'),
+        helper: t('legal.order.seenBySellerHelper'),
         bg: '#D4EDDA',
         text: '#155724',
       };
     }
     if (status === 'rejected') {
       return {
-        label: 'Declined',
-        helper: 'Seller declined this order request.',
+        label: t('legal.order.declined'),
+        helper: t('legal.order.declinedHelper'),
         bg: '#F8D7DA',
         text: '#721C24',
       };
     }
     return {
-      label: 'Waiting for seller',
-      helper: 'Order sent. Waiting for seller response.',
+      label: t('legal.order.waitingForSeller'),
+      helper: t('legal.order.waitingForSellerHelper'),
       bg: '#FFF3CD',
       text: '#856404',
     };
@@ -106,7 +108,7 @@ export default function OrderScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <IconSymbol name="chevron.left" size={24} color={colors.text} />
           </TouchableOpacity>
-          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>My Cart</ThemedText>
+          <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('legal.order.title')}</ThemedText>
         </View>
       </View>
 
@@ -134,7 +136,7 @@ export default function OrderScreen() {
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="car.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
-            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>No orders in cart yet.</ThemedText>
+            <ThemedText style={{ color: colors.icon, fontSize: 16 }}>{t('legal.order.emptyText')}</ThemedText>
           </View>
         ) : (
           orders.map((item) => {
@@ -153,21 +155,21 @@ export default function OrderScreen() {
                     <ThemedText style={[styles.dateText, { color: colors.icon }]}>{new Date(item.createdAt).toLocaleDateString()}</ThemedText>
                   </View>
 
-                  <ThemedText style={styles.orderTitle} numberOfLines={2}>{vehicle?.title || item.vehicleTitle || 'Vehicle order'}</ThemedText>
+                  <ThemedText style={styles.orderTitle} numberOfLines={2}>{vehicle?.title || item.vehicleTitle || t('legal.order.vehicleOrder')}</ThemedText>
                   <ThemedText style={[styles.orderHint, { color: colors.icon }]} numberOfLines={1}>{meta.helper}</ThemedText>
                   <View style={styles.actionsRow}>
                     <TouchableOpacity
                       style={[styles.actionBtn, { borderColor: colors.border }]}
                       onPress={() => goToVehicle(item.vehicleId)}
                     >
-                      <ThemedText style={[styles.actionBtnText, { color: colors.text }]}>Open Car</ThemedText>
+                      <ThemedText style={[styles.actionBtnText, { color: colors.text }]}>{t('legal.order.openCar')}</ThemedText>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionBtn, styles.primaryBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
                       onPress={() => handleStartChat(item.vehicleId, item.sellerId)}
                     >
                       <ThemedText style={[styles.actionBtnText, { color: '#fff' }]}>
-                        {item.status === 'approved' ? 'Keep Writing' : 'Chat Seller'}
+                        {item.status === 'approved' ? t('legal.order.keepWriting') : t('legal.order.chatSeller')}
                       </ThemedText>
                     </TouchableOpacity>
                   </View>
