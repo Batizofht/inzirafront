@@ -23,6 +23,59 @@ export type ContactRequestResponse = {
   };
 };
 
+export type GuestPurchasePayload = {
+  vehicleId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  message?: string;
+};
+
+export type GuestSellerContact = {
+  name: string;
+  phone: string;
+  email: string;
+};
+
+export type GuestPurchaseResult = {
+  status: number;
+  message: string;
+  data: {
+    request: ContactRequestResponse;
+    /** True when the backend created an account for this email on the fly. */
+    isNewAccount: boolean;
+    /** Session token, only returned alongside a newly created account. */
+    token?: string;
+    /** Null when the request duplicates one this buyer already made. */
+    sellerContact: GuestSellerContact | null;
+    user?: {
+      id: string;
+      fullName: string;
+      email: string;
+      phone: string;
+      role: string;
+    };
+  };
+};
+
+/**
+ * Contact a seller without signing in first.
+ *
+ * Deliberately unauthenticated (`auth: false`) — this is the entry point for
+ * buyers who have no account yet, and the backend route is mounted without
+ * requireAuth for that reason. Sending an Authorization header here would make
+ * apiRequest throw 'Missing auth token' before the request ever left.
+ */
+export async function createGuestPurchaseRequest(
+  payload: GuestPurchasePayload
+): Promise<GuestPurchaseResult> {
+  return apiRequest('/contact-requests/guest-purchase', {
+    method: 'POST',
+    body: payload,
+    auth: false,
+  });
+}
+
 export async function createContactRequest(payload: ContactRequestPayload): Promise<{ status: number; message: string; data: { request: ContactRequestResponse } }> {
   return apiRequest('/contact-requests', {
     method: 'POST',

@@ -34,6 +34,8 @@ interface FormErrors {
   fullName?: string;
   email?: string;
   phone?: string;
+  /** Submission failures that belong to no single field. */
+  form?: string;
 }
 
 interface SellerContact {
@@ -112,11 +114,17 @@ export function GuestPurchaseModal({
       if (response.status === 1) {
         setSellerContact(response.data.sellerContact);
         setShowSuccess(true);
+      } else {
+        // A non-1 status still resolves, so without this the modal would sit
+        // there doing nothing and look like the button was dead.
+        setErrors({ form: response.message || 'Failed to submit request' });
       }
     } catch (error: any) {
       console.error('Guest purchase error:', error);
       const message = error?.message || 'Failed to submit request';
-      setErrors({ fullName: message });
+      // Not a Full Name problem — attaching it there labelled every API and
+      // network failure as a validation error on the first field.
+      setErrors({ form: message });
     } finally {
       setIsSubmitting(false);
     }
@@ -304,10 +312,17 @@ export function GuestPurchaseModal({
           />
         </View>
 
+        {errors.form && (
+          <View style={styles.formErrorBox}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#EF4444" />
+            <ThemedText style={styles.formErrorText}>{errors.form}</ThemedText>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[
             styles.button,
-            { 
+            {
               backgroundColor: colors.primary,
               opacity: isSubmitting ? 0.6 : 1,
             },
@@ -413,6 +428,21 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 12,
     marginTop: -4,
+  },
+  formErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EF444415',
+    borderColor: '#EF444440',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+  },
+  formErrorText: {
+    color: '#EF4444',
+    fontSize: 13,
+    flex: 1,
   },
   button: {
     padding: 16,
