@@ -1,9 +1,11 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +24,7 @@ export default function PrivacyScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -36,7 +39,7 @@ export default function PrivacyScreen() {
   const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
         contentContainerStyle={styles.scrollContent}
@@ -56,7 +59,7 @@ export default function PrivacyScreen() {
             <View style={styles.heroTag}>
               <ThemedText style={styles.heroTagText}>{t('legal.privacy.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>{t('legal.privacy.heroTitle')}</ThemedText>
+            <Heading level={1} style={styles.heroTitle}>{t('legal.privacy.heroTitle')}</Heading>
             <ThemedText style={styles.heroSubtitle}>
               {t('legal.privacy.heroSubtitle')}
             </ThemedText>
@@ -174,7 +177,6 @@ export default function PrivacyScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {},
   heroContainer: {

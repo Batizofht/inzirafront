@@ -3,8 +3,6 @@ import {
   ScrollView,
   View,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Image,
   ActivityIndicator,
 } from 'react-native';
@@ -17,6 +15,7 @@ import { router } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getVerificationDraft, setVerificationDraft } from '@/lib/verificationDraft';
 import { submitSellerVerification } from '@/lib/api-verifications';
 import { setSellerVerificationStatus } from '@/lib/userPreference';
@@ -27,6 +26,7 @@ export default function IDVerificationScreen() {
   const colorScheme = useResolvedTheme();
   const colors = Colors[colorScheme];
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
 
   const [sellerType, setSellerType] = useState<'individual' | 'company'>('individual');
@@ -137,14 +137,14 @@ export default function IDVerificationScreen() {
 
   if (isLoadingDraft) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol name="chevron.left" size={24} color={colors.text} />
@@ -376,7 +376,6 @@ export default function IDVerificationScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

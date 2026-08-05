@@ -179,6 +179,7 @@ export default {
       },
     },
     search: {
+      pageHeading: 'Search cars for sale in Rwanda',
       placeholder: 'Search cars, model, type, location',
       suggestedSearches: 'Suggested Searches',
       popularBrands: 'Popular Brands',

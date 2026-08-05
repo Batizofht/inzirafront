@@ -49,22 +49,26 @@ const saveLanguage = async (lng: string) => {
   }
 };
 
-const initI18n = async () => {
-  const savedLanguage = await readSavedLanguage();
+// Init synchronously so the first render — including the Node static export
+// used for web SEO — already has translations. Awaiting storage first would
+// make every t() call return its raw key during server rendering.
+i18n
+  .use(initReactI18next)
+  .init({
+    resources,
+    lng: inMemoryLanguage,
+    fallbackLng: 'en',
+    interpolation: {
+      escapeValue: false, // not needed for react as it escapes by default
+    },
+  });
 
-  i18n
-    .use(initReactI18next)
-    .init({
-      resources,
-      lng: savedLanguage,
-      fallbackLng: 'en',
-      interpolation: {
-        escapeValue: false, // not needed for react as it escapes by default
-      },
-    });
-};
-
-initI18n();
+// Then switch to the user's saved language once storage resolves.
+readSavedLanguage().then((savedLanguage) => {
+  if (savedLanguage && savedLanguage !== i18n.language) {
+    i18n.changeLanguage(savedLanguage);
+  }
+});
 
 export const changeLanguage = async (lng: string) => {
   try {

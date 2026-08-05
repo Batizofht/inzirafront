@@ -1,4 +1,5 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
@@ -20,6 +21,7 @@ export default function OrderScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -102,7 +104,7 @@ export default function OrderScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -186,7 +188,6 @@ export default function OrderScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

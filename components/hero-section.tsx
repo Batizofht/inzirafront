@@ -5,13 +5,14 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  Modal,
   Pressable,
   ActivityIndicator,
 } from "react-native";
+import { createPortal } from "react-dom";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
+import { Heading } from "@/components/heading";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Image } from "expo-image";
 import { isWeb } from "@/lib/platform";
@@ -81,6 +82,8 @@ export function HeroSection({ categories }: HeroSectionProps) {
   const brandTriggerRef = useRef<View>(null);
   const modelTriggerRef = useRef<View>(null);
   const mileageTriggerRef = useRef<View>(null);
+  // The rendered dropdown panel — used to tell inside clicks from outside ones.
+  const dropdownPanelRef = useRef<View>(null);
 
   const [brandDropdownPos, setBrandDropdownPos] = useState<{
     top: number;
@@ -170,54 +173,122 @@ export function HeroSection({ categories }: HeroSectionProps) {
     return availableModels.filter((m) => m.toLowerCase().includes(query));
   }, [modelSearch, availableModels]);
 
-  // Dropdown positioning
+  // Dropdown positioning. Panels are portaled to <body> and positioned with
+  // `position: fixed`, so the measurement is viewport-relative (no scroll
+  // offset) and gets re-taken while the page scrolls — see the effect below.
+  const measureTrigger = (
+    ref: React.RefObject<View | null>,
+    setPos: (pos: { top: number; left: number; width: number }) => void,
+  ) => {
+    const el = ref.current as unknown as HTMLElement | null;
+    if (!el?.getBoundingClientRect) return;
+    const rect = el.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  };
+
+  const closeAllDropdowns = () => {
+    setShowBrandDropdown(false);
+    setShowModelDropdown(false);
+    setShowMileageDropdown(false);
+  };
+
   const openBrandDropdown = () => {
-    setBrandSearch("");
-    setShowBrandDropdown(true);
-    if (isWeb && brandTriggerRef.current) {
-      const el = brandTriggerRef.current as unknown as HTMLElement;
-      if (el?.getBoundingClientRect) {
-        const rect = el.getBoundingClientRect();
-        setBrandDropdownPos({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
-          width: rect.width,
-        });
-      }
+    if (showBrandDropdown) {
+      setShowBrandDropdown(false);
+      return;
     }
+    setBrandSearch("");
+    closeAllDropdowns();
+    setShowBrandDropdown(true);
+    measureTrigger(brandTriggerRef, setBrandDropdownPos);
   };
 
   const openModelDropdown = () => {
     if (!selectedBrand) return;
-    setModelSearch("");
-    setShowModelDropdown(true);
-    if (isWeb && modelTriggerRef.current) {
-      const el = modelTriggerRef.current as unknown as HTMLElement;
-      if (el?.getBoundingClientRect) {
-        const rect = el.getBoundingClientRect();
-        setModelDropdownPos({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
-          width: rect.width,
-        });
-      }
+    if (showModelDropdown) {
+      setShowModelDropdown(false);
+      return;
     }
+    setModelSearch("");
+    closeAllDropdowns();
+    setShowModelDropdown(true);
+    measureTrigger(modelTriggerRef, setModelDropdownPos);
   };
 
   const openMileageDropdown = () => {
-    setShowMileageDropdown(true);
-    if (isWeb && mileageTriggerRef.current) {
-      const el = mileageTriggerRef.current as unknown as HTMLElement;
-      if (el?.getBoundingClientRect) {
-        const rect = el.getBoundingClientRect();
-        setMileageDropdownPos({
-          top: rect.bottom + window.scrollY + 4,
-          left: rect.left + window.scrollX,
-          width: rect.width,
-        });
-      }
+    if (showMileageDropdown) {
+      setShowMileageDropdown(false);
+      return;
     }
+    closeAllDropdowns();
+    setShowMileageDropdown(true);
+    measureTrigger(mileageTriggerRef, setMileageDropdownPos);
   };
+
+  const activeDropdown = showBrandDropdown
+    ? "brand"
+    : showModelDropdown
+      ? "model"
+      : showMileageDropdown
+        ? "mileage"
+        : null;
+
+  // Keep the open panel glued to its field while the page scrolls or resizes.
+  // The page scrolls inside a ScrollView, whose scroll event doesn't bubble —
+  // hence the capture-phase listener on document.
+  useEffect(() => {
+    if (!isWeb || !activeDropdown) return;
+
+    const sync = () => {
+      if (activeDropdown === "brand") measureTrigger(brandTriggerRef, setBrandDropdownPos);
+      else if (activeDropdown === "model") measureTrigger(modelTriggerRef, setModelDropdownPos);
+      else measureTrigger(mileageTriggerRef, setMileageDropdownPos);
+    };
+
+    sync();
+    document.addEventListener("scroll", sync, true);
+    window.addEventListener("resize", sync);
+    return () => {
+      document.removeEventListener("scroll", sync, true);
+      window.removeEventListener("resize", sync);
+    };
+  }, [activeDropdown]);
+
+  // Close on outside click / Escape. Done with document listeners rather than a
+  // full-screen backdrop so nothing sits over the page swallowing wheel events.
+  useEffect(() => {
+    if (!isWeb || !activeDropdown) return;
+
+    const isInside = (ref: React.RefObject<View | null>, target: Node) => {
+      const el = ref.current as unknown as HTMLElement | null;
+      return !!el?.contains?.(target);
+    };
+
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (
+        isInside(dropdownPanelRef, target) ||
+        isInside(brandTriggerRef, target) ||
+        isInside(modelTriggerRef, target) ||
+        isInside(mileageTriggerRef, target)
+      ) {
+        return;
+      }
+      closeAllDropdowns();
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeAllDropdowns();
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [activeDropdown]);
 
   const goToExplore = () => {
     setIsSearching(true);
@@ -247,26 +318,27 @@ export function HeroSection({ categories }: HeroSectionProps) {
     onClose: () => void,
     children: React.ReactNode,
   ) => {
-    if (!show || !isWeb) return null;
+    if (!show || !isWeb || !position || typeof document === "undefined") return null;
 
-    return (
-      <Modal transparent visible={show} onRequestClose={onClose}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View
-          style={[
-            styles.dropdown,
-            {
-              top: position?.top,
-              left: position?.left,
-              width: position?.width,
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {children}
-        </View>
-      </Modal>
+    // Portaled to <body> so the panel escapes the search card's overflow and
+    // stacking context while the page underneath stays scrollable.
+    return createPortal(
+      <View
+        ref={dropdownPanelRef}
+        style={[
+          styles.dropdown,
+          {
+            top: position.top,
+            left: position.left,
+            width: position.width,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        {children}
+      </View>,
+      document.body,
     );
   };
 
@@ -280,9 +352,9 @@ export function HeroSection({ categories }: HeroSectionProps) {
             { backgroundColor: isDark ? '#1E3A5F' : colors.primary, paddingHorizontal: heroPadding },
           ]}
         >
-          <ThemedText style={styles.heroTitle}>
+          <Heading level={1} style={styles.heroTitle}>
             {t('hero.welcomeTitle')}
-          </ThemedText>
+          </Heading>
           <View style={styles.heroTag}>
             <ThemedText style={styles.heroTagText}>{t('hero.tagline')}</ThemedText>
           </View>
@@ -1016,7 +1088,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   dropdown: {
-    position: "absolute",
+    // `fixed` (not `absolute`): the panel is portaled to <body> and anchored to
+    // viewport coordinates that are re-measured on scroll.
+    position: "fixed",
     borderWidth: 1,
     borderRadius: 14,
     shadowColor: "#000",

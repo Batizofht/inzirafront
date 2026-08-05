@@ -1,5 +1,32 @@
 [build]
+  # Must be the SEO pipeline, not a bare `expo export`: the export alone ships
+  # no per-route meta, a stale sitemap, and 404s for listings added since the
+  # last build. See scripts/finalize-web-build.js.
+  command = "npm run build:web:seo"
   publish = "dist"
+
+# Netlify's pretty URLs 301 /about to /about/, but the sitemap and every
+# canonical tag say /about. Google fetched /about/, read a canonical pointing at
+# a URL that redirects back, and dropped the page. Serving the un-slashed URL
+# directly is what makes the canonical, the sitemap, and the served URL agree.
+[build.processing.html]
+  pretty_urls = false
+
+# Runs after the deploy is live and pushes the sitemap URLs to IndexNow.
+[[plugins]]
+  package = "./netlify/plugins/ping-search-engines"
+
+# The HTML shells must never be cached at the edge: a stale shell is how a
+# freshly rebuilt listing page keeps serving the old body to crawlers.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "*.ttf"

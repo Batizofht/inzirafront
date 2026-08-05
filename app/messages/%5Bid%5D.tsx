@@ -57,6 +57,7 @@ export default function ChatScreen() {
     ? { width: '100%', alignSelf: 'center' as const, ...(chatMaxWidth ? { maxWidth: chatMaxWidth } : {}) }
     : undefined;
   const listRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
 
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -160,7 +161,7 @@ export default function ChatScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.loadingContainer, isDesktopWeb && [styles.webLoadingContainer, { paddingHorizontal: webPaddingHorizontal }], isDesktopWeb && { maxWidth: chatMaxWidth, alignSelf: 'center' }]}>
           <ThemedText>{t('messages.loading')}</ThemedText>
         </View>
@@ -170,15 +171,13 @@ export default function ChatScreen() {
 
   if (!conversation) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}> 
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
         <View style={[styles.loadingContainer, isDesktopWeb && [styles.webLoadingContainer, { paddingHorizontal: webPaddingHorizontal }], isDesktopWeb && { maxWidth: chatMaxWidth, alignSelf: 'center' }]}> 
           <ThemedText>{loadError || t('messages.conversationNotFound')}</ThemedText>
         </View>
       </View>
     );
   }
-
-  const insets = useSafeAreaInsets()
 
   // Determine who we're chatting with - use conversation data directly (no gates)
   const chatPartner = userType === 'buyer' 

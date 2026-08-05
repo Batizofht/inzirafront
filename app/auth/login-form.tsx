@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Platform, StatusBar, TextInput, ScrollView, useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +10,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
 import { loginWithEmail } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function LoginFormScreen() {
   const { t } = useTranslation();
   const { refreshUser } = useAuth();
@@ -71,7 +70,7 @@ export default function LoginFormScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <LoginSEO /> 
       <View
         style={[
@@ -94,7 +93,7 @@ export default function LoginFormScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(60, insets.bottom) },
+          { paddingBottom: 60 },
           isDesktopWeb && styles.webContent,
           isDesktopWeb && {
             maxWidth: authFormMaxWidth,
@@ -211,7 +210,6 @@ export default function LoginFormScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

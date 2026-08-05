@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions, Modal } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions, Modal } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useState, useCallback, useEffect } from 'react';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteAllNotifications, deleteNotification, fetchNotifications, type Notification } from '@/lib/api-notifications';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAuthUser } from '@/lib/userPreference';
@@ -22,6 +23,7 @@ export default function NotificationsScreen() {
     }
   }, [t]);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,7 +130,7 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -250,7 +252,6 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

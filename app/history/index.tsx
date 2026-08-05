@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
@@ -8,6 +8,7 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchMyVehicles } from '@/lib/api-vehicles';
 import type { Vehicle } from '@/types/vehicle';
 import { displayPrice } from '@/lib/currencyConverter';
@@ -33,6 +34,7 @@ export default function HistoryScreen() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +50,7 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -98,7 +100,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

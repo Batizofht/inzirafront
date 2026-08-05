@@ -9,13 +9,15 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
+import { Heading } from "@/components/heading";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Image } from "expo-image";
 import { isWeb } from "@/lib/platform";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebFooter } from "@/components/web-footer";
 import { fetchBrandsWithImages } from "@/lib/api-vehicles";
 
@@ -127,14 +129,13 @@ export default function BrandsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View
           style={[
             styles.header,
             {
               backgroundColor: colors.background,
               borderBottomColor: colors.border,
-              paddingTop: !isWeb ? insets.top : 8,
               borderBottomWidth: 0,
             },
             isDesktopWeb && {
@@ -147,9 +148,9 @@ export default function BrandsScreen() {
             <TouchableOpacity onPress={() => router.back()}>
               <IconSymbol name="chevron.left" size={24} color={colors.text} />
             </TouchableOpacity>
-            <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
+            <Heading level={1} type="defaultSemiBold" style={styles.headerTitle}>
               {t('legal.brands.title')}
-            </ThemedText>
+            </Heading>
             <View style={{ width: 24 }} />
           </View>
         </View>
@@ -166,7 +167,7 @@ export default function BrandsScreen() {
   }
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={isDesktopWeb ? { alignItems: 'center', justifyContent:"center" } : undefined}
@@ -179,7 +180,6 @@ export default function BrandsScreen() {
               {
                 backgroundColor: colors.background,
                 borderBottomColor: colors.border,
-                paddingTop: !isWeb ? insets.top : 8,
                 borderBottomWidth: 0,
               },
               isDesktopWeb && {
@@ -192,9 +192,9 @@ export default function BrandsScreen() {
               <TouchableOpacity onPress={() => router.back()}>
                 <IconSymbol name="chevron.left" size={24} color={colors.text} />
               </TouchableOpacity>
-              <ThemedText type="defaultSemiBold" style={styles.headerTitle}>
+              <Heading level={1} type="defaultSemiBold" style={styles.headerTitle}>
                 {t('legal.brands.title')}
-              </ThemedText>
+              </Heading>
               <View style={{ width: 24 }} />
             </View>
           </View>

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Platform, StatusBar, Pressable, useWindowDimensions, ScrollView } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, View, TouchableOpacity, Pressable, useWindowDimensions, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors, Elevation } from '@/constants/theme';
@@ -8,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
 import { isWeb } from '@/lib/platform';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 function RoleOptionCard({
   icon,
   title,
@@ -70,14 +69,12 @@ function AuthActionButton({
   onPress,
   disabled,
   variant = 'solid',
-  icon,
   colors,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: 'solid' | 'outline';
-  icon?: string;
   colors: (typeof Colors)['light'];
 }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -118,10 +115,7 @@ function AuthActionButton({
       onHoverIn={() => setIsHovered(true)}
       onHoverOut={() => setIsHovered(false)}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        {!!icon && <IconSymbol name={icon as any} size={20} color="#fff" />}
-        <ThemedText style={styles.buttonText}>{label}</ThemedText>
-      </View>
+      <ThemedText style={styles.buttonText}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -140,13 +134,10 @@ export default function RoleSelectorScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
-  // Responsive breakpoints (consistent with other pages)
   const isLg = isWeb && width >= 1024 && width < 1440;
   const isXl = isWeb && width >= 1440 && width < 1920;
   const is2Xl = isWeb && width >= 1920;
 
-  // Auth pages use maxWidth to stay centered and not stretch — kept
-  // compact (standard login-card width), not a big blocky page.
   const authContainerMaxWidth = 440;
   const webHorizontalPadding = is2Xl ? 40 : isXl ? 32 : isLg ? 28 : 24;
 
@@ -160,33 +151,49 @@ export default function RoleSelectorScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      <TouchableOpacity
-        onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)}
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      {/* Header */}
+      <View
         style={[
-          styles.backBtn,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            top: isDesktopWeb ? 20 : Math.max(12, insets.top),
-            left: isDesktopWeb ? webHorizontalPadding : 20,
+          styles.header,
+          { borderBottomColor: colors.border },
+          isDesktopWeb && {
+            width: '100%',
+            maxWidth: authContainerMaxWidth,
+            alignSelf: 'center',
+            paddingHorizontal: webHorizontalPadding,
           },
         ]}
       >
-        <IconSymbol name="chevron.left" size={22} color={colors.text} />
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)}
+          style={styles.backBtn}
+        >
+          <IconSymbol name="chevron.left" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('auth.roleSelect.welcome')}</ThemedText>
+        <View style={styles.backBtn} />
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(40, insets.bottom) },
+          { paddingBottom: 40 },
           isDesktopWeb && styles.webContent,
-        ]}>
+          isDesktopWeb && {
+            maxWidth: authContainerMaxWidth,
+            paddingHorizontal: webHorizontalPadding,
+          },
+        ]}
+      >
         <View
           style={[
+            { width: '100%', alignItems: 'center' },
             isDesktopWeb && [
               styles.webCard,
-              { maxWidth: authContainerMaxWidth, backgroundColor: colors.background, borderColor: colors.border },
+              { backgroundColor: colors.background, borderColor: colors.border },
               Elevation.raised,
             ],
           ]}
@@ -248,33 +255,30 @@ export default function RoleSelectorScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
-  backBtn: {
-    position: 'absolute',
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: 'center',
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  headerTitle: { fontSize: 18 },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   content: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 24,
-    paddingTop: 76,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   webContent: {
     width: '100%',
     alignSelf: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 80,
-    paddingBottom: 40,
+    paddingTop: 32,
   },
   webCard: {
     width: '100%',
@@ -282,8 +286,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 20,
-    paddingHorizontal: 32,
-    paddingVertical: 32,
+    paddingHorizontal: 28,
+    paddingVertical: 28,
   },
   iconContainer: {
     width: 68,

@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, Image } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, Image } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setSellerVerificationStatus } from '@/lib/userPreference';
 import { getVerificationDraft, clearVerificationDraft } from '@/lib/verificationDraft';
 import { submitSellerVerification } from '@/lib/api-verifications';
@@ -16,6 +17,7 @@ export default function SelfieVerificationScreen() {
   const colorScheme = useResolvedTheme();
   const colors = Colors[colorScheme];
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
@@ -97,7 +99,7 @@ export default function SelfieVerificationScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <IconSymbol name="chevron.left" size={24} color={colors.text} />
@@ -249,7 +251,6 @@ export default function SelfieVerificationScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

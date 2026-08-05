@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
+const { toUrlSlug } = require('./seo-utils');
 
 const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || 'https://inzira.co').replace(/\/$/, '');
 const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://api.inzira.co/api/v1').replace(/\/$/, '');
@@ -200,8 +201,13 @@ function parsePrice(price) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
-function formatUsd(price) {
-  return `$${Number(price || 0).toLocaleString('en-US')}`;
+// Listing prices are stored and displayed in Rwandan francs. Labelling them
+// as USD put "$50,000,000" on a ~$38k car in search results and in the Offer
+// structured data.
+const LISTING_CURRENCY = 'RWF';
+
+function formatListingPrice(price) {
+  return `${Number(price || 0).toLocaleString('en-US')} ${LISTING_CURRENCY}`;
 }
 
 function normalizeRouteFromDistPath(relativePath) {
@@ -224,6 +230,18 @@ function normalizeRouteFromDistPath(relativePath) {
     return `/${normalized.slice(0, -'.html'.length)}`;
   }
   return `/${normalized}`;
+}
+
+/**
+ * The URL a page should declare as canonical. Category pages are exported under
+ * their display name ("category/Petrol Car.html"), which is not a fetchable
+ * URL — finalize-web-build.js republishes them under a kebab slug, so the
+ * canonical has to match that, not the filename.
+ */
+function canonicalRoute(route) {
+  if (!route.startsWith('/category/')) return route;
+  const slug = toUrlSlug(route.slice('/category/'.length));
+  return slug ? `/category/${slug}` : route;
 }
 
 function shouldNoIndex(route) {
@@ -283,12 +301,12 @@ function buildVehicleSeo(vehicle, route) {
   const descriptionRaw = String(vehicle?.description || '').trim();
   const description =
     descriptionRaw ||
-    `Buy ${listingTitle} for ${formatUsd(priceNumber)}. Verified listing on Inzira - Rwanda's #1 Verified Car Marketplace.`;
+    `Buy ${listingTitle} for ${formatListingPrice(priceNumber)}. Verified listing on Inzira - Rwanda's #1 Verified Car Marketplace.`;
 
-  const canonicalUrl = `${SITE_URL}${route}`;
+  const canonicalUrl = `${SITE_URL}${canonicalRoute(route)}`;
 
   const seo = {
-    title: `${listingTitle} - ${formatUsd(priceNumber)} | Inzira`,
+    title: `${listingTitle} - ${formatListingPrice(priceNumber)} | Inzira`,
     description: description.slice(0, 160),
     keywords: `${brand} ${model}, ${year} ${brand}, buy ${brand} rwanda, ${brand} for sale, used ${brand}, car listing`,
     author: 'Inzira',
@@ -311,7 +329,7 @@ function buildVehicleSeo(vehicle, route) {
     offers: {
       '@type': 'Offer',
       price: priceNumber,
-      priceCurrency: 'USD',
+      priceCurrency: LISTING_CURRENCY,
       availability: 'https://schema.org/InStock',
       url: canonicalUrl,
     },
@@ -354,7 +372,7 @@ function buildRouteSeo(route, categoryBySlug = new Map()) {
     }
   }
 
-  const canonicalUrl = `${SITE_URL}${route === '/' ? '/' : route}`;
+  const canonicalUrl = `${SITE_URL}${route === '/' ? '/' : canonicalRoute(route)}`;
   const robots = shouldNoIndex(route) ? 'noindex, nofollow' : DEFAULT_META.robots;
 
   return {
@@ -369,7 +387,7 @@ function buildRouteSeo(route, categoryBySlug = new Map()) {
   };
 }
 
-function buildSeoTagBlock(meta, jsonLdObject) {
+function buildSeoTagBlock(meta, jsonLdObject, seedVehicle) {
   const lines = [
     `<title>${escapeHtml(meta.title)}</title>`,
     `<meta name="title" content="${escapeHtml(meta.title)}"/>`,
@@ -401,6 +419,14 @@ function buildSeoTagBlock(meta, jsonLdObject) {
     );
   }
 
+  // The same vehicle the page was prerendered with. app/vehicle/[id].tsx seeds
+  // its initial state from this, so the browser's first render matches the
+  // server HTML instead of tearing it down to a spinner during hydration.
+  if (seedVehicle) {
+    const payload = JSON.stringify(seedVehicle).replace(/<\//g, '<\\/');
+    lines.push(`<script>window.__INZIRA_VEHICLE__=${payload}</script>`);
+  }
+
   return lines.join('');
 }
 
@@ -409,7 +435,8 @@ function stripExistingSeo(headContent) {
     .replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '')
     .replace(/<meta[^>]+(?:name|property)=["'](?:title|description|keywords|author|robots|og:[^"']+|twitter:[^"']+)["'][^>]*>/gi, '')
     .replace(/<link[^>]+rel=["']canonical["'][^>]*>/gi, '')
-    .replace(/<script[^>]+type=["']application\/ld\+json["'][\s\S]*?<\/script>/gi, '');
+    .replace(/<script[^>]+type=["']application\/ld\+json["'][\s\S]*?<\/script>/gi, '')
+    .replace(/<script>window\.__INZIRA_VEHICLE__=[\s\S]*?<\/script>/gi, '');
 }
 
 async function listHtmlFiles(rootDir) {
@@ -450,6 +477,81 @@ function getVehicleIdFromRoute(route) {
   return id;
 }
 
+// Browse pages fetch their lists in the browser, so they export with no
+// listing links at all — leaving crawlers no path from the sitemap to any
+// /vehicle/:id page except the sitemap itself. This block sits outside #root
+// so React never hydrates over it, and the app removes it once mounted.
+const LISTING_INDEX_ROUTES = new Set(['/', '/explore', '/search', '/brands']);
+
+function shouldGetListingIndex(route) {
+  return LISTING_INDEX_ROUTES.has(route) || route.startsWith('/category/');
+}
+
+function buildListingIndexBlock(vehicles, route, categoryBySlug) {
+  let listed = vehicles;
+
+  if (route.startsWith('/category/')) {
+    const slug = decodeURIComponent(route.slice('/category/'.length));
+    const name = categoryBySlug.get(slug) || slug;
+    listed = vehicles.filter(
+      (vehicle) => String(vehicle?.vehicleType || '').toLowerCase() === String(name).toLowerCase()
+    );
+  }
+
+  if (listed.length === 0) return '';
+
+  const items = listed
+    .slice(0, 200)
+    .map((vehicle) => {
+      const label = [vehicle.year, vehicle.brand, vehicle.title, vehicle.model]
+        .filter(Boolean)
+        .join(' ');
+      const price = Number(String(vehicle.price || '').replace(/[^0-9.]/g, '')) || 0;
+      const detail = [
+        price ? `${price.toLocaleString('en-US')} RWF` : null,
+        vehicle.mileage ? `${vehicle.mileage} km` : null,
+        vehicle.fuelType,
+        vehicle.transmission,
+        vehicle.location,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+      return (
+        `<li><a href="/vehicle/${encodeURIComponent(vehicle.id)}">${escapeHtml(label)}</a>` +
+        (detail ? ` <span>${escapeHtml(detail)}</span>` : '') +
+        '</li>'
+      );
+    })
+    .join('');
+
+  return (
+    '<div id="seo-listing-index" data-seo-prerender="1">' +
+    `<h2>${escapeHtml(`${listed.length} vehicle${listed.length === 1 ? '' : 's'} for sale in Rwanda`)}</h2>` +
+    `<ul>${items}</ul>` +
+    '</div>' +
+    // Hand the page over to the app as soon as it hydrates; leaving both would
+    // show the list twice.
+    '<script>(function(){var n=document.getElementById("seo-listing-index");' +
+    'if(!n)return;var r=document.getElementById("root");' +
+    'if(!r)return;var o=new MutationObserver(function(){' +
+    'if(r.querySelector("a[href^=\\"/vehicle/\\"]")){n.remove();o.disconnect();}});' +
+    'o.observe(r,{childList:true,subtree:true});' +
+    'setTimeout(function(){o.disconnect();},15000);})();</script>'
+  );
+}
+
+function injectListingIndex(html, block) {
+  if (!block) return html;
+
+  const stripped = html.replace(
+    /<div id="seo-listing-index"[\s\S]*?<\/script>/i,
+    ''
+  );
+
+  return stripped.replace(/<\/body>/i, `${block}</body>`);
+}
+
 async function injectSeoIntoDist() {
   const files = await listHtmlFiles(DIST_DIR);
   const vehicles = await fetchActiveVehicles();
@@ -473,6 +575,7 @@ async function injectSeoIntoDist() {
 
     let meta = buildRouteSeo(route, categoryBySlug);
     let jsonLd = null;
+    let seedVehicle = null;
 
     const vehicleId = getVehicleIdFromRoute(route);
     if (vehicleId) {
@@ -481,6 +584,7 @@ async function injectSeoIntoDist() {
         const vehicleSeo = buildVehicleSeo(vehicle, route);
         meta = vehicleSeo.seo;
         jsonLd = vehicleSeo.structuredData;
+        seedVehicle = vehicle;
       } else {
         meta = {
           ...meta,
@@ -493,9 +597,13 @@ async function injectSeoIntoDist() {
     }
 
     const cleanedHead = stripExistingSeo(headMatch[1]);
-    const seoTags = buildSeoTagBlock(meta, jsonLd);
+    const seoTags = buildSeoTagBlock(meta, jsonLd, seedVehicle);
     const replacementHead = `<head>${seoTags}${cleanedHead}</head>`;
-    const next = original.replace(/<head>[\s\S]*?<\/head>/i, replacementHead);
+    let next = original.replace(/<head>[\s\S]*?<\/head>/i, replacementHead);
+
+    if (shouldGetListingIndex(route)) {
+      next = injectListingIndex(next, buildListingIndexBlock(vehicles, route, categoryBySlug));
+    }
 
     if (next !== original) {
       await fs.writeFile(fullPath, next, 'utf8');

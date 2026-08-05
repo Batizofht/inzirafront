@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, Alert, useWindowDimensions, Modal, Pressable, Dimensions } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, useWindowDimensions, Modal, Pressable, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -286,7 +286,7 @@ export default function VehicleDetailsScreen() {
   // ─── LOADING STATE ───────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <PageHead
           title={t('vehicleDetails.seoLoadingTitle')}
           description={t('vehicleDetails.seoLoadingDescription')}
@@ -392,7 +392,7 @@ export default function VehicleDetailsScreen() {
   // ─── NOT FOUND ────────────────────────────────────────────────────────────────
   if (!vehicle) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <PageHead
           title={t('vehicleDetails.seoNotFoundTitle')}
           description={t('vehicleDetails.seoNotFoundDescription')}
@@ -537,7 +537,7 @@ export default function VehicleDetailsScreen() {
 
   // ─── MAIN RENDER ──────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <VehicleSEO
         title={vehicle.title}
         brand={vehicle.brand}
@@ -1158,7 +1158,6 @@ function getReadableTextColor(hex: string): string {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1592,7 +1591,7 @@ const styles = StyleSheet.create({
   // ── Toast ────────────────────────────────────────────────────────────────────
   toastOverlay: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 14 : 56,
+    top: 56,
     left: 16,
     right: 16,
     zIndex: 999,

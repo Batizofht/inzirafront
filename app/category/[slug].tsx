@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, TextInput, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, TextInput, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Colors, Elevation, Radius } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { VehicleCard } from '@/components/vehicle-card';
 import { RangeSlider } from '@/components/ui/range-slider';
@@ -465,7 +466,7 @@ export default function CategoryScreen() {
   const vehicles = allVehicles;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <CategorySEO category={getCategoryLabel(pageTitle, t)} slug={slug ?? 'vehicles'} count={allVehicles.length} />
       {showLoginToast && (
         <View pointerEvents="none" style={styles.toastOverlay}>
@@ -729,7 +730,7 @@ export default function CategoryScreen() {
                 <IconSymbol name="chevron.left" size={22} color={colors.text} />
               </TouchableOpacity>
               <View>
-                <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{getCategoryLabel(pageTitle, t)}</ThemedText>
+                <Heading level={1} type="defaultSemiBold" style={styles.headerTitle}>{getCategoryLabel(pageTitle, t)}</Heading>
                 <ThemedText style={{ color: colors.icon, fontSize: 12 }}>{t('category.vehiclesCount', { count: total })}</ThemedText>
               </View>
               <View style={styles.backBtn} />
@@ -1137,11 +1138,10 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   toastOverlay: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 14 : 56,
+    top: 56,
     left: 16,
     right: 16,
     zIndex: 9999,

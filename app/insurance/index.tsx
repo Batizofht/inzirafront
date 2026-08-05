@@ -1,9 +1,11 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions, Linking } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions, Linking } from 'react-native';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +25,7 @@ export default function InsuranceScreen() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === 'dark';
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -35,7 +38,7 @@ export default function InsuranceScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <InsuranceSEO />
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
@@ -56,7 +59,7 @@ export default function InsuranceScreen() {
             <View style={styles.heroTag}>
               <ThemedText style={styles.heroTagText}>{t('legal.insurance.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>{t('legal.insurance.heroTitle')}</ThemedText>
+            <Heading level={1} style={styles.heroTitle}>{t('legal.insurance.heroTitle')}</Heading>
             <ThemedText style={styles.heroSubtitle}>
               {t('legal.insurance.heroSubtitle')}
             </ThemedText>
@@ -160,7 +163,6 @@ export default function InsuranceScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {
     paddingBottom: 0,

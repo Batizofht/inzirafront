@@ -4,8 +4,6 @@
   ScrollView,
   View,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Modal,
   Pressable,
   useWindowDimensions,
@@ -16,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors, Elevation, Radius } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
+import { Heading } from "@/components/heading";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { VehicleCard } from "@/components/vehicle-card";
 import { Image } from "expo-image";
@@ -854,7 +853,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {showLoginToast && (
         <View pointerEvents="none" style={styles.toastOverlay}>
           <View
@@ -1020,6 +1019,14 @@ export default function HomeScreen() {
                 </View>
               </View>
             </View>
+
+            {/* The desktop HeroSection carries the <h1> on wide screens, but the
+                static export renders at zero width and Google crawls mobile-first,
+                so the compact layout needs its own headline or the homepage ships
+                with no <h1> and no statement of what the site is. */}
+            <Heading level={1} style={[styles.homeHeadline, { color: colors.text }]}>
+              {t("hero.welcomeTitle")}
+            </Heading>
 
             <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <IconSymbol name="magnifyingglass" size={20} color={colors.icon} style={styles.searchIcon} />
@@ -1952,11 +1959,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0,
   },
   toastOverlay: {
     position: "absolute",
-    top: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 14 : 56,
+    top: 56,
     left: 16,
     right: 16,
     zIndex: 9999,
@@ -2053,6 +2059,12 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  homeHeadline: {
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 26,
+    marginBottom: 12,
   },
   searchContainer: {
     flexDirection: "row",
@@ -2937,9 +2949,9 @@ const styles = StyleSheet.create({
   },
   // Insurance Ad — full-bleed image creative styled like a real ad unit
   insuranceBanner: {
-    marginHorizontal: 20,
+    marginHorizontal: 10,
     marginTop: 16,
-    height: 170,
+    height: 150,
     borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',

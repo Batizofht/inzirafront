@@ -1,9 +1,11 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +33,7 @@ export default function ServicesScreen() {
   const sellerServices = t('legal.services.sellerServices', { returnObjects: true }) as { title: string; description: string }[];
   const premiumServices = t('legal.services.premiumServices', { returnObjects: true }) as { title: string; description: string; price: string }[];
   const steps = t('legal.services.steps', { returnObjects: true }) as { title: string; outcome: string; description: string }[];
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints
@@ -40,7 +43,7 @@ export default function ServicesScreen() {
   const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ServicesSEO />
       <ScrollView 
         showsVerticalScrollIndicator={isDesktopWeb}
@@ -61,7 +64,7 @@ export default function ServicesScreen() {
             <View style={styles.heroTag}>
               <ThemedText style={styles.heroTagText}>{t('legal.services.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>{t('legal.services.heroTitle')}</ThemedText>
+            <Heading level={1} style={styles.heroTitle}>{t('legal.services.heroTitle')}</Heading>
             <ThemedText style={styles.heroSubtitle}>
               {t('legal.services.heroSubtitle')}
             </ThemedText>
@@ -176,7 +179,6 @@ export default function ServicesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   
   heroContainer: {

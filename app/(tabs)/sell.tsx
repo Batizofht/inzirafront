@@ -4,8 +4,6 @@ import {
   ScrollView,
   View,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Alert,
   ActivityIndicator,
   Image,
@@ -838,7 +836,7 @@ export default function SellScreen() {
   // ── Loading ───────────────────────────────────────────────────────────────
   if (userRole === "loading") {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
@@ -847,7 +845,7 @@ export default function SellScreen() {
   // ── Buyer account ─────────────────────────────────────────────────────────
   if (userRole === "buyer") {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             {/* Icon */}
@@ -895,7 +893,7 @@ export default function SellScreen() {
   // ── Seller – checking verification ────────────────────────────────────────
   if (userRole === "seller" && authUser && isCheckingVerification) {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top, justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator color={colors.primary} size="large" />
         <ThemedText style={{ color: colors.icon, marginTop: 12, fontSize: 13 }}>{t("sell.checkingVerification")}</ThemedText>
       </View>
@@ -905,7 +903,7 @@ export default function SellScreen() {
   // ── Seller – pending ──────────────────────────────────────────────────────
   if (userRole === "seller" && authUser && verificationStatus === "pending") {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}30` }]}>
@@ -935,7 +933,7 @@ export default function SellScreen() {
   // ── Seller – rejected ─────────────────────────────────────────────────────
   if (userRole === "seller" && authUser && verificationStatus === "rejected") {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
@@ -977,7 +975,7 @@ export default function SellScreen() {
   if (userRole === "seller" && authUser && verificationStatus === "none") {
     const isCompany = sellerType === 'company';
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: `${colors.primary}18`, borderColor: `${colors.primary}30` }]}>
@@ -1041,7 +1039,7 @@ export default function SellScreen() {
   // ── Company seller – no active subscription ───────────────────────────────
   if (userRole === "seller" && sellerType === 'company' && companyHasSub === false) {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={S.guardScroll}>
           <View style={[S.guardContainer, isDesktopWeb && S.guardContainerWeb]}>
             <View style={[S.guardIconWrap, { backgroundColor: 'rgba(59,130,246,0.1)', borderColor: 'rgba(59,130,246,0.25)' }]}>
@@ -1092,7 +1090,7 @@ export default function SellScreen() {
   // MAIN FORM  (approved sellers + admins only reach here)
   // ══════════════════════════════════════════════════════════════════════════
   return (
-    <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <SellSEO />
       {!!toast && (
         <Toast
@@ -1151,7 +1149,7 @@ export default function SellScreen() {
                   </View>
 
                   {/* Labeled image boxes (10 boxes, 6 required) */}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
                     {[
                       { label: t("sell.frontView"), required: true },
                       { label: t("sell.rearView"), required: true },
@@ -1164,10 +1162,12 @@ export default function SellScreen() {
                       { label: t("sell.wheelTire"), required: false },
                       { label: t("sell.extraDetail"), required: false },
                     ].map((item, i) => (
-                      <View key={i} style={{ width: isDesktopWeb ? 'calc(20% - 8px)' : 'calc(50% - 5px)' as any }}>
+                      <View key={i} style={isDesktopWeb ? { width: '18.4%' } : { width: '30.66%' }}>
                         <TouchableOpacity
                           style={[{
-                            aspectRatio: 1,
+                            width: '100%',
+                            height: isDesktopWeb ? undefined : 100,
+                            aspectRatio: isDesktopWeb ? 1 : undefined,
                             borderRadius: 12,
                             borderWidth: images[i] ? 0 : 1.5,
                             borderStyle: images[i] ? 'solid' : 'dashed',
@@ -2053,7 +2053,7 @@ export default function SellScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
-  safeArea: { flex: 1, paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
+  safeArea: { flex: 1 },
 
   // Header
   header: { paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

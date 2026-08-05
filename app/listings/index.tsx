@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, Modal, TextInput, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, Modal, TextInput, useWindowDimensions } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { fetchMyVehicles, deleteVehicle } from '@/lib/api-vehicles';
 import type { Vehicle } from '@/types/vehicle';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { resolveImageUrl } from '@/lib/image-url';
 
 const STATUS_LABEL_KEYS: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function ListingsScreen() {
     return key ? t(key) : status;
   };
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   const isWebMd = isWeb && width >= 768 && width < 1024;
   const isWebLg = isWeb && width >= 1024 && width < 1440;
@@ -108,7 +110,7 @@ export default function ListingsScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View
         style={[
           styles.header,
@@ -308,7 +310,6 @@ export default function ListingsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

@@ -1,4 +1,4 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors, Elevation, Radius } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -15,6 +15,8 @@ import { WebFooter } from '@/components/web-footer';
 import { resolveImageUrl } from '@/lib/image-url';
 import { getUsageStatusColor } from '@/lib/usage-status';
 import { displayPrice } from '@/lib/currencyConverter';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 export default function FavoritesScreen() {
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function FavoritesScreen() {
   const isDark = theme === 'dark';
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   // Standard Tailwind breakpoints
   const isMd = isWeb && width >= 768 && width < 1024;
@@ -128,7 +131,7 @@ export default function FavoritesScreen() {
     /missing auth token|unauthorized|not authenticated|authentication required|invalid or expired session token|expired session token|session token|401/i.test(error);
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && [styles.webHeader, { paddingHorizontal: webPaddingHorizontal }]]}>
         <ThemedText type="defaultSemiBold" style={styles.headerTitle}>{t('favorites.title')}</ThemedText>
       </View>
@@ -194,7 +197,6 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,

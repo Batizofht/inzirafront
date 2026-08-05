@@ -1,7 +1,9 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHead } from '@/components/page-head';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 
@@ -12,11 +14,12 @@ export default function HowWeVerifyScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
       <PageHead
         title="How We Verify Sellers - Inzira"
         description="See how Inzira validates seller identity, listing legitimacy, and platform trust signals before buyers engage."
@@ -24,7 +27,7 @@ export default function HowWeVerifyScreen() {
         url="https://inzira.co/how-we-verify"
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">How We Verify</ThemedText>
+        <Heading level={1} type="title">How We Verify</Heading>
         <ThemedText style={styles.item}>Identity documents are reviewed by our admin team.</ThemedText>
         <ThemedText style={styles.item}>Phone and profile checks are tied to active seller accounts.</ThemedText>
         <ThemedText style={styles.item}>Rejected verification requests include notes for resubmission.</ThemedText>

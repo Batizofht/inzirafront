@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions, ActivityIndicator, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { VehicleCard } from '@/components/vehicle-card';
 import { Colors } from '@/constants/theme';
@@ -18,7 +20,6 @@ import { resolveImageUrl } from '@/lib/image-url';
 import { SearchSEO } from '@/components/page-meta';
 import { displayPrice } from '@/lib/currencyConverter';
 
-// Debounce hook for search
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -47,8 +48,8 @@ export default function SearchScreen() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
   const isDesktopWeb = isWeb && width >= 768;
-  // Responsive breakpoints (consistent with privacy/contact)
   const isLg = isWeb && width >= 1024 && width < 1440;
   const isXl = isWeb && width >= 1440 && width < 1920;
   const is2Xl = isWeb && width >= 1920;
@@ -57,11 +58,9 @@ export default function SearchScreen() {
 
   const debouncedQuery = useDebounce(query, 300);
 
-  // Fetch default suggestions on mount (when query is empty)
   useEffect(() => {
     const loadDefaultSuggestions = async () => {
       try {
-        // Fetch popular brands and locations from recent vehicles
         const res = await searchVehicles({ status: 'active', sortBy: 'newest' });
         if (res.status === 1 && res.data.vehicles) {
           const vehicles = res.data.vehicles.slice(0, 20);
@@ -73,17 +72,14 @@ export default function SearchScreen() {
         console.error('Failed to load default suggestions:', err);
       }
     };
-    
     loadDefaultSuggestions();
   }, []);
 
-  // Live search with debounce
   useEffect(() => {
     const performLiveSearch = async () => {
       const trimmedQuery = debouncedQuery.trim();
       if (trimmedQuery.length < 2) {
         setVehicles([]);
-        // Don't clear suggestions - keep the default ones loaded on mount
         setHasSearched(false);
         return;
       }
@@ -92,7 +88,6 @@ export default function SearchScreen() {
       try {
         const res = await liveSearchVehicles(trimmedQuery, 12);
         if (res.status === 1) {
-          // Convert live search results to Vehicle type
           const mappedVehicles: Vehicle[] = res.data.vehicles.map((v) => ({
             id: v.id,
             title: v.title,
@@ -128,15 +123,12 @@ export default function SearchScreen() {
         setIsLoading(false);
       }
     };
-
     performLiveSearch();
   }, [debouncedQuery]);
 
-  // Full search on submit
   const handleSearch = useCallback(async () => {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) return;
-
     setIsLoading(true);
     try {
       const res = await searchVehicles({ q: trimmedQuery, status: 'active', sortBy: 'relevance' });
@@ -160,125 +152,132 @@ export default function SearchScreen() {
   const showEmpty = hasSearched && vehicles.length === 0 && !isLoading;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background,paddingTop: insets.top  }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <SearchSEO query={query} />
-      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top,borderBottomWidth:0  }, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal, borderBottomWidth: 1 }]}>
+      <View style={[styles.header, { marginTop: Platform.OS === 'android' ? 20 : 0, backgroundColor: colors.background, borderBottomColor: colors.border, borderBottomWidth: 0 }, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal, borderBottomWidth: 1 }]}>
         <View style={[styles.headerInner, isDesktopWeb && searchMaxWidth && { maxWidth: searchMaxWidth, alignSelf: 'center', width: '100%' }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol name="chevron.left" size={22} color={colors.text} />
           </TouchableOpacity>
 
           <View style={[styles.searchContainer, { borderColor: isSearchFocused ? colors.primary : colors.border, borderWidth: isSearchFocused ? 3 : 2, backgroundColor: colors.card }]}>
-          <IconSymbol name="magnifyingglass" size={18} color={isSearchFocused ? colors.primary : colors.icon} style={{ marginRight: 8 }} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            onSubmitEditing={handleSearch}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
-            autoFocus
-            placeholder={t('search.placeholder')}
-            placeholderTextColor={colors.icon}
-            style={[styles.searchInput, { color: colors.text }]}
-            returnKeyType="search"
-          />
-          {isLoading && (
-            <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 8 }} />
-          )}
+            <IconSymbol name="magnifyingglass" size={18} color={isSearchFocused ? colors.primary : colors.icon} style={{ marginRight: 8 }} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              onSubmitEditing={handleSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              autoFocus
+              placeholder={t('search.placeholder')}
+              placeholderTextColor={colors.icon}
+              style={[styles.searchInput, { color: colors.text }]}
+              returnKeyType="search"
+            />
+            {isLoading && (
+              <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 8 }} />
+            )}
           </View>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={isDesktopWeb} >
-      <View
-      style={isDesktopWeb && [styles.webContent, { paddingHorizontal: webPaddingHorizontal }]}>
-        <View style={[styles.content, isDesktopWeb && { maxWidth: searchMaxWidth, alignSelf: 'center', width: '100%' }]}>
-          {/* Suggestions Section */}
-          {showSuggestions && (
-            <>
+      <ScrollView showsVerticalScrollIndicator={isDesktopWeb}>
+        <View style={isDesktopWeb && [styles.webContent, { paddingHorizontal: webPaddingHorizontal }]}>
+          <View style={[styles.content, isDesktopWeb && { maxWidth: searchMaxWidth, alignSelf: 'center', width: '100%' }]}>
+            {/* The search box is a form control, not a heading — without this
+                the page exports with no <h1> for crawlers to anchor on. */}
+            <Heading level={1} style={[styles.pageHeading, { color: colors.text }]}>
+              {t('search.pageHeading')}
+            </Heading>
+            {showSuggestions && (
+              <>
+                <ThemedText style={[styles.sectionLabel, { color: colors.icon }]}>
+                  Suggested Searches
+                </ThemedText>
+                {suggestions.brands.length > 0 && (
+                  <View style={styles.suggestionSection}>
+                    <ThemedText style={[styles.suggestionTitle, { color: colors.text }]}>Popular Brands</ThemedText>
+                    <View style={styles.suggestionChips}>
+                      {suggestions.brands.map((brand) => (
+                        <TouchableOpacity
+                          key={brand}
+                          style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => setQuery(brand)}>
+                          <ThemedText style={[styles.chipText, { color: colors.text }]}>{brand}</ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                {suggestions.locations.length > 0 && (
+                  <View style={styles.suggestionSection}>
+                    <ThemedText style={[styles.suggestionTitle, { color: colors.text }]}>Locations</ThemedText>
+                    <View style={styles.suggestionChips}>
+                      {suggestions.locations.map((location) => (
+                        <TouchableOpacity
+                          key={location}
+                          style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                          onPress={() => setQuery(location)}>
+                          <ThemedText style={[styles.chipText, { color: colors.text }]}>{location}</ThemedText>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+
+            {query.trim().length > 0 && (
               <ThemedText style={[styles.sectionLabel, { color: colors.icon }]}>
-                Suggested Searches
+                {isLoading ? 'Searching...' : showResults ? `Found ${vehicles.length} results` : showEmpty ? 'No results' : 'Start typing...'}
               </ThemedText>
-              {suggestions.brands.length > 0 && (
-                <View style={styles.suggestionSection}>
-                  <ThemedText style={[styles.suggestionTitle, { color: colors.text }]}>Popular Brands</ThemedText>
-                  <View style={styles.suggestionChips}>
-                    {suggestions.brands.map((brand) => (
-                      <TouchableOpacity
-                        key={brand}
-                        style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => setQuery(brand)}>
-                        <ThemedText style={[styles.chipText, { color: colors.text }]}>{brand}</ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-              {suggestions.locations.length > 0 && (
-                <View style={styles.suggestionSection}>
-                  <ThemedText style={[styles.suggestionTitle, { color: colors.text }]}>Locations</ThemedText>
-                  <View style={styles.suggestionChips}>
-                    {suggestions.locations.map((location) => (
-                      <TouchableOpacity
-                        key={location}
-                        style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
-                        onPress={() => setQuery(location)}>
-                        <ThemedText style={[styles.chipText, { color: colors.text }]}>{location}</ThemedText>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </>
-          )}
+            )}
 
-          {/* Results Section */}
-          {query.trim().length > 0 && (
-            <ThemedText style={[styles.sectionLabel, { color: colors.icon }]}>
-              {isLoading ? 'Searching...' : showResults ? `Found ${vehicles.length} results` : showEmpty ? 'No results' : 'Start typing...'}
-            </ThemedText>
-          )}
+            {showResults && vehicles.map((vehicle) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle as any}
+                variant="compact"
+                hideFavorite
+                onPress={() => goToVehicle(vehicle.id)}
+                style={{ marginBottom: 8 }}
+              />
+            ))}
 
-          {showResults && vehicles.map((vehicle) => (
-            <VehicleCard
-              key={vehicle.id}
-              vehicle={vehicle as any}
-              variant="compact"
-              hideFavorite
-              onPress={() => goToVehicle(vehicle.id)}
-              style={{ marginBottom: 8 }}
-            />
-          ))}
-
-          {showEmpty && (
-            <View style={styles.emptyState}>
-              <IconSymbol name="magnifyingglass" size={48} color={colors.icon} />
-              <ThemedText style={{ color: colors.icon, marginTop: 16 }}>
-                No vehicles found for "{query}"
-              </ThemedText>
-            </View>
-          )}
+            {showEmpty && (
+              <View style={styles.emptyState}>
+                <IconSymbol name="magnifyingglass" size={48} color={colors.icon} />
+                <ThemedText style={{ color: colors.icon, marginTop: 16 }}>
+                  No vehicles found for "{query}"
+                </ThemedText>
+              </View>
+            )}
+          </View>
         </View>
-      
-       </View>
         <WebFooter />
-      </ScrollView> 
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  pageHeading: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
   safeArea: {
     flex: 1,
   },
   header: {
     paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
-    width: 30,
-    height: 30,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -287,20 +286,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 12,
     height: 46,
   },
   searchInput: {
     flex: 1,
-    height: '100%',
+    height: 42,
     fontSize: 14,
     outlineStyle: 'none' as any,
   },
   content: {
     padding: 16,
     gap: 10,
-    paddingBottom: 200, // Leave space for footer
+    paddingBottom: 200,
   },
   sectionLabel: {
     fontSize: 12,
@@ -367,14 +366,12 @@ const styles = StyleSheet.create({
   },
   webContent: {
     paddingVertical: 24,
-    paddingBottom: 200, // Leave space for footer
-   
+    paddingBottom: 200,
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
-    marginTop:5
   },
 });

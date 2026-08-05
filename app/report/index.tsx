@@ -1,4 +1,5 @@
-import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, StatusBar, Alert, useWindowDimensions } from 'react-native';
+import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, Alert, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -23,6 +24,7 @@ export default function ReportScreen() {
     description?: string;
     subject?: string;
   }>();
+  const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const { t } = useTranslation();
@@ -99,7 +101,7 @@ export default function ReportScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal }]}>
         <View style={[styles.headerInner, isDesktopWeb && reportMaxWidth && { maxWidth: reportMaxWidth, alignSelf: 'center', width: '100%' }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -230,7 +232,6 @@ export default function ReportScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0,
   },
   header: {
     flexDirection: 'row',

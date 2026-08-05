@@ -5,11 +5,13 @@ import { Colors } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { isWeb } from "@/lib/platform";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect } from "react";
 
 export default function NotFoundScreen() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
+  const insets = useSafeAreaInsets();
   const isDark = theme === "dark";
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function NotFoundScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* Icon */}
       <View style={[styles.iconWrap, { backgroundColor: isDark ? "#1F2937" : "#EEF2FF" }]}>
         <IconSymbol name="car.rear.fill" size={52} color={colors.primary} />
@@ -67,7 +69,6 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,

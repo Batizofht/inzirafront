@@ -11,7 +11,10 @@
     "lint": "expo lint",
     "generate:sitemap": "node ./scripts/generate-sitemap.js",
     "inject:seo": "node ./scripts/inject-dist-seo.js",
-    "build:web:seo": "expo export --platform web --clear && npm run inject:seo && npm run generate:sitemap"
+    "finalize:web": "node ./scripts/finalize-web-build.js",
+    "ping:search": "node ./scripts/ping-search-engines.js",
+    "verify:seo": "node ./scripts/verify-live-seo.js",
+    "build:web:seo": "expo export --platform web --clear && npm run inject:seo && npm run generate:sitemap && npm run finalize:web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

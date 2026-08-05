@@ -1,9 +1,11 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, TextInput, Platform, StatusBar, useWindowDimensions, Alert } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, TextInput, useWindowDimensions, Alert } from 'react-native';
 import { useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +31,7 @@ export default function DeleteAccountScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -81,7 +84,7 @@ export default function DeleteAccountScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
         contentContainerStyle={styles.scrollContent}
@@ -101,7 +104,7 @@ export default function DeleteAccountScreen() {
             <View style={[styles.heroTag, { backgroundColor: 'rgba(239,68,68,0.25)' }]}>
               <ThemedText style={styles.heroTagText}>{t('legal.delete.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>{t('legal.delete.heroTitle')}</ThemedText>
+            <Heading level={1} style={styles.heroTitle}>{t('legal.delete.heroTitle')}</Heading>
             <ThemedText style={styles.heroSubtitle}>
               {t('legal.delete.heroSubtitle')}
             </ThemedText>
@@ -397,7 +400,6 @@ export default function DeleteAccountScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {},
   heroContainer: {

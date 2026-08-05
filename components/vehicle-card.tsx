@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, TouchableOpacity, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 
 import { useTranslation } from 'react-i18next';
@@ -52,6 +52,7 @@ export function VehicleCard({
   const { t } = useTranslation();
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const shareUrl = `https://inzira.co/vehicle/${vehicle.id}`;
 
   // Backend-tracked inventory (business sellers with mass quantity).
@@ -96,14 +97,34 @@ export function VehicleCard({
   const cardBorder = isDark ? colors.border : '#E8EAF0';
   const usageColor = usage ? getUsageStatusColor(usage) : null;
 
+  // Hover outline — same treatment as the body-type tiles on the home screen.
+  // Written per-side because the card styles set each border side explicitly,
+  // and per-side widths always win over the `borderWidth` shorthand.
+  const hoverBorder = {
+    borderColor: isHovered ? colors.primary : cardBorder,
+    borderTopWidth: isHovered ? 2 : 1,
+    borderBottomWidth: isHovered ? 2 : 1,
+    borderLeftWidth: isHovered ? 2 : 1,
+    borderRightWidth: isHovered ? 2 : 1,
+  };
+
+  const shareButtonBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+
   // ── Compact ─────────────────────────────────────────────────────────────────
   if (variant === 'compact') {
     return (
       <>
-      <TouchableOpacity
-        style={[styles.compactCard, { backgroundColor: cardBg, borderColor: cardBorder }, style]}
+      <Pressable
+        style={({ pressed }) => [
+          styles.compactCard,
+          { backgroundColor: cardBg },
+          hoverBorder,
+          pressed && styles.cardPressed,
+          style,
+        ]}
         onPress={onPress}
-        activeOpacity={0.88}
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
       >
         {/* Thumbnail */}
         <View style={styles.compactThumb}>
@@ -191,7 +212,7 @@ export function VehicleCard({
             </TouchableOpacity>
           )}
         </View>
-      </TouchableOpacity>
+      </Pressable>
 
       <ShareModal
         visible={showShareModal}
@@ -206,10 +227,17 @@ export function VehicleCard({
   // ── Grid ────────────────────────────────────────────────────────────────────
   return (
     <>
-    <TouchableOpacity
-      style={[styles.gridCard, { backgroundColor: cardBg, borderColor: cardBorder }, style]}
+    <Pressable
+      style={({ pressed }) => [
+        styles.gridCard,
+        { backgroundColor: cardBg },
+        hoverBorder,
+        pressed && styles.cardPressed,
+        style,
+      ]}
       onPress={onPress}
-      activeOpacity={0.88}
+      onHoverIn={() => setIsHovered(true)}
+      onHoverOut={() => setIsHovered(false)}
     >
       <View style={styles.imageWrap}>
         <Image
@@ -244,18 +272,6 @@ export function VehicleCard({
             <IconSymbol name="heart.fill" size={12} color={isFavorited ? '#EF4444' : (isDark ? 'rgba(255,255,255,0.7)' : colors.icon)} />
           </TouchableOpacity>
         )}
-
-        {/* TOP-RIGHT (below favorite): Share */}
-        <TouchableOpacity
-          style={[styles.gridShareBtn, {
-            backgroundColor: isDark ? 'rgba(0,0,0,0.50)' : 'rgba(255,255,255,0.90)',
-            borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-          }]}
-          onPress={(e) => { e.stopPropagation?.(); setShowShareModal(true); }}
-          hitSlop={8}
-        >
-          <IconSymbol name="square.and.arrow.up" size={12} color={isDark ? 'rgba(255,255,255,0.7)' : colors.icon} />
-        </TouchableOpacity>
 
         {/* BOTTOM-LEFT: Usage */}
         {usage && usageColor && (
@@ -297,11 +313,11 @@ export function VehicleCard({
           </ThemedText>
         )}
 
-        {/* Seller footer */}
-        {(sellerName || isDealer || isCompany) && (
-          <>
-            <View style={[styles.divider, { backgroundColor: cardBorder }]} />
-            <View style={styles.sellerRow}>
+        {/* Seller footer — share sits on the same line, hard right */}
+        <View style={[styles.divider, { backgroundColor: cardBorder }]} />
+        <View style={styles.footerRow}>
+          {(sellerName || isDealer || isCompany) ? (
+            <View style={[styles.sellerRow, styles.footerSeller]}>
               <View style={[styles.sellerAvatar, { backgroundColor: `${colors.icon}18` }]}>
                 <IconSymbol name="person.fill" size={9} color={colors.icon} />
               </View>
@@ -309,10 +325,20 @@ export function VehicleCard({
                 {sellerFooterLabel}
               </ThemedText>
             </View>
-          </>
-        )}
+          ) : (
+            <View style={styles.footerSeller} />
+          )}
+
+          <TouchableOpacity
+            style={[styles.footerShareBtn, { backgroundColor: shareButtonBg }]}
+            onPress={(e) => { e.stopPropagation?.(); setShowShareModal(true); }}
+            hitSlop={8}
+          >
+            <IconSymbol name="square.and.arrow.up" size={13} color={colors.icon} />
+          </TouchableOpacity>
+        </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
 
     <ShareModal
       visible={showShareModal}
@@ -351,9 +377,17 @@ const styles = StyleSheet.create({
   price: { fontSize: 15, fontWeight: '800', letterSpacing: -0.4, marginTop: 1 },
   spec: { fontSize: 11, fontWeight: '500', opacity: 0.8 },
 
+  cardPressed: { opacity: 0.88 },
+
   // Seller footer — identical on every card
   divider: { height: StyleSheet.hairlineWidth, marginVertical: 8 },
   sellerRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, overflow: 'hidden' },
+  footerRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  footerSeller: { flex: 1, minWidth: 0 },
+  footerShareBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
   sellerDot: { width: 5, height: 5, borderRadius: 3, flexShrink: 0 },
   sellerAvatar: {
     width: 18, height: 18, borderRadius: 9,
@@ -444,10 +478,5 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     gap: 6,
     alignSelf: 'flex-start',
-  },
-  gridShareBtn: {
-    position: 'absolute', top: 40, right: 8, zIndex: 2,
-    width: 26, height: 26, borderRadius: 13, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
   },
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, StatusBar, Image, Modal, FlatList, KeyboardAvoidingView, Text } from 'react-native';
+import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, Image, Modal, FlatList, KeyboardAvoidingView, Text } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
 import { countryData } from '@/lib/Phonenumbercodes';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { setVerificationDraft } from '@/lib/verificationDraft';
 import { sendPhoneOtpViaEmail, verifyPhoneOtp } from '@/lib/api-verifications';
 import { getAuthUser } from '@/lib/userPreference';
@@ -24,6 +25,7 @@ export default function PhoneVerificationScreen() {
   const colorScheme = useResolvedTheme();
   const colors = Colors[colorScheme];
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -128,7 +130,7 @@ export default function PhoneVerificationScreen() {
 
   return (
     <KeyboardAvoidingView 
-      style={[styles.safeArea, { backgroundColor: colors.background }]}
+      style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
@@ -186,7 +188,7 @@ export default function PhoneVerificationScreen() {
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <TextInput
                   style={[styles.phoneInput, { color: colors.text }]}
-                  placeholder={`${'7'.repeat(selectedCountry.maxLength)}`}
+                  placeholder="Phone number"
                   placeholderTextColor={colors.icon}
                   keyboardType="phone-pad"
                   value={phoneNumber}
@@ -309,7 +311,6 @@ export default function PhoneVerificationScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',

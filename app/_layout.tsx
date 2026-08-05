@@ -5,6 +5,7 @@ import { useFonts } from 'expo-font';
 import 'react-native-reanimated';
 import { useSyncExternalStore, useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, Platform, Animated, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as SystemUI from 'expo-system-ui';
@@ -26,9 +27,11 @@ import './globals.css';
 const SPLASH_DURATION = 4000;
 const SPLASH_LOGO = require('../assets/images/THELOG.png');
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+// The anchor keeps the tab bar as the stack base so hardware back always lands
+// on a tab. Web has no hardware back, and the anchor makes every exported page
+// embed the entire home screen underneath its own content — ~950 characters of
+// identical boilerplate and a duplicate <h1> on all 29 indexable routes.
+export const unstable_settings = isWeb ? {} : { anchor: '(tabs)' };
 
 function WebLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -151,7 +154,10 @@ export default function RootLayout() {
   }, [resolvedTheme]);
 
   // ✅ Don't block the whole tree — let splash cover the loading state
-  const isReady = fontsLoaded && isThemeLoaded;
+  // On web this must never gate: the static export renders this tree in Node,
+  // where fonts never load and effects never run, so gating here would emit a
+  // spinner-only shell as the HTML for every route — nothing for crawlers to index.
+  const isReady = isWeb || (fontsLoaded && isThemeLoaded);
 
   const stackContent = (
     <Stack screenOptions={{ headerShown: false }}>
@@ -182,32 +188,32 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider value={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {isWeb ? (
-          <WebLayout>
-            {isReady ? stackContent : (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#2563EB" size="large" />
-              </View>
-            )}
-          </WebLayout>
-        ) : (
-          <>
-            {/* Always render the stack (or a loader) underneath */}
-            {isReady ? stackContent : (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#2563EB" size="large" />
-              </View>
-            )}
-            {/* Splash sits on top via zIndex: 9999, unmounts after animation */}
-            {showSplash && (
-              <MobileSplashScreen onFinish={() => setShowSplash(false)} />
-            )}
-          </>
-        )}
-        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
-        <NotificationToastHost />
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider value={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}>
+          {isWeb ? (
+            <WebLayout>
+              {isReady ? stackContent : (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#2563EB" size="large" />
+                </View>
+              )}
+            </WebLayout>
+          ) : (
+            <>
+              {isReady ? stackContent : (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#2563EB" size="large" />
+                </View>
+              )}
+              {showSplash && (
+                <MobileSplashScreen onFinish={() => setShowSplash(false)} />
+              )}
+            </>
+          )}
+          <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+          <NotificationToastHost />
+        </ThemeProvider>
+      </SafeAreaProvider>
     </AuthProvider>
   );
 }

@@ -24,7 +24,10 @@ export interface ShareModalProps {
 
 type ShareOption = {
   key: 'whatsapp' | 'facebook' | 'x' | 'telegram' | 'email';
-  icon: string;
+  // Material Icons has no X/Twitter glyph, so that one option draws its
+  // wordmark as text instead of an icon.
+  icon?: string;
+  glyph?: string;
   color: string;
   buildUrl: (url: string, title: string) => string;
 };
@@ -44,7 +47,7 @@ const SHARE_OPTIONS: ShareOption[] = [
   },
   {
     key: 'x',
-    icon: 'at',
+    glyph: 'X',
     color: '#000000',
     buildUrl: (url, title) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`,
   },
@@ -114,8 +117,19 @@ export function ShareModal({ visible, onClose, url, title }: ShareModalProps) {
                 onPress={() => handleOpenOption(option)}
                 activeOpacity={0.8}
               >
-                <View style={[styles.optionIconCircle, { backgroundColor: option.color }]}>
-                  <IconSymbol name={option.icon as any} size={20} color="#fff" />
+                <View
+                  style={[
+                    styles.optionIconCircle,
+                    { backgroundColor: option.color },
+                    // A pure black circle vanishes against the dark sheet.
+                    option.key === 'x' && theme === 'dark' && styles.optionIconCircleOutlined,
+                  ]}
+                >
+                  {option.glyph ? (
+                    <ThemedText style={styles.optionGlyph}>{option.glyph}</ThemedText>
+                  ) : (
+                    <IconSymbol name={option.icon as any} size={20} color="#fff" />
+                  )}
                 </View>
                 <ThemedText style={[styles.optionLabel, { color: colors.text }]}>
                   {t(`share.${option.key}`)}
@@ -190,6 +204,17 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  optionIconCircleOutlined: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  optionGlyph: {
+    color: '#fff',
+    fontSize: 21,
+    fontWeight: '700',
+    lineHeight: 26,
+    textAlign: 'center',
   },
   optionLabel: {
     fontSize: 11,

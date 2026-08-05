@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMyPrivacySettings, updateMyPrivacySettings } from '@/lib/api-privacy';
 import { apiRequest } from '@/lib/api-client';
 import { clearLocalAuthSession } from '@/lib/userPreference';
@@ -22,6 +23,7 @@ export default function PrivacyScreen() {
     }
   }, [t]);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with contact/sell)
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -86,7 +88,7 @@ export default function PrivacyScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && [styles.webHeader, { paddingHorizontal: webPaddingHorizontal }]]}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -221,11 +223,10 @@ export default function PrivacyScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 16,
+    paddingTop: 16,
     paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',

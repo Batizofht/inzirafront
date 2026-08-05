@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebFooter } from '@/components/web-footer';
 import { AboutSEO } from '@/components/page-meta';
 
@@ -27,6 +29,7 @@ export default function AboutScreen() {
   const stats = t('legal.about.stats', { returnObjects: true }) as { number: string; label: string }[];
   const values = t('legal.about.values', { returnObjects: true }) as { title: string; description: string }[];
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -35,7 +38,7 @@ export default function AboutScreen() {
   const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <AboutSEO />
       <ScrollView 
         showsVerticalScrollIndicator={isDesktopWeb}
@@ -56,7 +59,7 @@ export default function AboutScreen() {
             <View style={styles.heroTag}>
               <ThemedText style={styles.heroTagText}>{t('legal.about.heroTag')}</ThemedText>
             </View>
-            <ThemedText style={styles.heroTitle}>{t('legal.about.heroTitle')}</ThemedText>
+            <Heading level={1} style={styles.heroTitle}>{t('legal.about.heroTitle')}</Heading>
             <ThemedText style={styles.heroSubtitle}>
               {t('legal.about.heroSubtitle')}
             </ThemedText>
@@ -167,7 +170,6 @@ export default function AboutScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {
   },

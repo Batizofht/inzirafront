@@ -4,8 +4,6 @@
   ScrollView,
   View,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Modal,
   Pressable,
   useWindowDimensions,
@@ -14,6 +12,7 @@
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors, Elevation, Radius, Spacing } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";
+import { Heading } from "@/components/heading";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { VehicleCard } from "@/components/vehicle-card";
 import { Image } from "expo-image";
@@ -202,6 +201,7 @@ export default function ExploreScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
   const isDark = theme === "dark";
@@ -600,7 +600,6 @@ export default function ExploreScreen() {
         : [...prev, value],
     );
   };
- const insets = useSafeAreaInsets();
   const clearAdvancedFilters = () => {
     setSelectedUsageStatuses([]);
     setSelectedPriceFilters([]);
@@ -639,7 +638,7 @@ export default function ExploreScreen() {
   const skeletonLineStyle = styles.skeletonLine as any;
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ExploreSEO />
       {showLoginToast && (
         <View pointerEvents="none" style={styles.toastOverlay}>
@@ -1068,9 +1067,9 @@ export default function ExploreScreen() {
                   },
                 ]}
               >
-                <ThemedText type="defaultSemiBold" style={styles.webPageTitle}>
+                <Heading level={1} type="defaultSemiBold" style={styles.webPageTitle}>
                   {t("explore.title")}
-                </ThemedText>
+                </Heading>
                 <View
                   style={[
                     styles.webSearchContainer,
@@ -1349,9 +1348,9 @@ export default function ExploreScreen() {
       ) : (
         // Mobile Layout (original)
         <>
-           <ThemedText type="defaultSemiBold" style={[styles.headerTitle,{ paddingHorizontal: 20,}]}>
+           <Heading level={1} type="defaultSemiBold" style={[styles.headerTitle,{ paddingHorizontal: 20,}]}>
                 {t("explore.title")}
-              </ThemedText>
+              </Heading>
           <ScrollView
             showsVerticalScrollIndicator={isDesktopWeb}
             contentContainerStyle={styles.scrollContent}
@@ -2250,11 +2249,10 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) : 0,
   },
   toastOverlay: {
     position: "absolute",
-    top: Platform.OS === "android" ? (StatusBar.currentHeight ?? 0) + 14 : 56,
+    top: 56,
     left: 16,
     right: 16,
     zIndex: 9999,

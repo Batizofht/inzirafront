@@ -4,7 +4,6 @@
   View,
   TouchableOpacity,
   Platform,
-  StatusBar,
   Modal,
   Pressable,
   useWindowDimensions,
@@ -920,6 +919,7 @@ export default function ProfileScreen() {
           styles.safeArea,
           {
             backgroundColor: colors.background,
+            paddingTop: insets.top,
             justifyContent: "center",
             alignItems: "center",
           },
@@ -940,7 +940,7 @@ export default function ProfileScreen() {
 
   if (userType === "seller") {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         {!!toast && (
           <Toast
             visible={!!toast}
@@ -3249,7 +3249,7 @@ export default function ProfileScreen() {
   // Buyer Profile View
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* Header */}
 
       <View
@@ -4100,8 +4100,6 @@ function MenuItem({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
 
   header: {

@@ -1,14 +1,17 @@
-import { StyleSheet, ScrollView, View, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 
 export default function PressScreen() {
   useEffect(() => { if (typeof document !== 'undefined') document.title = 'Press | Inzira'; }, []);
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -17,10 +20,10 @@ export default function PressScreen() {
   const maxW = isDesktopWeb ? 780 : undefined;
 
   return (
-    <View style={[styles.safe, { backgroundColor: colors.background }]}>
+    <View style={[styles.safe, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.content, isDesktopWeb && { maxWidth: maxW, alignSelf: 'center' }]}>
-          <ThemedText style={styles.title}>{t('legal.press.title')}</ThemedText>
+          <Heading level={1} style={styles.title}>{t('legal.press.title')}</Heading>
           <ThemedText style={[styles.subtitle, { color: colors.icon }]}>{t('legal.press.subtitle')}</ThemedText>
 
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -42,7 +45,7 @@ export default function PressScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 },
+  safe: { flex: 1 },
   scroll: {},
   content: { padding: 24, paddingBottom: 40, width: '100%' },
   title: { fontSize: 32, fontWeight: '800', marginBottom: 8 },

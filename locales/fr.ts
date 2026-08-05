@@ -179,6 +179,7 @@ export default {
       },
     },
     search: {
+      pageHeading: 'Rechercher des voitures à vendre au Rwanda',
       placeholder: 'Rechercher des voitures, modèle, type, lieu',
       suggestedSearches: 'Recherches Suggérées',
       popularBrands: 'Marques Populaires',

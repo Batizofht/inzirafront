@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, StatusBar, useWindowDimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions, Alert } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchConversations, type Conversation } from '@/lib/api-messages';
 import { getAuthUser, getUserType, type UserType } from '@/lib/userPreference';
 
@@ -24,6 +25,7 @@ export default function MessagesScreen() {
     }
   }, [t]);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with SearchScreen)
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -125,7 +127,7 @@ export default function MessagesScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}> 
           <View style={[styles.topHeaderInner, desktopInnerWidth]}> 
             <View style={styles.headerRow}>
@@ -145,7 +147,7 @@ export default function MessagesScreen() {
   }
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}> 
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}> 
         <View style={[styles.topHeaderInner, desktopInnerWidth]}> 
@@ -281,7 +283,6 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingVertical: 12,

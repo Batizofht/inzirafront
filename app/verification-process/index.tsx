@@ -1,7 +1,9 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { PageHead } from '@/components/page-head';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { apiRequest } from '@/lib/api-client';
@@ -22,6 +24,7 @@ export default function VerificationProcessScreen() {
     }
   }, []);
 
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   const theme = useResolvedTheme();
   const colors = Colors[theme];
@@ -46,7 +49,7 @@ export default function VerificationProcessScreen() {
   }, []);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
       <PageHead
         title="Verification Process - Inzira Trust Marketplace"
         description="Understand how Inzira verifies sellers and listings: identity checks, ownership documents, phone confirmation, and review workflows."
@@ -54,7 +57,7 @@ export default function VerificationProcessScreen() {
         url="https://inzira.co/verification-process"
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">{t('legal.verificationProcess.title')}</ThemedText>
+        <Heading level={1} type="title">{t('legal.verificationProcess.title')}</Heading>
         {steps.map((step, i) => (
           <ThemedText key={i} style={styles.item}>{step}</ThemedText>
         ))}

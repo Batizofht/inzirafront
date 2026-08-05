@@ -1,5 +1,25 @@
 User-agent: *
 Allow: /
 
-# Sitemap location
+# Private surfaces. These also carry <meta name="robots" content="noindex">;
+# the Disallow lines just save crawl budget this domain does not have to spare.
+# Nothing listed here may be a URL that is already indexed and needs removing —
+# a crawler cannot read a noindex on a page it is not allowed to fetch.
+Disallow: /auth/
+Disallow: /settings/
+Disallow: /messages
+Disallow: /notifications
+Disallow: /verify/
+Disallow: /order
+Disallow: /history
+Disallow: /listings
+Disallow: /profile
+Disallow: /favorites
+Disallow: /report
+
+# Dynamic route templates served as SPA fallbacks, not real pages.
+Disallow: /vehicle/_shell
+Disallow: /category/_shell
+Disallow: /_sitemap
+
 Sitemap: https://inzira.co/sitemap.xml

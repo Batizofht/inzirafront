@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar, Alert, useWindowDimensions, Modal, Pressable, Dimensions } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, useWindowDimensions, Modal, Pressable, Dimensions} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Colors, Elevation, Radius } from '@/constants/theme';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
+import { Heading } from '@/components/heading';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { ZoomableImage } from '@/components/zoomable-image';
 import { Toast } from '@/components/Toast';
@@ -99,19 +100,49 @@ function getUsageStatusDisplayLabel(value: string | undefined, t: (key: string) 
   return key ? t(`explore.usageStatusLabels.${key}`) : value;
 }
 
+/**
+ * Vehicles keyed by id, populated during `expo export` by generateStaticParams
+ * and read back when this screen renders in Node. Without it the prerendered
+ * HTML for every listing is an empty shell — the fetch below only ever runs in
+ * a browser, so crawlers see no title, price, or description.
+ *
+ * In the browser this map is empty; the same data arrives as __INZIRA_VEHICLE__,
+ * written into each page's <head> by scripts/inject-dist-seo.js. Seeding both
+ * sides from the same payload is what keeps hydration from mismatching.
+ */
+const PRERENDER_VEHICLES = new Map<string, Vehicle>();
+
+function getSeedVehicle(id: string | undefined): Vehicle | null {
+  if (!id) return null;
+
+  const fromBuild = PRERENDER_VEHICLES.get(String(id));
+  if (fromBuild) return fromBuild;
+
+  if (typeof window !== 'undefined') {
+    const seeded = (window as any).__INZIRA_VEHICLE__ as Vehicle | undefined;
+    if (seeded && String(seeded.id) === String(id)) return seeded;
+  }
+
+  return null;
+}
+
 export async function generateStaticParams(): Promise<Array<{ id: string }>> {
   try {
     const response = await fetch(`${SEO_API_BASE}/vehicles?status=active`);
     if (!response.ok) return [];
 
     const json = (await response.json()) as {
-      data?: { vehicles?: Array<{ id?: string; status?: string }> };
+      data?: { vehicles?: Vehicle[] };
     };
 
     const vehicles = Array.isArray(json?.data?.vehicles) ? json.data.vehicles : [];
-    return vehicles
-      .filter((vehicle) => Boolean(vehicle?.id))
-      .map((vehicle) => ({ id: String(vehicle.id) }));
+    const withIds = vehicles.filter((vehicle) => Boolean(vehicle?.id));
+
+    for (const vehicle of withIds) {
+      PRERENDER_VEHICLES.set(String(vehicle.id), vehicle);
+    }
+
+    return withIds.map((vehicle) => ({ id: String(vehicle.id) }));
   } catch {
     return [];
   }
@@ -138,11 +169,14 @@ export default function VehicleDetailsScreen() {
   const detailsContainerMaxWidth = isWebXl ? 1040 : isWebLg ? 960 : isWebMd ? 880 : undefined;
   const webHorizontalPadding = isWebXl ? 28 : isWebLg ? 24 : 20;
 
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const seedVehicle = getSeedVehicle(id);
+  const [vehicle, setVehicle] = useState<Vehicle | null>(seedVehicle);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seeded pages already have something to paint, so don't flash a spinner
+  // over content that is present in the HTML.
+  const [isLoading, setIsLoading] = useState(!seedVehicle);
   const [isBuying, setIsBuying] = useState(false);
   const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
   const [showLoginToast, setShowLoginToast] = useState(false);
@@ -161,7 +195,9 @@ export default function VehicleDetailsScreen() {
     let mounted = true;
     const loadData = async () => {
       try {
-        setIsLoading(true);
+        // Keep the seeded content on screen while this revalidates in the
+        // background; only show the spinner when there is nothing to show.
+        if (!getSeedVehicle(id)) setIsLoading(true);
         const [vehicleRes, favoritesRes, ordersRes] = await Promise.all([
           fetchVehicleById(id),
           fetchFavorites().catch(() => ({ data: { favorites: [] } })),
@@ -286,7 +322,7 @@ export default function VehicleDetailsScreen() {
   // ─── LOADING STATE ───────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <PageHead
           title={t('vehicleDetails.seoLoadingTitle')}
           description={t('vehicleDetails.seoLoadingDescription')}
@@ -392,7 +428,7 @@ export default function VehicleDetailsScreen() {
   // ─── NOT FOUND ────────────────────────────────────────────────────────────────
   if (!vehicle) {
     return (
-      <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <PageHead
           title={t('vehicleDetails.seoNotFoundTitle')}
           description={t('vehicleDetails.seoNotFoundDescription')}
@@ -484,7 +520,7 @@ export default function VehicleDetailsScreen() {
   // ─── HERO INFO PANEL (title, badges, price, location, actions) ───────────────
   const HeroInfoPanel = () => (
     <View style={{ flex: 1 }}>
-      <ThemedText type="defaultSemiBold" style={styles.title}>{vehicle.title}{vehicle.model ? ` . ${vehicle.model}` : ''}</ThemedText>
+      <Heading level={1} type="defaultSemiBold" style={styles.title}>{vehicle.title}{vehicle.model ? ` . ${vehicle.model}` : ''}</Heading>
 
       <View style={[styles.usageBadge, { backgroundColor: `${colors.primary}1A`, marginTop: 10 }]}>
         <ThemedText style={[styles.usageBadgeText, { color: colors.primary }]}>{getUsageStatusDisplayLabel(vehicle.usageStatus, t)}</ThemedText>
@@ -537,7 +573,7 @@ export default function VehicleDetailsScreen() {
 
   // ─── MAIN RENDER ──────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <VehicleSEO
         title={vehicle.title}
         brand={vehicle.brand}
@@ -711,7 +747,7 @@ export default function VehicleDetailsScreen() {
             {/* Mobile-only: title/badge/price/location/actions appear here */}
             {!isDesktopWeb && (
               <>
-                <ThemedText type="defaultSemiBold" style={styles.title}>{vehicle.title}</ThemedText>
+                <Heading level={1} type="defaultSemiBold" style={styles.title}>{vehicle.title}</Heading>
                 <View style={[styles.usageBadge, { backgroundColor: `${colors.primary}1A` }]}>
                   <ThemedText style={[styles.usageBadgeText, { color: colors.primary }]}>{getUsageStatusDisplayLabel(vehicle.usageStatus, t)}</ThemedText>
                 </View>
@@ -1158,7 +1194,6 @@ function getReadableTextColor(hex: string): string {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   scrollContent: {
     paddingBottom: 20,
@@ -1592,7 +1627,7 @@ const styles = StyleSheet.create({
   // ── Toast ────────────────────────────────────────────────────────────────────
   toastOverlay: {
     position: 'absolute',
-    top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 14 : 56,
+    top: 56,
     left: 16,
     right: 16,
     zIndex: 999,

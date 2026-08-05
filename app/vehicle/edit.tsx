@@ -5,8 +5,6 @@ import {
   ScrollView,
   View,
   TouchableOpacity,
-  Platform,
-  StatusBar,
   Alert,
   ActivityIndicator,
   Modal,
@@ -692,7 +690,7 @@ export default function EditVehicleScreen() {
   // ── Loading skeleton (restyled) ─────────────────────────────────────────────
   if (isLoading) {
     return (
-      <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         {/* Header skeleton */}
         <View style={[S.header, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <View style={[S.headerContent, isDesktopWeb && S.webHeaderContent,
@@ -737,7 +735,7 @@ export default function EditVehicleScreen() {
 
   // ── Main form ───────────────────────────────────────────────────────────────
   return (
-    <View style={[S.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[S.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {!!toast && (
         <Toast
           visible={!!toast}
@@ -821,10 +819,12 @@ export default function EditVehicleScreen() {
                 { label: "Wheel/Tire", required: false },
                 { label: "Extra Detail", required: false },
               ].map((item, i) => (
-                <View key={i} style={{ width: isDesktopWeb ? 'calc(20% - 8px)' as any : 'calc(50% - 5px)' as any }}>
+                <View key={i} style={{ width: isDesktopWeb ? '18.4%' : '30.66%' }}>
                   <TouchableOpacity
                     style={[{
-                      aspectRatio: 1,
+                      width: '100%',
+                      height: isDesktopWeb ? undefined : 100,
+                      aspectRatio: isDesktopWeb ? 1 : undefined,
                       borderRadius: 12,
                       borderWidth: images[i] ? 0 : 1.5,
                       borderStyle: images[i] ? 'solid' : 'dashed',
@@ -1659,7 +1659,6 @@ export default function EditVehicleScreen() {
 const S = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
 
   // Header

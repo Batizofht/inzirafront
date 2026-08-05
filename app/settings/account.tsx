@@ -7,6 +7,7 @@ import { Toast } from '@/components/Toast';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { isWeb } from '@/lib/platform';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { getAuthUser, getAuthToken, setAuthSession } from '@/lib/userPreference';
 import { apiRequest } from '@/lib/api-client';
@@ -22,6 +23,7 @@ export default function AccountScreen() {
     }
   }, [t]);
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const isDesktopWeb = isWeb && width >= 768;
   // Responsive breakpoints (consistent with contact/sell)
   const isLg = isWeb && width >= 1024 && width < 1440;
@@ -72,7 +74,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <View style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {!!toast && (
         <Toast
           visible={!!toast}
@@ -144,11 +146,10 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 16,
+    paddingTop: 16,
     paddingBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
