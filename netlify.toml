@@ -5,6 +5,11 @@
   command = "npm run build:web:seo"
   publish = "dist"
 
+[build.environment]
+  # Netlify still defaults older sites to Node 18; expo-router 6 / RN 0.81
+  # needs a current runtime and fails the export without it.
+  NODE_VERSION = "22"
+
 # Netlify's pretty URLs 301 /about to /about/, but the sitemap and every
 # canonical tag say /about. Google fetched /about/, read a canonical pointing at
 # a URL that redirects back, and dropped the page. Serving the un-slashed URL
