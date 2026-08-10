@@ -93,8 +93,6 @@ export function HeroSection({ categories }: HeroSectionProps) {
     width: number;
   } | null>(null);
 
-  if (!isWeb || width < 768) return null;
-
   const fieldActiveBg = isDark ? "rgba(96,165,250,0.14)" : "rgba(37,99,235,0.06)";
   const fieldIconBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(15,23,42,0.045)";
 
@@ -333,6 +331,8 @@ export function HeroSection({ categories }: HeroSectionProps) {
       document.body,
     );
   };
+
+  if (!isWeb || width < 768) return null;
 
   return (
     <View style={styles.container}>
