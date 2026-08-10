@@ -1,4 +1,5 @@
-import { StyleSheet, ScrollView, View, Platform, StatusBar, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, Platform, StatusBar } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';

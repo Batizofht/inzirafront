@@ -1,15 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  StyleSheet,
-  View,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  useWindowDimensions,
-} from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import type { ViewStyle } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';

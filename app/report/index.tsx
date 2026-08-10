@@ -1,4 +1,5 @@
-import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, Alert, useWindowDimensions } from 'react-native';
+import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, Alert } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';

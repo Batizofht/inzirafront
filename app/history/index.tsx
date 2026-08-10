@@ -1,4 +1,5 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';

@@ -1,11 +1,12 @@
 import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Platform, Image, Modal, FlatList, KeyboardAvoidingView, Text } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
-import { useWindowDimensions } from 'react-native';
+import {  } from 'react-native';
 import { countryData } from '@/lib/Phonenumbercodes';
 import { isWeb } from '@/lib/platform';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

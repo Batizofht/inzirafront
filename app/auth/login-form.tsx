@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { useAuth } from '@/context/AuthContext';

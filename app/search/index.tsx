@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, useWindowDimensions, ActivityIndicator, Platform } from 'react-native';
+import { ScrollView, StyleSheet, TextInput, TouchableOpacity, View, ActivityIndicator, Platform } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Image } from 'expo-image';

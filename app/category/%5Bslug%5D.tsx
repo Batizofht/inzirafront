@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, TextInput, Modal, Pressable, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, TextInput, Modal, Pressable, ActivityIndicator } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';

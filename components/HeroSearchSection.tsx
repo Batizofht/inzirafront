@@ -1,16 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Pressable,
-  useWindowDimensions,
-  Platform,
-  Modal,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, Pressable, Platform, Modal } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";

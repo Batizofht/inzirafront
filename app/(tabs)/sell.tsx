@@ -1,19 +1,5 @@
-import {
-  StyleSheet,
-  TextInput,
-  ScrollView,
-  View,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Image,
-  Modal,
-  Pressable,
-  useWindowDimensions,
-  Animated,
-  Easing,
-  Button,
-} from "react-native";
+import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Pressable, Animated, Easing, Button } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
@@ -526,7 +512,7 @@ export default function SellScreen() {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) { Alert.alert(t("sell.permissionRequired"), t("sell.cameraPermissionMsg")); return; }
     const r = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.7, base64: false });
-    if (!r.canceled && r.assets[0]) setImages((p) => [...p, r.assets[0].uri as string].slice(0, 6));
+    if (!r.canceled && r.assets[0]) setImages((p) => [...p, r.assets[0].uri as string].slice(0, 10));
   };
 
   const handleRemoveImage = (index: number) => setImages((p) => p.filter((_, i) => i !== index));

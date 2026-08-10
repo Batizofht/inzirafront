@@ -6,10 +6,10 @@
   Platform,
   Modal,
   Pressable,
-  useWindowDimensions,
   TextInput,
   Alert,
 } from "react-native";
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 

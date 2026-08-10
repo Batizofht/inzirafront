@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, TextInput, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';

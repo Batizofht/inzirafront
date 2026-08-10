@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, useWindowDimensions, Modal, Pressable, Dimensions} from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View, Alert, Modal, Pressable, Dimensions } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';

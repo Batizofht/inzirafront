@@ -6,13 +6,14 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
-import { useWindowDimensions } from 'react-native';
+import {  } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { isWeb } from '@/lib/platform';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,12 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  useWindowDimensions,
-  ActivityIndicator,
-} from "react-native";
+import { View, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 

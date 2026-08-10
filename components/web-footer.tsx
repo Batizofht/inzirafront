@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  View,
-  TextInput,
-  TouchableOpacity,
-  Pressable,
-  useWindowDimensions,
-  Linking,
-} from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, Pressable, Linking } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';

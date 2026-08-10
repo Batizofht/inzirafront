@@ -1,4 +1,5 @@
-import { StyleSheet, ScrollView, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, ScrollView, View } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';

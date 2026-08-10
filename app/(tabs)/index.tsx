@@ -6,10 +6,10 @@
   TouchableOpacity,
   Modal,
   Pressable,
-  useWindowDimensions,
   ActivityIndicator,
   Linking,
 } from "react-native";
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { LinearGradient } from "expo-linear-gradient";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors, Elevation, Radius } from "@/constants/theme";

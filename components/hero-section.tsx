@@ -1,13 +1,5 @@
-import {
-  StyleSheet,
-  View,
-  useWindowDimensions,
-  TouchableOpacity,
-  TextInput,
-  ScrollView,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
+import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { createPortal } from "react-dom";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";

@@ -6,9 +6,9 @@
   TouchableOpacity,
   Modal,
   Pressable,
-  useWindowDimensions,
   ActivityIndicator,
 } from "react-native";
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors, Elevation, Radius, Spacing } from "@/constants/theme";
 import { ThemedText } from "@/components/themed-text";

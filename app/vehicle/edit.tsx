@@ -1,16 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import {
-  StyleSheet,
-  TextInput,
-  ScrollView,
-  View,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  useWindowDimensions,
-} from "react-native";
+import { StyleSheet, TextInput, ScrollView, View, TouchableOpacity, Alert, ActivityIndicator, Modal, Pressable } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
 import { Colors } from "@/constants/theme";
@@ -602,7 +592,7 @@ export default function EditVehicleScreen() {
     if (!result.canceled) {
       const newImages = result.assets.filter((a) => !!a.uri).map((a) => a.uri as string);
       if (newImages.length === 0) { setSubmitMessage({ type: "error", text: "Selected images could not be processed. Please try again." }); return; }
-      setImages((prev) => [...prev, ...newImages].slice(0, 6));
+      setImages((prev) => [...prev, ...newImages].slice(0, 10));
     }
   };
 
@@ -622,7 +612,7 @@ export default function EditVehicleScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.7, base64: false });
     if (!result.canceled && result.assets[0]) {
-      setImages((prev) => [...prev, result.assets[0].uri as string].slice(0, 6));
+      setImages((prev) => [...prev, result.assets[0].uri as string].slice(0, 10));
     }
   };
 

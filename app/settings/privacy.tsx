@@ -1,4 +1,5 @@
-import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, useWindowDimensions, Modal, TextInput, Pressable } from 'react-native';
+import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, StatusBar, Modal, TextInput, Pressable } from 'react-native';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors } from '@/constants/theme';
 import { ThemedText } from '@/components/themed-text';
