@@ -8,7 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { pollPaymentUntilResolved, checkCanListVehicle, payListingFee, cancelPayment, fetchConfigPrices, consumeListingCredit } from '@/lib/api-subscriptions';
+import { pollPaymentUntilResolved, checkCanListVehicle, payListingFee, cancelPayment, fetchConfigPrices } from '@/lib/api-subscriptions';
 
 import { useTranslation } from "react-i18next";
 import * as ImagePicker from "expo-image-picker";
@@ -316,9 +316,28 @@ export default function SellScreen() {
   const [paymentPurpose, setPaymentPurpose] = useState<'verification_fee' | 'listing_fee'>('listing_fee');
   const [configPrices, setConfigPrices] = useState<Record<string, string>>({});
 
+  const [pricesLoaded, setPricesLoaded] = useState(false);
+
   useEffect(() => {
-    fetchConfigPrices().then(r => setConfigPrices(r.data?.prices || {})).catch(() => {});
+    fetchConfigPrices()
+      .then(r => {
+        setConfigPrices(r.data?.prices || {});
+        setPricesLoaded(true);
+      })
+      .catch(() => setPricesLoaded(false));
   }, []);
+
+  // A missing/failed config fetch used to render the plans as "RWF 0", which
+  // reads as a free listing. Resolve prices through a checked accessor instead
+  // and block the payment modal until we actually have real numbers.
+  const priceOf = useCallback((key: string): number => {
+    const n = Number(configPrices[key]);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [configPrices]);
+
+  const listingFeeSingle = priceOf('listing_fee_single');
+  const listingFeeBundle3 = priceOf('listing_fee_bundle_3');
+  const hasValidPricing = pricesLoaded && listingFeeSingle > 0;
 
   // ── Filtered option lists ─────────────────────────────────────────────────
   const filteredColorOptions = useMemo(() => {
@@ -632,6 +651,22 @@ export default function SellScreen() {
   const paymentCancelSignalRef = useRef<{ cancelled: boolean }>({ cancelled: false });
   const currentReferenceIdRef = useRef<string | null>(null);
 
+  // Every terminal branch below funnels through here so the processing modal can
+  // never be left spinning: it always ends up either closed or on a final state
+  // the user can dismiss.
+  const finishPayment = (
+    status: 'success' | 'failed',
+    message: string,
+    onClosed?: () => void | Promise<void>,
+  ) => {
+    setPaymentStatus(status);
+    setPaymentMessage(message);
+    setTimeout(async () => {
+      setShowPaymentProcessing(false);
+      await onClosed?.();
+    }, status === 'success' ? 2000 : 3000);
+  };
+
   const handlePaymentConfirm = async (phoneNumber: string, planId?: string) => {
     try {
       setShowPaymentModal(false);
@@ -644,55 +679,34 @@ export default function SellScreen() {
       const bundleSize = planId === 'bundle3' ? 3 : 1;
       const result = await payListingFee(phoneNumber, bundleSize) as any;
 
-      if (result.data?.referenceId) {
-        currentReferenceIdRef.current = result.data.referenceId;
-        const finalStatus = await pollPaymentUntilResolved(result.data.referenceId, {
-          intervalMs: 4000,
-          maxAttempts: 45,
-          cancelSignal: paymentCancelSignalRef.current,
-        });
+      // No referenceId means the charge was never initiated. Treating that as
+      // success (the old behaviour) handed out a free listing and desynced the
+      // credit balance, so fail loudly instead.
+      if (!result?.data?.referenceId) {
+        finishPayment('failed', t("sell.unableToProcessListingFeeMsg"));
+        return;
+      }
 
-        if (finalStatus.data.paymentStatus === 'successful') {
-          setPaymentStatus('success');
-          setPaymentMessage(t("sell.listingFeePaidMsg"));
+      currentReferenceIdRef.current = result.data.referenceId;
+      const finalStatus = await pollPaymentUntilResolved(result.data.referenceId, {
+        intervalMs: 4000,
+        maxAttempts: 45,
+        cancelSignal: paymentCancelSignalRef.current,
+      });
 
-          setTimeout(async () => {
-            setShowPaymentProcessing(false);
-            // Automatically submit the vehicle after successful payment
-            await handleSubmitVehicle();
-          }, 2000);
-        } else if (finalStatus.data.paymentStatus === 'failed') {
-          setPaymentStatus('failed');
-          setPaymentMessage(finalStatus.data.failureReason || t("sell.transactionFailedMsg"));
+      // The user may have hit Cancel while the last poll was in flight — that
+      // already closed the modal, so don't reopen it or submit the listing.
+      if (paymentCancelSignalRef.current.cancelled) return;
 
-          setTimeout(() => {
-            setShowPaymentProcessing(false);
-          }, 3000);
-        } else {
-          setPaymentStatus('failed');
-          setPaymentMessage(t("sell.paymentStillProcessingMsg"));
-
-          setTimeout(() => {
-            setShowPaymentProcessing(false);
-          }, 3000);
-        }
+      if (finalStatus.data.paymentStatus === 'successful') {
+        finishPayment('success', t("sell.listingFeePaidMsg"), handleSubmitVehicle);
+      } else if (finalStatus.data.paymentStatus === 'failed') {
+        finishPayment('failed', finalStatus.data.failureReason || t("sell.transactionFailedMsg"));
       } else {
-        setPaymentStatus('success');
-        setPaymentMessage(t("sell.listingFeePaidMsg"));
-
-        setTimeout(async () => {
-          setShowPaymentProcessing(false);
-          // Automatically submit the vehicle after successful payment
-          await handleSubmitVehicle();
-        }, 2000);
+        finishPayment('failed', t("sell.paymentStillProcessingMsg"));
       }
     } catch (err: any) {
-      setPaymentStatus('failed');
-      setPaymentMessage(err?.message || t("sell.unableToProcessListingFeeMsg"));
-
-      setTimeout(() => {
-        setShowPaymentProcessing(false);
-      }, 3000);
+      finishPayment('failed', err?.message || t("sell.unableToProcessListingFeeMsg"));
     } finally {
       setIsRequesting(false);
       currentReferenceIdRef.current = null;
@@ -700,17 +714,20 @@ export default function SellScreen() {
   };
 
   const handleDismissPayment = async () => {
+    // Stop the poll first: cancelPayment can be slow (or fail) and the modal
+    // must close regardless of what the network does.
+    paymentCancelSignalRef.current.cancelled = true;
+    setShowPaymentProcessing(false);
+    setIsRequesting(false);
+
     const refId = currentReferenceIdRef.current;
     if (refId) {
-      paymentCancelSignalRef.current.cancelled = true;
       try {
         await cancelPayment(refId);
       } catch (_) {
         // best-effort
       }
     }
-    setShowPaymentProcessing(false);
-    setIsRequesting(false);
   };
   
   // ── Submit Vehicle (after payment check or directly for company) ───────────
@@ -750,10 +767,11 @@ export default function SellScreen() {
         colorLabels: inventoryColorLabels,
       } as any);
 
-      // Consume one listing credit for individual sellers (must succeed)
-      if (authUser?.sellerType !== 'company') {
-        await consumeListingCredit();
-      }
+      // NOTE: the listing credit is consumed server-side inside createVehicle
+      // (see VehicleController). Calling consumeListingCredit() here as well
+      // burned a second credit per listing and, once the balance hit zero, made
+      // a *successful* submission report "No listing credits available" after
+      // the seller had already been charged.
       const msg = t("sell.submissionSuccessMsg");
       setSubmitMessage({ type: "success", text: msg });
       setToast({ title: t("sell.listingSubmittedToastTitle"), body: msg, icon: "checkmark.circle.fill" });
@@ -793,6 +811,27 @@ export default function SellScreen() {
           return;
         }
         if (canListRes.data.needsListingFee) {
+          // Don't open a payment sheet we can't price — retry the config fetch
+          // once and only continue when we have a real amount to show.
+          let priced = hasValidPricing;
+          if (!priced) {
+            try {
+              const r = await fetchConfigPrices();
+              const prices = r.data?.prices || {};
+              setConfigPrices(prices);
+              setPricesLoaded(true);
+              priced = Number(prices['listing_fee_single']) > 0;
+            } catch {
+              priced = false;
+            }
+          }
+          if (!priced) {
+            const msg = t("sell.errCheckEligibility");
+            setSubmitMessage({ type: "error", text: msg });
+            if (!isWeb) Alert.alert(t("profile.error"), msg);
+            setIsSubmitting(false);
+            return;
+          }
           setPaymentPurpose('listing_fee');
           setShowPaymentExplainer(true);
           setIsSubmitting(false);
@@ -1992,12 +2031,16 @@ export default function SellScreen() {
         onConfirm={handlePaymentConfirm}
         title={t("sell.listingFeeTitle")}
         description={t("sell.listingFeeDescription")}
-        amount={Number(configPrices['listing_fee_single'] ?? 0)}
+        amount={listingFeeSingle}
         currency="RWF"
         defaultPhoneNumber={phone || authUser?.phone || ''}
         plans={[
-          { id: 'single', name: t("sell.singleListingPlan"), price: Number(configPrices['listing_fee_single'] ?? 0) },
-          { id: 'bundle3', name: t("sell.bundle3Plan"), price: Number(configPrices['listing_fee_bundle_3'] ?? 0) },
+          { id: 'single', name: t("sell.singleListingPlan"), price: listingFeeSingle },
+          // Only offer the bundle when it is actually priced, otherwise the
+          // seller could pick a "RWF 0" plan and be charged the real amount.
+          ...(listingFeeBundle3 > 0
+            ? [{ id: 'bundle3', name: t("sell.bundle3Plan"), price: listingFeeBundle3 }]
+            : []),
         ]}
       />
 

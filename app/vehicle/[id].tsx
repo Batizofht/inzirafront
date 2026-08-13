@@ -184,6 +184,7 @@ export default function VehicleDetailsScreen() {
   const [showValidityModal, setShowValidityModal] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [showGuestPurchaseModal, setShowGuestPurchaseModal] = useState(false);
+  const [purchasePrefill, setPurchasePrefill] = useState<{ fullName?: string | null; email?: string | null; phone?: string | null } | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [toast, setToast] = useState<{ title: string; body?: string; icon?: string } | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -296,10 +297,20 @@ export default function VehicleDetailsScreen() {
     
     if (!user) {
       // Show guest purchase modal for unauthenticated users
+      setPurchasePrefill(null);
       setShowGuestPurchaseModal(true);
       return;
     }
-    
+
+    // A signed-in buyer with no phone on file used to send the seller a lead
+    // with no way to call them back. Collect it through the same validated form,
+    // with the details we already know locked in.
+    if (!user.phone) {
+      setPurchasePrefill({ fullName: user.fullName, email: user.email, phone: null });
+      setShowGuestPurchaseModal(true);
+      return;
+    }
+
     // Authenticated user flow
     setIsBuying(true);
     try {
@@ -1109,6 +1120,7 @@ export default function VehicleDetailsScreen() {
         }}
         vehicleId={vehicle.id}
         vehicleTitle={vehicle.title}
+        prefill={purchasePrefill ?? undefined}
       />
 
       <ShareModal

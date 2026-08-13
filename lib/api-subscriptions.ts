@@ -175,22 +175,43 @@ export async function pollPaymentUntilResolved(
   options?: {
     maxAttempts?: number;
     intervalMs?: number;
+    /** Hard wall-clock ceiling; the loop always returns by this point. */
+    deadlineMs?: number;
     onPending?: () => void;
     cancelSignal?: { cancelled: boolean };
   }
 ): Promise<PaymentStatusResponse> {
   const maxAttempts = options?.maxAttempts ?? 60;
   const intervalMs = options?.intervalMs ?? 5000;
+  // Attempt counting alone is not a real bound: a slow/hanging status request
+  // stretches each iteration, so a wall-clock deadline is what actually
+  // guarantees the caller's spinner stops.
+  const deadlineMs = options?.deadlineMs ?? maxAttempts * intervalMs + 60_000;
+  const startedAt = Date.now();
+
+  // A transient network blip previously rejected the whole poll and reported the
+  // payment as failed even when it later succeeded. Tolerate a few in a row.
+  const MAX_CONSECUTIVE_ERRORS = 5;
+  let consecutiveErrors = 0;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (options?.cancelSignal?.cancelled) {
       return { status: 1, data: { paymentStatus: 'failed', paypackStatus: 'CANCELLED', failureReason: 'Cancelled by user' } };
     }
+    if (Date.now() - startedAt > deadlineMs) break;
 
-    const result = await checkPaymentStatus(referenceId);
+    try {
+      const result = await checkPaymentStatus(referenceId);
+      consecutiveErrors = 0;
 
-    if (result.data.paymentStatus === 'successful' || result.data.paymentStatus === 'failed') {
-      return result;
+      if (result.data.paymentStatus === 'successful' || result.data.paymentStatus === 'failed') {
+        return result;
+      }
+    } catch (err) {
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        throw err;
+      }
     }
 
     options?.onPending?.();

@@ -13,9 +13,16 @@ export type ContactRequestResponse = {
   status: 'pending' | 'approved' | 'rejected';
   message?: string;
   createdAt: string;
-  vehicleTitle?: string;
-  buyerName?: string;
-  buyerPhone?: string;
+  vehicleTitle?: string | null;
+  /** Flattened from the joined buyer/seller rows by the backend. */
+  buyerName?: string | null;
+  buyerEmail?: string | null;
+  buyerPhone?: string | null;
+  buyerLocation?: string | null;
+  buyerProfileImageUrl?: string | null;
+  sellerName?: string | null;
+  sellerEmail?: string | null;
+  sellerPhone?: string | null;
   vehicle?: {
     id?: string;
     title?: string;

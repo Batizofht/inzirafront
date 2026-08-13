@@ -26,10 +26,21 @@ export type ApiRequestOptions = {
   body?: unknown;
   auth?: boolean;
   isFormData?: boolean;
+  /** Per-request timeout. Uploads pass a larger value. */
+  timeoutMs?: number;
 };
+
+/**
+ * fetch() never times out on its own. Without this, a request that stalls (a
+ * dropped mobile connection mid-flight) leaves the caller awaiting forever —
+ * which is how the payment status poll could hang with the spinner up.
+ */
+const DEFAULT_TIMEOUT_MS = 30_000;
+const FORM_DATA_TIMEOUT_MS = 120_000;
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = false, isFormData = false } = options;
+  const timeoutMs = options.timeoutMs ?? (isFormData ? FORM_DATA_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
 
   const headers: Record<string, string> = {};
   
@@ -51,18 +62,27 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     console.log(`[API] ${method} ${url}`);
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   let response: Response;
   try {
     response = await fetch(url, {
       method,
       headers,
       body: body == null ? undefined : isFormData ? body as FormData : JSON.stringify(body),
+      signal: controller.signal,
     });
-  } catch (networkErr) {
+  } catch (networkErr: any) {
     if (__DEV__) {
       console.log('[API] Network error:', networkErr);
     }
+    if (networkErr?.name === 'AbortError') {
+      throw new Error('The server took too long to respond. Please try again.');
+    }
     throw new Error('Cannot connect to server. Please check your internet connection.');
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const json = await response.json().catch(() => ({}));

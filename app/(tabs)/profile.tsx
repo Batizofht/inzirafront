@@ -470,8 +470,25 @@ export default function ProfileScreen() {
   // Manual, seller-driven stock reduction. Decrements remaining (and the chosen
   // colour) on the backend; the API auto-marks the listing sold at 0.
   const [reducingStockId, setReducingStockId] = useState<string | null>(null);
-  const handleReduceStock = async (vehicle: any, color?: string) => {
+  // Pending confirmation for a stock reduction. Reducing stock is destructive
+  // and irreversible from the UI, so a single stray tap on a 50-unit listing
+  // must never go straight through to the API.
+  const [stockReduceTarget, setStockReduceTarget] = useState<{
+    vehicle: any;
+    color?: string;
+  } | null>(null);
+
+  // Tapping a colour chip / the reduce button only *proposes* the change.
+  const requestReduceStock = (vehicle: any, color?: string) => {
     if (!vehicle?.id || reducingStockId) return;
+    setStockReduceTarget({ vehicle, color });
+  };
+
+  const confirmReduceStock = async () => {
+    const target = stockReduceTarget;
+    if (!target?.vehicle?.id || reducingStockId) return;
+
+    const { vehicle, color } = target;
     setReducingStockId(vehicle.id);
     try {
       const res = await reduceVehicleStock(vehicle.id, color);
@@ -481,13 +498,21 @@ export default function ProfileScreen() {
           prev.map((v) => (v.id === updated.id ? { ...v, ...updated } : v)),
         );
       }
+      setStockReduceTarget(null);
+
+      const remaining = Number(updated?.remainingQuantity ?? 0);
+      setToast({
+        title: t('profile.stockReducedTitle'),
+        body: remaining <= 0
+          ? t('profile.stockReducedSoldOutBody')
+          : t('profile.stockReducedBody', { remaining }),
+        icon: 'checkmark.circle.fill',
+      });
     } catch (err: any) {
       const msg = err?.message || t('profile.failedReduceStock');
-      if (Platform.OS === "web" && typeof window !== "undefined") {
-        window.alert(msg);
-      } else {
-        Alert.alert(t('profile.error'), msg);
-      }
+      // Keep the sheet open on failure so the seller can retry or back out
+      // rather than being left guessing whether the unit was deducted.
+      setToast({ title: t('profile.error'), body: msg, icon: 'exclamationmark.circle.fill' });
     } finally {
       setReducingStockId(null);
     }
@@ -1653,7 +1678,7 @@ export default function ProfileScreen() {
                               colors={colors}
                               t={t}
                               busy={reducingStockId === vehicle.id}
-                              onReduce={handleReduceStock}
+                              onReduce={requestReduceStock}
                             />
                           </View>
                         </TouchableOpacity>
@@ -2257,28 +2282,41 @@ export default function ProfileScreen() {
 
                             {/* Contact & Chat */}
                             <View style={{ marginTop: 12, gap: 8 }}>
-                              {(request as any).buyerPhone ? (
-                                <View
-                                  style={[
-                                    styles.contactInfoBox,
-                                    { backgroundColor: `${colors.primary}15` },
-                                  ]}
-                                >
-                                  <IconSymbol
-                                    name="phone.fill"
-                                    size={16}
-                                    color={colors.primary}
-                                  />
-                                  <ThemedText
-                                    style={{
-                                      color: colors.primary,
-                                      fontWeight: "600",
-                                    }}
+                              {/* Buyer contact details. Each row is rendered
+                                  even when empty so a missing phone reads as
+                                  "not provided" rather than looking like the
+                                  card simply failed to load. */}
+                              {[
+                                { icon: "phone.fill", value: request.buyerPhone, fallback: t('profile.notProvided') },
+                                { icon: "envelope.fill", value: request.buyerEmail, fallback: t('profile.notProvided') },
+                                { icon: "mappin.and.ellipse", value: request.buyerLocation, fallback: null },
+                              ]
+                                .filter((row) => row.value || row.fallback)
+                                .map((row) => (
+                                  <View
+                                    key={row.icon}
+                                    style={[
+                                      styles.contactInfoBox,
+                                      { backgroundColor: `${colors.primary}15` },
+                                    ]}
                                   >
-                                    {(request as any).buyerPhone}
-                                  </ThemedText>
-                                </View>
-                              ) : null}
+                                    <IconSymbol
+                                      name={row.icon as any}
+                                      size={16}
+                                      color={colors.primary}
+                                    />
+                                    <ThemedText
+                                      selectable
+                                      style={{
+                                        color: row.value ? colors.primary : colors.icon,
+                                        fontWeight: row.value ? "600" : "400",
+                                        flex: 1,
+                                      }}
+                                    >
+                                      {row.value || row.fallback}
+                                    </ThemedText>
+                                  </View>
+                                ))}
                               <TouchableOpacity
                                 style={[
                                   styles.approveButton,
@@ -3209,6 +3247,125 @@ export default function ProfileScreen() {
                   </ThemedText>
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/*
+          Stock reduction confirmation.
+
+          Deliberately a custom <Modal> rather than Alert.alert: multi-button
+          Alerts are not supported on web, so on the web build the seller would
+          otherwise get no confirmation at all and a stray tap would silently
+          mark a unit sold.
+        */}
+        <Modal
+          transparent
+          animationType="fade"
+          visible={!!stockReduceTarget}
+          onRequestClose={() => { if (!reducingStockId) setStockReduceTarget(null); }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+              {(() => {
+                const vehicle = stockReduceTarget?.vehicle;
+                const color = stockReduceTarget?.color;
+                const labels: { color: string; count: number }[] = Array.isArray(vehicle?.colorLabels)
+                  ? vehicle.colorLabels
+                  : [];
+                const colorEntry = color
+                  ? labels.find((c) => c.color.toLowerCase() === color.toLowerCase())
+                  : undefined;
+
+                const remainingBefore = Number(vehicle?.remainingQuantity ?? 0);
+                const remainingAfter = Math.max(0, remainingBefore - 1);
+                const colorBefore = Number(colorEntry?.count ?? 0);
+                const colorAfter = Math.max(0, colorBefore - 1);
+                const willSellOut = remainingAfter <= 0;
+
+                return (
+                  <>
+                    <View style={styles.modalHeader}>
+                      <IconSymbol
+                        name={willSellOut ? "exclamationmark.triangle.fill" : "minus.circle.fill"}
+                        size={44}
+                        color={willSellOut ? "#DC2626" : colors.primary}
+                      />
+                      <ThemedText type="defaultSemiBold" style={styles.modalTitle}>
+                        {t('profile.confirmReduceStockTitle')}
+                      </ThemedText>
+                      <ThemedText style={[styles.modalSubtitle, { color: colors.icon }]}>
+                        {color
+                          ? t('profile.confirmReduceStockColorDesc', { color })
+                          : t('profile.confirmReduceStockDesc')}
+                      </ThemedText>
+                    </View>
+
+                    <View style={styles.modalContent}>
+                      <ThemedText type="defaultSemiBold" style={{ color: colors.primary, textAlign: 'center', marginBottom: 12 }}>
+                        {vehicle?.title || `${vehicle?.brand ?? ''} ${vehicle?.model ?? ''}`.trim()}
+                      </ThemedText>
+
+                      {/* Explicit before -> after so the seller sees exactly
+                          what this tap changes before committing. */}
+                      {color ? (
+                        <View style={[styles.stockChangeRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                          <ThemedText style={{ color: colors.icon, fontSize: 13 }}>{color}</ThemedText>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <ThemedText style={{ fontWeight: '700', fontSize: 15 }}>{colorBefore}</ThemedText>
+                            <IconSymbol name="arrow.right" size={13} color={colors.icon} />
+                            <ThemedText style={{ fontWeight: '700', fontSize: 15, color: colors.primary }}>{colorAfter}</ThemedText>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      <View style={[styles.stockChangeRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                        <ThemedText style={{ color: colors.icon, fontSize: 13 }}>{t('profile.totalRemaining')}</ThemedText>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ThemedText style={{ fontWeight: '700', fontSize: 15 }}>{remainingBefore}</ThemedText>
+                          <IconSymbol name="arrow.right" size={13} color={colors.icon} />
+                          <ThemedText style={{ fontWeight: '700', fontSize: 15, color: willSellOut ? '#DC2626' : colors.primary }}>{remainingAfter}</ThemedText>
+                        </View>
+                      </View>
+
+                      {willSellOut && (
+                        <View style={[styles.stockWarningBox, { backgroundColor: '#DC262615', borderColor: '#DC262640' }]}>
+                          <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
+                          <ThemedText style={{ color: '#DC2626', fontSize: 12, flex: 1 }}>
+                            {t('profile.confirmReduceStockLastUnit')}
+                          </ThemedText>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity
+                        style={[styles.cancelBtn, { borderColor: colors.border }]}
+                        onPress={() => setStockReduceTarget(null)}
+                        disabled={!!reducingStockId}
+                      >
+                        <ThemedText style={{ fontWeight: "600" }}>{t('profile.cancel')}</ThemedText>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.deleteBtn,
+                          {
+                            backgroundColor: willSellOut ? '#DC2626' : colors.primary,
+                            opacity: reducingStockId ? 0.7 : 1,
+                          },
+                        ]}
+                        onPress={confirmReduceStock}
+                        disabled={!!reducingStockId}
+                      >
+                        <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
+                          {reducingStockId ? t('profile.reducingStock') : t('profile.confirmReduceStockAction')}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                );
+              })()}
             </View>
           </View>
         </Modal>
@@ -4997,6 +5154,27 @@ const styles = StyleSheet.create({
     flexDirection: "row",
 
     gap: 12,
+  },
+
+  stockChangeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+
+  stockWarningBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
   },
 
   cancelBtn: {

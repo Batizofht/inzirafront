@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -21,6 +21,11 @@ interface GuestPurchaseModalProps {
   onClose: () => void;
   vehicleId: string;
   vehicleTitle: string;
+  /**
+   * Known details for a signed-in buyer whose profile is missing a phone.
+   * Prefilled and locked so they only have to supply what's actually absent.
+   */
+  prefill?: { fullName?: string | null; email?: string | null; phone?: string | null };
 }
 
 interface FormData {
@@ -49,21 +54,38 @@ export function GuestPurchaseModal({
   onClose,
   vehicleId,
   vehicleTitle,
+  prefill,
 }: GuestPurchaseModalProps) {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
 
   const [formData, setFormData] = useState<FormData>({
-    fullName: '',
-    email: '',
-    phone: '',
+    fullName: prefill?.fullName ?? '',
+    email: prefill?.email ?? '',
+    phone: prefill?.phone ?? '',
     message: '',
   });
+
+  // Identity comes from the signed-in account; only the gaps stay editable.
+  const lockedName = Boolean(prefill?.fullName);
+  const lockedEmail = Boolean(prefill?.email);
+
+  // The modal mounts before the profile resolves, so sync once it arrives.
+  useEffect(() => {
+    if (!prefill) return;
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prefill.fullName ?? prev.fullName,
+      email: prefill.email ?? prev.email,
+      phone: prev.phone || (prefill.phone ?? ''),
+    }));
+  }, [prefill?.fullName, prefill?.email, prefill?.phone]);
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [sellerContact, setSellerContact] = useState<SellerContact | null>(null);
+  const [isNewAccount, setIsNewAccount] = useState(false);
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -113,6 +135,7 @@ export function GuestPurchaseModal({
 
       if (response.status === 1) {
         setSellerContact(response.data.sellerContact);
+        setIsNewAccount(Boolean(response.data.isNewAccount));
         setShowSuccess(true);
       } else {
         // A non-1 status still resolves, so without this the modal would sit
@@ -131,10 +154,16 @@ export function GuestPurchaseModal({
   };
 
   const handleClose = () => {
-    setFormData({ fullName: '', email: '', phone: '', message: '' });
+    setFormData({
+      fullName: prefill?.fullName ?? '',
+      email: prefill?.email ?? '',
+      phone: prefill?.phone ?? '',
+      message: '',
+    });
     setErrors({});
     setShowSuccess(false);
     setSellerContact(null);
+    setIsNewAccount(false);
     onClose();
   };
 
@@ -149,7 +178,9 @@ export function GuestPurchaseModal({
       </ThemedText>
 
       <ThemedText style={[styles.successSubtitle, { color: colors.icon }]}>
-        Here's how to contact the seller:
+        {sellerContact
+          ? "Here's how to contact the seller:"
+          : "You've already sent a request for this vehicle. The seller has your details and will be in touch."}
       </ThemedText>
 
       {sellerContact && (
@@ -183,7 +214,9 @@ export function GuestPurchaseModal({
       <View style={[styles.infoBox, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}30` }]}>
         <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
         <ThemedText style={[styles.infoText, { color: colors.text }]}>
-          We've also sent this information to your email along with your login credentials.
+          {isNewAccount
+            ? "We've also sent this information to your email along with your login credentials."
+            : "We've also sent this information to your email."}
         </ThemedText>
       </View>
 
@@ -229,7 +262,7 @@ export function GuestPurchaseModal({
               setFormData({ ...formData, fullName: text });
               if (errors.fullName) setErrors({ ...errors, fullName: undefined });
             }}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !lockedName}
           />
           {errors.fullName && (
             <ThemedText style={styles.errorText}>{errors.fullName}</ThemedText>
@@ -256,7 +289,7 @@ export function GuestPurchaseModal({
             }}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!isSubmitting}
+            editable={!isSubmitting && !lockedEmail}
           />
           {errors.email && (
             <ThemedText style={styles.errorText}>{errors.email}</ThemedText>
