@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { Colors, Radius, Spacing, Elevation } from '@/constants/theme';
@@ -67,10 +67,19 @@ export function CookieBanner() {
   const theme = useResolvedTheme();
   const colors = Colors[theme];
 
-  const [visible, setVisible] = useState(() => {
-    if (!isWeb || typeof window === 'undefined') return false;
-    return !localStorage.getItem('cookie_consent');
-  });
+  // Start hidden and decide after mount. Reading localStorage in the state
+  // initialiser ran during render, so the Node static export produced markup
+  // with no banner while the browser's first render produced one - a hydration
+  // mismatch (React #418) on every single route, since this banner sits in the
+  // shared web layout. React responded by discarding the pre-rendered HTML and
+  // re-rendering the whole tree on the client, which is exactly the slow,
+  // visibly-assembling first paint we are fixing.
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!isWeb || typeof window === 'undefined') return;
+    if (!localStorage.getItem('cookie_consent')) setVisible(true);
+  }, []);
 
   if (!isWeb || !visible) return null;
 

@@ -122,7 +122,18 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    // Roboto first, deliberately. It is the Android system face, so on Android
+    // browsers - where a user is most likely to see the site and the app side by
+    // side - the two now render in the same typeface instead of Roboto in the
+    // app and whatever the browser defaults to on the web. Everywhere else this
+    // falls through to the platform's own UI font exactly as before, so it costs
+    // no download and changes nothing on desktop.
+    //
+    // Note: on Windows/macOS desktop the web will still differ from the Android
+    // app, because neither ships Roboto. Closing that gap completely means
+    // self-hosting a Roboto woff2 (~15KB subset) - a deliberate speed tradeoff,
+    // not something to do silently.
+    sans: "Roboto, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",

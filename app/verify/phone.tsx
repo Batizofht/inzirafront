@@ -132,7 +132,9 @@ export default function PhoneVerificationScreen() {
   return (
     <KeyboardAvoidingView 
       style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      // 'undefined' on Android makes this a plain View with no offset, so the
+      // phone/OTP inputs ended up under the keyboard.
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
     >
       <View style={[styles.header, { backgroundColor: colors.background, borderBottomColor: colors.border }, isDesktopWeb && styles.webHeader]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>

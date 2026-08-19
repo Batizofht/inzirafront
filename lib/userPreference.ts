@@ -130,6 +130,34 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   return response.data.user;
 }
 
+// Account recovery.
+//
+// Deliberately unauthenticated - the whole point is that the caller cannot log
+// in. The backend answers requestPasswordReset identically whether or not the
+// address exists, so nothing here can be used to discover which emails are
+// registered; the UI must not try to be smarter than that.
+export async function requestPasswordReset(email: string): Promise<string> {
+  const response = await apiRequest<{ status: number; message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+  });
+  return response.message;
+}
+
+/** Consumes the emailed code, sets the new password, and signs the user in. */
+export async function resetPassword(
+  email: string,
+  otp: string,
+  newPassword: string,
+): Promise<AuthUser> {
+  const response = await apiRequest<{ status: number; data: { token: string; user: AuthUser } }>('/auth/reset-password', {
+    method: 'POST',
+    body: { email, otp, newPassword },
+  });
+  await setAuthSession(response.data.token, response.data.user);
+  return response.data.user;
+}
+
 // Keep old name for backwards compatibility
 export const loginWithPhone = loginWithEmail;
 

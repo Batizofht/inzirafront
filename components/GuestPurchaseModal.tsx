@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { Colors, Radius } from '@/constants/theme';
@@ -14,6 +15,8 @@ import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { createGuestPurchaseRequest } from '@/lib/api-contact-requests';
+import { setAuthSession, type AuthUser } from '@/lib/userPreference';
+import { startConversation } from '@/lib/api-messages';
 import { isWeb } from '@/lib/platform';
 
 interface GuestPurchaseModalProps {
@@ -134,6 +137,32 @@ export function GuestPurchaseModal({
       });
 
       if (response.status === 1) {
+        // The backend creates a real account for this email and hands back a
+        // session token. That token used to be dropped on the floor, which left
+        // the buyer signed out on a device that had just been given an account -
+        // so every messaging and notification endpoint (all auth-only) refused
+        // them, and their single email was the only channel they ever got.
+        // Adopting the session is what makes the reply thread reachable.
+        const { token, user } = response.data;
+        if (token && user) {
+          await setAuthSession(token, user as AuthUser);
+
+          // The signed-in Buy Now path opens a conversation alongside the
+          // contact request; the guest path never did, so there was no thread
+          // for the seller's reply to land in.
+          try {
+            await startConversation(
+              vehicleId,
+              formData.message.trim() ||
+                `Hi, I'm interested in ${vehicleTitle}. Is it still available?`,
+            );
+          } catch (convErr) {
+            // A missing thread must not fail the purchase - the request itself
+            // already reached the seller.
+            console.warn('Guest conversation could not be opened:', convErr);
+          }
+        }
+
         setSellerContact(response.data.sellerContact);
         setIsNewAccount(Boolean(response.data.isNewAccount));
         setShowSuccess(true);
@@ -229,7 +258,7 @@ export function GuestPurchaseModal({
   );
 
   const renderFormState = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <ThemedText type="title" style={styles.modalTitle}>
           Contact Seller
@@ -378,7 +407,12 @@ export function GuestPurchaseModal({
       animationType="slide"
       transparent={true}
       onRequestClose={handleClose}>
-      <View style={styles.overlay}>
+      {/* This form asks for a phone number and a message, both of which sat
+          under the Android keyboard because the modal had no keyboard handling
+          at all. */}
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}>
         <View
           style={[
             styles.modalContainer,
@@ -387,7 +421,7 @@ export function GuestPurchaseModal({
           ]}>
           {showSuccess ? renderSuccessState() : renderFormState()}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

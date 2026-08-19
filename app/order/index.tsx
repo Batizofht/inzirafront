@@ -12,7 +12,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { isWeb } from '@/lib/platform';
 import { useFocusEffect } from '@react-navigation/native';
 import { fetchMyContactRequests, type ContactRequestResponse } from '@/lib/api-contact-requests';
-import { fetchConversations, type Conversation } from '@/lib/api-messages';
+import { fetchConversations, startConversation, type Conversation } from '@/lib/api-messages';
 import { resolveImageUrl } from '@/lib/image-url';
 
 export default function OrderScreen() {
@@ -29,18 +29,35 @@ export default function OrderScreen() {
   const isDark = theme === 'dark';
   const { width } = useWindowDimensions();
   const isDesktopWeb = isWeb && width >= 768;
+  // Same breakpoint ladder the rest of the app uses. A flat 400px of padding
+  // from 768px up collapsed the content column to almost nothing on a laptop.
+  const isLg = isWeb && width >= 1024 && width < 1440;
+  const isXl = isWeb && width >= 1440 && width < 1920;
+  const is2Xl = isWeb && width >= 1920;
+  const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
   const [orders, setOrders] = useState<ContactRequestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // fetchMyContactRequests throws 'Missing auth token' before it ever hits the
+  // network when there is no session. That was being swallowed into the generic
+  // "no orders yet" empty state, so a signed-out visitor was told they had no
+  // orders rather than that they needed to sign in.
+  const [isAuthError, setIsAuthError] = useState(false);
   const skeletonBase = isDark ? '#1F2937' : '#E5E7EB';
   const skeletonSoft = isDark ? '#111827' : '#F3F4F6';
 
   const loadOrders = useCallback(async () => {
     try {
       setIsLoading(true);
+      setIsAuthError(false);
       const res = await fetchMyContactRequests({ scope: 'buyer', onlyActiveVehicle: true });
       setOrders(res.data.requests);
-    } catch (err) {
-      console.error('Failed to load buyer orders:', err);
+    } catch (err: any) {
+      const message = String(err?.message || err);
+      if (/missing auth token|unauthorized|not authenticated|authentication required|401/i.test(message)) {
+        setIsAuthError(true);
+      } else {
+        console.error('Failed to load buyer orders:', err);
+      }
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -69,12 +86,20 @@ export default function OrderScreen() {
       if (existingConversation) {
         // Navigate to existing conversation
         router.push(`/messages/${existingConversation.id}`);
-      } else {
-        // No conversation exists yet, navigate to messages list
-        router.push(`/messages`);
+        return;
       }
+
+      // No thread yet. Dropping the user on the messages list left them staring
+      // at an empty screen wondering where the seller went - open the thread the
+      // button promised instead.
+      const created = await startConversation(
+        vehicleId,
+        t('vehicleDetails.buyIntentMessage', { title: '' }).trim() || 'Hi, I have a question about this vehicle.',
+      );
+      const newId = created?.data?.conversation?.id;
+      router.push(newId ? (`/messages/${newId}` as any) : ('/messages' as any));
     } catch (err) {
-      console.error('Failed to find conversation:', err);
+      console.error('Failed to open conversation:', err);
       router.push(`/messages`);
     }
   };
@@ -117,7 +142,11 @@ export default function OrderScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={isDesktopWeb}
-        contentContainerStyle={[styles.scrollContent, isDesktopWeb && styles.webScrollContent]}>
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktopWeb && styles.webScrollContent,
+          isDesktopWeb && { paddingHorizontal: webPaddingHorizontal },
+        ]}>
         {isLoading ? (
           Array.from({ length: 3 }).map((_, idx) => (
             <View key={`order-skeleton-${idx}`} style={[styles.orderCard, { backgroundColor: colors.background, borderColor: colors.border }]}> 
@@ -136,6 +165,21 @@ export default function OrderScreen() {
               </View>
             </View>
           ))
+        ) : isAuthError ? (
+          <View style={styles.emptyState}>
+            <IconSymbol name="person.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
+            <ThemedText type="defaultSemiBold" style={{ fontSize: 17, marginBottom: 6 }}>
+              {t('legal.order.loginRequired')}
+            </ThemedText>
+            <ThemedText style={{ color: colors.icon, fontSize: 15, textAlign: 'center', marginBottom: 18 }}>
+              {t('legal.order.loginPrompt')}
+            </ThemedText>
+            <TouchableOpacity
+              style={[styles.signInBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/auth/login' as any)}>
+              <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('messages.login')}</ThemedText>
+            </TouchableOpacity>
+          </View>
         ) : orders.length === 0 ? (
           <View style={styles.emptyState}>
             <IconSymbol name="car.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
@@ -294,7 +338,17 @@ const styles = StyleSheet.create({
     marginTop: 60,
   },
   webScrollContent: {
-    paddingHorizontal: 400,
+    // Was a flat paddingHorizontal: 400 applied from 768px up, which left a
+    // ~200px content column on a 1000px viewport. This is the same ladder the
+    // rest of the app uses.
     paddingVertical: 24,
+  },
+  signInBtn: {
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 10,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

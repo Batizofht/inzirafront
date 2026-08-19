@@ -57,6 +57,11 @@ export default function ListingsScreen() {
   const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  // fetchMyVehicles throws 'Missing auth token' before it reaches the network
+  // when there is no session. Swallowing that showed a signed-out visitor an
+  // empty "you have no listings" state and a Create Listing button that could
+  // only fail, instead of asking them to sign in.
+  const [isAuthError, setIsAuthError] = useState(false);
 
   // Refresh listings when screen comes into focus (e.g., after resubmit)
   useFocusEffect(
@@ -64,10 +69,16 @@ export default function ListingsScreen() {
       const loadListings = async () => {
         try {
           setIsLoading(true);
+          setIsAuthError(false);
           const res = await fetchMyVehicles();
           setListings(res.data.vehicles);
-        } catch (err) {
-          console.error('Failed to load listings:', err);
+        } catch (err: any) {
+          const message = String(err?.message || err);
+          if (/missing auth token|unauthorized|not authenticated|authentication required|401/i.test(message)) {
+            setIsAuthError(true);
+          } else {
+            console.error('Failed to load listings:', err);
+          }
         } finally {
           setIsLoading(false);
         }
@@ -145,6 +156,19 @@ export default function ListingsScreen() {
           {isLoading ? (
             <View style={styles.emptyState}>
               <ThemedText style={{ color: colors.icon }}>{t('listings.loading')}</ThemedText>
+            </View>
+          ) : isAuthError ? (
+            <View style={styles.emptyState}>
+              <IconSymbol name="person.fill" size={48} color={colors.icon} style={{ marginBottom: 16 }} />
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 17, marginBottom: 6 }}>
+                {t('messages.loginRequired')}
+              </ThemedText>
+              <ThemedText style={{ color: colors.icon, fontSize: 15, textAlign: 'center' }}>
+                {t('messages.loginPrompt')}
+              </ThemedText>
+              <TouchableOpacity style={[styles.createButton, { backgroundColor: colors.primary }]} onPress={() => router.push('/auth/login' as any)}>
+                <ThemedText style={{ color: '#fff', fontWeight: '600' }}>{t('messages.login')}</ThemedText>
+              </TouchableOpacity>
             </View>
           ) : listings.length === 0 ? (
             <View style={styles.emptyState}>

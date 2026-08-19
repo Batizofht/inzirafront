@@ -118,19 +118,38 @@ const CATEGORY_ICON_IMAGES: Record<string, any> = {
   "bolt.car.fill": require('@/assets/customericons/chargingelectric.png'),
 };
 
-// Body type placeholder images - replace with custom images later
-const BODY_TYPE_IMAGES: Record<string, string> = {
-  "SUVs": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/SUV@2x.png",
-  "SUVs & Crossovers": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/SUV@2x.png",
-  "Trucks": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Truck@2x.png",
-  "Sedans": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Sedan@2x.png",
-  "Coupes": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Coupe@2x.png",
-  "Minivans": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Minivan@2x.png",
-  "Hatchbacks": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Hatchback@2x.png",
-  "Convertibles": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Convertible@2x.png",
-  "Station Wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
-  "Station wagons": "https://www.autotrader.ca/assets/as24-home/images/categories/bodyTypes/desktop/Station%20wagon.png",
-};
+// Refresh intervals while the home screen is focused.
+//
+// Both of these used to fire every 4 seconds. That kept a request in flight
+// essentially permanently - the page never reached network idle, which cost
+// battery on mobile and main-thread time during the first paint, the single
+// worst moment to be doing background work. Both still refetch immediately on
+// focus, so the poll only covers changes that land while the user sits on the
+// screen.
+const CATEGORY_REFRESH_MS = 5 * 60 * 1000;  // categories are near-static
+const UNREAD_REFRESH_MS = 30 * 1000;        // badge freshness, not real time
+
+// "Latest listings" shows 8 cards, excluding whatever is already in Daily
+// Picks. Asking the server to do that exclusion meant passing it the pick ids,
+// which meant waiting for daily-picks to resolve first - a second round trip
+// sitting in series on the critical path of the very first paint. Over-fetch
+// instead and drop the overlap locally, so both calls go out together.
+const RECENT_DISPLAY_COUNT = 8;
+const RECENT_FETCH_LIMIT = 16;
+
+// Body type images.
+//
+// These were hotlinked straight from autotrader.ca. Every one of them is
+// refused by Opaque Response Blocking in current browsers
+// (net::ERR_BLOCKED_BY_ORB), so they have never actually rendered for a
+// visitor - they only cost ten failing cross-origin requests per home page
+// view, on top of pointing at a competitor's CDN.
+//
+// Left empty on purpose: BodyTypeChip already falls back to the "car.fill"
+// icon below, which is the intended treatment. Drop locally-hosted assets in
+// here (require('@/assets/...')) once real artwork exists and they will be
+// picked up with no other change.
+const BODY_TYPE_IMAGES: Record<string, string> = {};
 
 function BodyTypeChip({
   type,
@@ -478,21 +497,23 @@ export default function HomeScreen() {
       setIsRefreshing(true);
       setIsLoading(true);
       setError(null);
-      const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes] =
+      const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes, recentRes] =
         await Promise.all([
           fetchDailyPicks(),
           fetchFavorites().catch(() => ({ data: { favorites: [] } })),
           fetchCategories().catch(() => ({ data: { categories: [] } })),
           fetchBrandsWithImages().catch(() => ({ data: { brands: [] } })),
           fetchBodyTypes().catch(() => ({ data: { bodyTypes: [] } })),
+          fetchRecentVehicles(RECENT_FETCH_LIMIT),
         ]);
       const pickIds = dailyPicksRes.data.ids || [];
-      const [recentRes] = await Promise.all([
-        fetchRecentVehicles(8, pickIds),
-      ]);
       setDailyPicks(dailyPicksRes.data.vehicles || []);
       setDailyPickIds(pickIds);
-      setRecentVehicles(recentRes.data.vehicles || []);
+      setRecentVehicles(
+        (recentRes.data.vehicles || [])
+          .filter((v: any) => !pickIds.includes(v.id))
+          .slice(0, RECENT_DISPLAY_COUNT),
+      );
       setBrands(brandsRes.data.brands || []);
       setBodyTypes(bodyTypesRes.data.bodyTypes || []);
       setFavoriteIds(
@@ -515,24 +536,28 @@ export default function HomeScreen() {
       try {
         setIsLoading(true);
         setError(null);
-        const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes] =
+        // One round trip, not three. Recent listings used to wait on daily
+        // picks (for the exclusion ids) and the auth-user read used to wait on
+        // both, even though it only touches local storage.
+        const [dailyPicksRes, favoritesRes, categoriesRes, brandsRes, bodyTypesRes, recentRes, user] =
           await Promise.all([
             fetchDailyPicks(),
             fetchFavorites().catch(() => ({ data: { favorites: [] } })),
             fetchCategories().catch(() => ({ data: { categories: [] } })),
             fetchBrandsWithImages().catch(() => ({ data: { brands: [] } })),
             fetchBodyTypes().catch(() => ({ data: { bodyTypes: [] } })),
+            fetchRecentVehicles(RECENT_FETCH_LIMIT),
+            getAuthUser(),
           ]);
         const pickIds = dailyPicksRes.data.ids || [];
-        const [recentRes] = await Promise.all([
-          fetchRecentVehicles(8, pickIds),
-        ]);
-        // Fetch auth user
-        const user = await getAuthUser();
         if (mounted) {
           setDailyPicks(dailyPicksRes.data.vehicles || []);
           setDailyPickIds(pickIds);
-          setRecentVehicles(recentRes.data.vehicles || []);
+          setRecentVehicles(
+            (recentRes.data.vehicles || [])
+              .filter((v: any) => !pickIds.includes(v.id))
+              .slice(0, RECENT_DISPLAY_COUNT),
+          );
           setBrands(brandsRes.data.brands || []);
           setBodyTypes(bodyTypesRes.data.bodyTypes || []);
           setFavoriteIds(
@@ -587,7 +612,7 @@ export default function HomeScreen() {
       refetchCategories();
 
       // And then poll while focused
-      const intervalId = setInterval(refetchCategories, 4000);
+      const intervalId = setInterval(refetchCategories, CATEGORY_REFRESH_MS);
 
       return () => {
         cancelled = true;
@@ -635,7 +660,7 @@ export default function HomeScreen() {
       };
 
       refetchUnreadCounts();
-      const intervalId = setInterval(refetchUnreadCounts, 4000);
+      const intervalId = setInterval(refetchUnreadCounts, UNREAD_REFRESH_MS);
 
       return () => {
         cancelled = true;

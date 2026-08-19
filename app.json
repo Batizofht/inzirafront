@@ -29,7 +29,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.inzira.inzira",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 8
+      "versionCode": 8,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",

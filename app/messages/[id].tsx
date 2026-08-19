@@ -16,14 +16,17 @@ import {
 import { getUserType, type UserType } from '@/lib/userPreference';
 
 import { isWeb } from '@/lib/platform';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChatScreen() {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (typeof document !== 'undefined') {
-      document.title = 'Chat | Inzira';
+      document.title = t('messages.chatPageTitle');
     }
-  }, []);
+  }, [t]);
 
   const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const conversationId = Array.isArray(id) ? id[0] : id;
@@ -37,7 +40,16 @@ export default function ChatScreen() {
   const isXl = isWeb && width >= 1440 && width < 1920;
   const is2Xl = isWeb && width >= 1920;
   const webPaddingHorizontal = is2Xl ? 400 : isXl ? 160 : isLg ? 80 : 40;
-  const chatMaxWidth = is2Xl ? 980 : isXl ? 920 : isLg ? 840 : undefined;
+  // 768-1023 previously fell through to `undefined`, letting the chat stretch
+  // the full width of a small laptop while every other range was capped.
+  const chatMaxWidth = is2Xl ? 980 : isXl ? 920 : isLg ? 840 : isDesktopWeb ? 780 : undefined;
+  // On web the whole route renders inside the page-level ScrollView in
+  // app/_layout.tsx, so a bottom-anchored bar has nothing to anchor to and just
+  // scrolls away with the content. Sticky pins it to the bottom of the
+  // scrollport without needing to know the site header's height.
+  const webStickyComposer: ViewStyle | undefined = isWeb
+    ? ({ position: 'sticky', bottom: 0, zIndex: 10 } as unknown as ViewStyle)
+    : undefined;
   const desktopOuterPadding: ViewStyle | undefined = isDesktopWeb
     ? { paddingHorizontal: webPaddingHorizontal }
     : undefined;
@@ -64,7 +76,7 @@ export default function ChatScreen() {
 
     if (!conversationId) {
       setIsLoading(false);
-      setLoadError('Invalid conversation link');
+      setLoadError(t('messages.invalidConversationLink'));
       return;
     }
 
@@ -82,7 +94,7 @@ export default function ChatScreen() {
       console.error('Failed to load conversation:', err);
       setConversation(null);
       setMessages([]);
-      setLoadError(err?.message || 'Failed to load conversation');
+      setLoadError(err?.message || t('messages.failedLoadConversation'));
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +132,7 @@ export default function ChatScreen() {
     } catch {
       setMessages((prev) => prev.filter((msg) => msg.id !== temporaryMessageId));
       setInputText(content);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      Alert.alert(t('messages.errorTitle'), t('messages.failedSendMessage'));
     }
   };
 
@@ -151,7 +163,7 @@ export default function ChatScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.loadingContainer, isDesktopWeb && [styles.webLoadingContainer, { paddingHorizontal: webPaddingHorizontal }], isDesktopWeb && { maxWidth: chatMaxWidth, alignSelf: 'center' }]}>
-          <ThemedText>Loading...</ThemedText>
+          <ThemedText>{t('messages.loading')}</ThemedText>
         </View>
       </View>
     );
@@ -161,7 +173,7 @@ export default function ChatScreen() {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}> 
         <View style={[styles.loadingContainer, isDesktopWeb && [styles.webLoadingContainer, { paddingHorizontal: webPaddingHorizontal }], isDesktopWeb && { maxWidth: chatMaxWidth, alignSelf: 'center' }]}> 
-          <ThemedText>{loadError || 'Conversation not found'}</ThemedText>
+          <ThemedText>{loadError || t('messages.conversationNotFound')}</ThemedText>
         </View>
       </View>
     );
@@ -169,15 +181,20 @@ export default function ChatScreen() {
 
   // Determine who we're chatting with - use conversation data directly (no gates)
   const chatPartner = userType === 'buyer' 
-    ? { name: conversation.sellerName, phone: conversation.sellerPhone, email: conversation.sellerEmail, type: 'Seller' }
-    : { name: conversation.buyerName, phone: conversation.buyerPhone, email: conversation.buyerEmail, type: 'Buyer' };
+    ? { name: conversation.sellerName, phone: conversation.sellerPhone, email: conversation.sellerEmail, type: t('messages.seller') }
+    : { name: conversation.buyerName, phone: conversation.buyerPhone, email: conversation.buyerEmail, type: t('messages.buyer') };
 
   const chatBg = isDark ? '#0f1729' : '#e8eef5';
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: chatBg, paddingTop: insets.top }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      // Android was passing `undefined`, which makes KeyboardAvoidingView render
+      // a plain View and apply no offset at all - the composer simply sat under
+      // the keyboard. 'height' shrinks the container to the space the keyboard
+      // leaves, which is what keeps the input visible. Paired with
+      // android.softwareKeyboardLayoutMode: "resize" in app.json.
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       {/* Header */}
@@ -222,17 +239,21 @@ export default function ChatScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={[styles.messagesList, isDesktopWeb && styles.webMessagesList]}
             showsVerticalScrollIndicator={false}
+            // Without this the first tap on the list while the keyboard is open
+            // is swallowed by the dismiss gesture instead of hitting the message.
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           />
         </View>
       </View>
 
       {/* Input */}
-      <View style={[styles.inputContainer, desktopOuterPadding, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
+      <View style={[styles.inputContainer, webStickyComposer, desktopOuterPadding, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
         <View style={[styles.inputInner, desktopInnerWidth]}>
           <TextInput
             style={[styles.input, { backgroundColor: isDark ? '#1e293b' : '#f1f3f5', color: colors.text, borderColor: colors.border }]}
-            placeholder="Type a message..."
+            placeholder={t('messages.typeMessage')}
             placeholderTextColor={colors.icon}
             value={inputText}
             onChangeText={setInputText}

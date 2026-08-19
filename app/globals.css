@@ -1,13 +1,23 @@
-/* Material Icons font - fallback for web builds */
-@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
-
-/* Explicit Material Icons font-face for web */
+/* Material Icons.
+ *
+ * Self-hosted deliberately. This used to be requested three separate times from
+ * Google's CDN - an @import here, a <link rel=stylesheet> in +html.tsx, and a
+ * @font-face pinned to a fonts.gstatic.com v140 URL - all render-blocking, all
+ * third-party, and all redundant because the real TTF already ships with
+ * @expo/vector-icons. Until any of them answered, every icon on the site
+ * rendered as a tofu box or a raw Private-Use-Area glyph.
+ *
+ * public/fonts/MaterialIcons.ttf is copied from
+ * node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts.
+ * netlify.toml already serves *.ttf with the right Content-Type and a 1-year
+ * immutable cache.
+ */
 @font-face {
   font-family: 'Material Icons';
   font-style: normal;
   font-weight: 400;
-  src: url('https://fonts.gstatic.com/s/materialicons/v140/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff2') format('woff2'),
-       url('https://fonts.gstatic.com/s/materialicons/v140/flUhRq6tzZclQEJ-Vdg-IuiaDsNc.woff') format('woff');
+  font-display: block; /* icons are glyphs, not text - swap would show tofu */
+  src: url('/fonts/MaterialIcons.ttf') format('truetype');
 }
 
 .material-icons {

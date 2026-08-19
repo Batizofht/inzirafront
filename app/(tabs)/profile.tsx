@@ -1,14 +1,4 @@
-﻿import {
-  StyleSheet,
-  ScrollView,
-  View,
-  TouchableOpacity,
-  Platform,
-  Modal,
-  Pressable,
-  TextInput,
-  Alert,
-} from "react-native";
+﻿import { StyleSheet, ScrollView, View, TouchableOpacity, Platform, Modal, Pressable, TextInput, Alert, ActivityIndicator } from "react-native";
 import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
@@ -3377,18 +3367,21 @@ export default function ProfileScreen() {
           visible={showRoleSwitchModal}
           onRequestClose={() => !isSwitchingRole && setShowRoleSwitchModal(false)}
         >
-          <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
-            <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
-              <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+          <Pressable style={[styles.sheetOverlay, isDesktopWeb && styles.sheetOverlayWeb]} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
+            <Pressable style={[styles.sheetContainer, isDesktopWeb && styles.sheetContainerWeb, { backgroundColor: colors.background, paddingBottom: isDesktopWeb ? 12 : insets.bottom }]} onPress={() => {}}>
+              {/* The drag pill advertises a swipe-to-dismiss gesture that does
+                  not exist with a mouse. */}
+              {!isDesktopWeb && <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />}
               <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>{t('profile.switchToBuyerConfirmTitle')}</ThemedText>
               <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 20, textAlign: 'center' }}>
                 {t('profile.switchToBuyerConfirmDesc')}
               </ThemedText>
               <TouchableOpacity
-                style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
+                style={[styles.sheetConfirmButton, { backgroundColor: colors.primary, marginHorizontal: 20, opacity: isSwitchingRole ? 0.7 : 1 }]}
                 onPress={() => handleSwitchRole('buyer')}
                 disabled={isSwitchingRole}
               >
+                {isSwitchingRole && <ActivityIndicator size="small" color="#fff" />}
                 <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
                   {isSwitchingRole ? t('profile.switching') : t('profile.confirmSwitchToBuyer')}
                 </ThemedText>
@@ -4149,9 +4142,11 @@ export default function ProfileScreen() {
         visible={showRoleSwitchModal}
         onRequestClose={() => !isSwitchingRole && setShowRoleSwitchModal(false)}
       >
-        <Pressable style={styles.sheetOverlay} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
-          <Pressable style={[styles.sheetContainer, { backgroundColor: colors.background, paddingBottom: insets.bottom }]} onPress={() => {}}>
-            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
+        <Pressable style={[styles.sheetOverlay, isDesktopWeb && styles.sheetOverlayWeb]} onPress={() => !isSwitchingRole && setShowRoleSwitchModal(false)}>
+          <Pressable style={[styles.sheetContainer, isDesktopWeb && styles.sheetContainerWeb, { backgroundColor: colors.background, paddingBottom: isDesktopWeb ? 12 : insets.bottom }]} onPress={() => {}}>
+            {/* The drag pill advertises a swipe-to-dismiss gesture that does
+                not exist with a mouse. */}
+            {!isDesktopWeb && <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />}
             <ThemedText type="defaultSemiBold" style={styles.sheetTitle}>{t('profile.becomeSellerTitle')}</ThemedText>
             <ThemedText style={{ color: colors.icon, paddingHorizontal: 20, marginBottom: 16, textAlign: 'center' }}>
               {t('profile.chooseHowToSell')}
@@ -4184,10 +4179,11 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={[styles.approveButton, { backgroundColor: colors.primary, marginHorizontal: 20, flex: 0 }]}
+              style={[styles.sheetConfirmButton, { backgroundColor: colors.primary, marginHorizontal: 20, opacity: isSwitchingRole ? 0.7 : 1 }]}
               onPress={() => handleSwitchRole('seller', 'individual', becomeSellerAccountType)}
               disabled={isSwitchingRole}
             >
+              {isSwitchingRole && <ActivityIndicator size="small" color="#fff" />}
               <ThemedText style={{ color: '#fff', fontWeight: '600' }}>
                 {isSwitchingRole ? t('profile.switching') : t('profile.confirmBecomeSeller')}
               </ThemedText>
@@ -5061,6 +5057,38 @@ const styles = StyleSheet.create({
   },
 
   // Sheet
+
+  // On desktop web a bottom sheet pinned across a 1920px viewport looks like a
+  // rendering fault rather than a dialog. These centre it at a readable width
+  // and drop the mobile-only affordances.
+  sheetOverlayWeb: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  sheetContainerWeb: {
+    width: "100%",
+    maxWidth: 460,
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 12,
+  },
+
+  // The confirm action used to borrow `approveButton`, a style built for the
+  // half-width Approve/Reject row on a request card (flex: 1), then override
+  // flex to 0 inline. That left a ~38px-tall button stretched to the full width
+  // of the sheet with no minimum touch target.
+  sheetConfirmButton: {
+    minHeight: 48,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
 
   sheetOverlay: {
     flex: 1,

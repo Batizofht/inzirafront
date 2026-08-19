@@ -12,6 +12,7 @@ import * as SystemUI from 'expo-system-ui';
 import { Image } from 'expo-image';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { AuthProvider } from '@/context/AuthContext';
 import { getThemeModePreference, subscribeThemePreference, loadThemePreference } from '@/lib/themePreference';
 import { isWeb } from '@/lib/platform';
@@ -143,6 +144,24 @@ export default function RootLayout() {
     initCrashReporting();
   }, []);
 
+  // Lift the boot overlay painted by app/+html.tsx. `width` is 0 through the
+  // static export and the first client render, so a real width is the signal
+  // that hydration has committed and the desktop layout has finally replaced
+  // the mobile markup baked into the HTML. Fading only then means the visitor
+  // never sees the phone layout stretched across a monitor.
+  const { width } = useWindowDimensions();
+  useEffect(() => {
+    if (!isWeb || width === 0) return;
+    const el = document.getElementById('inzira-boot');
+    if (!el) return;
+    // Give the swapped-in layout one frame to paint underneath before fading.
+    const raf = requestAnimationFrame(() => {
+      el.classList.add('is-ready');
+      setTimeout(() => el.remove(), 300);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [width]);
+
   const selectedThemeMode = useSyncExternalStore(subscribeThemePreference, getThemeModePreference, getThemeModePreference);
   const resolvedTheme = selectedThemeMode === 'system' ? (colorScheme ?? 'light') : selectedThemeMode;
 
@@ -181,6 +200,7 @@ export default function RootLayout() {
       <Stack.Screen name="auth/login" />
       <Stack.Screen name="auth/login-form" />
       <Stack.Screen name="auth/register" />
+      <Stack.Screen name="auth/forgot-password" />
       <Stack.Screen name="auth/verify-otp" />
       <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal', headerShown: true }} />
     </Stack>
