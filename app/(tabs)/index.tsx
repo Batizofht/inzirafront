@@ -66,47 +66,9 @@ import { createPortal } from "react-dom";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Themman from "@/lib/Notification/Allowno";
 import { Toast } from "@/components/Toast";
+import { getBrandLogo } from "@/lib/brand-logos";
+import { getBodyTypeImage } from "@/lib/body-type-images";
 
-// Car brand logos with transparent backgrounds - using carlogos.org
-const BRAND_LOGOS: Record<string, string> = {
-  // ✅ Confirmed working by user
-  Toyota: "https://www.carlogos.org/logo/Toyota-logo-1989-2560x1440.png",
-  Honda: "https://www.carlogos.org/car-logos/honda-logo-2000-full-download.png",
-
-  // Brandfetch CDN
-  "Mercedes-Benz": "https://www.carlogos.org/logo/Mercedes-Benz-logo-2011-1920x1080.png",
-  Mercedes: "https://www.carlogos.org/logo/Mercedes-Benz-logo-2011-1920x1080.png",
-  BMW: "https://www.carlogos.org/car-logos/bmw-logo-2020-gray-download.png",
-  Audi: "https://www.carlogos.org/car-logos/audi-logo-2009-download.png",
-  Nissan: "https://www.carlogos.org/car-logos/nissan-logo-2020-black.png",
-  Ford: "https://www.carlogos.org/car-logos/ford-logo-2017-download.png",
-  Volkswagen: "https://www.carlogos.org/logo/Volkswagen-logo-2015-1920x1080.png",
-  Hyundai: "https://www.carlogos.org/car-logos/hyundai-logo-2011-download.png",
-  Kia: "https://www.carlogos.org/logo/Kia-logo-2560x1440.png",
-  Chevrolet: "https://www.carlogos.org/car-logos/chevrolet-corvette-logo-2020-download.png",
-  Mazda: "https://www.carlogos.org/car-logos/mazda-logo-2018-vertical-download.png",
-  Subaru: "https://www.carlogos.org/car-logos/subaru-logo-2019-640.png",
-  Lexus: "https://www.carlogos.org/logo/Lexus-logo-1988-1920x1080.png",
-  Jeep: "https://www.carlogos.org/car-logos/jeep-logo-1993-download.png",
-  "Land Rover": "https://www.carlogos.org/logo/Land-Rover-logo-2011-1920x1080.png",
-  Porsche: "https://www.carlogos.org/car-logos/porsche-logo-2014.png",
-  Volvo: "https://www.carlogos.org/logo/Volvo-logo-2014-1920x1080.png",
-  Tesla: "https://www.carlogos.org/car-logos/tesla-logo-2007.png",
-  Mitsubishi: "https://www.carlogos.org/logo/Mitsubishi-logo-2000x2500.png",
-  Peugeot: "https://www.carlogos.org/logo/Peugeot-logo-2010-1920x1080.png",
-  Renault: "https://www.carlogos.org/logo/Renault-logo-2015-2048x2048.png",
-  Suzuki: "https://www.carlogos.org/logo/Suzuki-logo-5000x2500.png",
-  Isuzu: "https://www.carlogos.org/logo/Isuzu-logo-1991-3840x2160.png",
-  Fiat: "https://www.carlogos.org/logo/Fiat-logo-2006-1920x1080.png",
-  Jaguar: "https://www.carlogos.org/car-logos/jaguar-logo-2021.png",
-  "Range Rover": "https://www.carlogos.org/logo/Rover-logo-2003-3840x2160.png",
-  Acura: "https://www.carlogos.org/logo/Acura-logo-1990-1024x768.png",
-  Infiniti: "https://www.carlogos.org/logo/Infiniti-logo-1989-2560x1440.png",
-  Cadillac: "https://www.carlogos.org/car-logos/cadillac-logo-2021.png",
-  Dodge: "https://www.carlogos.org/car-logos/dodge-logo-2010.png",
-  GMC: "https://www.carlogos.org/logo/GMC-logo-2200x600.png",
-  "Aston Martin": "https://www.carlogos.org/logo/Aston-Martin-logo-2003-6000x3000.png",
-};
 
 // Custom category icon images — used when a category's fuel-type icon has a matching
 // custom asset. Falls back to the existing IconSymbol mapping when not present.
@@ -137,19 +99,7 @@ const UNREAD_REFRESH_MS = 30 * 1000;        // badge freshness, not real time
 const RECENT_DISPLAY_COUNT = 8;
 const RECENT_FETCH_LIMIT = 16;
 
-// Body type images.
-//
-// These were hotlinked straight from autotrader.ca. Every one of them is
-// refused by Opaque Response Blocking in current browsers
-// (net::ERR_BLOCKED_BY_ORB), so they have never actually rendered for a
-// visitor - they only cost ten failing cross-origin requests per home page
-// view, on top of pointing at a competitor's CDN.
-//
-// Left empty on purpose: BodyTypeChip already falls back to the "car.fill"
-// icon below, which is the intended treatment. Drop locally-hosted assets in
-// here (require('@/assets/...')) once real artwork exists and they will be
-// picked up with no other change.
-const BODY_TYPE_IMAGES: Record<string, string> = {};
+
 
 function BodyTypeChip({
   type,
@@ -170,6 +120,8 @@ function BodyTypeChip({
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
+  const art = useMemo(() => getBodyTypeImage(type), [type]);
+
   return (
     <Pressable
       style={[styles.bodyTypeItem, compact && styles.bodyTypeItemCompact]}
@@ -186,13 +138,13 @@ function BodyTypeChip({
           {
             backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
             borderColor: isHovered || isFocused ? colors.primary : colors.border,
-            borderWidth: isHovered || isFocused ? 2 : 1,
+            borderWidth: isHovered || isFocused ? 2 : 0,
           },
         ]}
       >
-        {BODY_TYPE_IMAGES[type] ? (
+        {art ? (
           <Image
-            source={{ uri: BODY_TYPE_IMAGES[type] }}
+            source={art}
             style={styles.bodyTypeImage}
             contentFit="contain"
           />
@@ -1324,10 +1276,7 @@ export default function HomeScreen() {
             style={[
               styles.bodyTypeSectionContainer,
               !isDesktopWeb && styles.bodyTypeSectionContainerMobile,
-              {
-                borderColor: colors.border,
-                backgroundColor: isDark ? "rgba(31, 41, 55, 0.3)" : "rgba(248, 250, 252, 0.8)",
-              },
+         
               isDesktopWeb &&
                 (is2Xl
                   ? styles.webBodyTypeSectionContainer2Xl
@@ -1654,17 +1603,12 @@ export default function HomeScreen() {
                           },
                         ]}
                       >
-                        {BRAND_LOGOS[brand.name] ? (
+                        {getBrandLogo(brand.name) ? (
                           <Image
-                            source={{ uri: BRAND_LOGOS[brand.name] }}
+                            source={getBrandLogo(brand.name)!}
                             style={styles.brandImage}
-                            resizeMode="contain"
-                            onError={() => {
-                              console.log('Failed to load brand logo:', brand.name, BRAND_LOGOS[brand.name]);
-                            }}
-                            onLoad={() => {
-                              console.log('Successfully loaded brand logo:', brand.name);
-                            }}
+                            contentFit="contain"
+                            cachePolicy="disk"
                           />
                         ) : (
                           <IconSymbol
@@ -2448,7 +2392,7 @@ const styles = StyleSheet.create({
   // Body Type styles
   bodyTypeSectionContainer: {
     marginHorizontal: 20,
-    borderWidth: 1,
+ 
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 16,
@@ -2499,15 +2443,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     overflow: "hidden",
-    paddingHorizontal: 4,
+    paddingRight: 4,
   },
   bodyTypeImageContainerCompact: {
     width: 84,
     height: 64,
   },
   bodyTypeImage: {
-    width: "96%",
-    height: "82%",
+    width: "98%",
+    height: "84%",
   },
   bodyTypeName: {
     fontSize: 12,
