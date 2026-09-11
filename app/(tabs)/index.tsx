@@ -7,7 +7,6 @@
   Modal,
   Pressable,
   ActivityIndicator,
-  Linking,
 } from "react-native";
 import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { LinearGradient } from "expo-linear-gradient";
@@ -57,6 +56,7 @@ import { ThemeSelector } from "@/components/theme-selector";
 import { HeroSection } from "@/components/hero-section";
 import { OnboardingHint } from "@/components/onboarding-hint";
 import { isWeb } from "@/lib/platform";
+import { openWhatsApp } from "@/lib/whatsapp";
 import { WebFooter } from "@/components/web-footer";
 import { resolveImageUrl } from "@/lib/image-url";
 import { getUsageStatusColor } from '@/lib/usage-status';
@@ -1049,8 +1049,10 @@ export default function HomeScreen() {
           <TouchableOpacity
             style={isDesktopWeb ? styles.insuranceLeftImageWrap : styles.insuranceBgImage}
             onPress={() => {
-              const waUrl = `https://wa.me/250788307583?text=${encodeURIComponent(t("home.insuranceWhatsappMessage"))}`;
-              Linking.openURL(waUrl).catch(() => {});
+              openWhatsApp({
+                phone: "250788307583",
+                text: t("home.insuranceWhatsappMessage"),
+              });
             }}
             activeOpacity={0.9}
           >

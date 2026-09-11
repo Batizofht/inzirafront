@@ -14,6 +14,7 @@ import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { isWeb } from '@/lib/platform';
+import { openWhatsApp, whatsappWebUrl } from '@/lib/whatsapp';
 
 export interface ShareModalProps {
   visible: boolean;
@@ -37,7 +38,9 @@ const SHARE_OPTIONS: ShareOption[] = [
     key: 'whatsapp',
     icon: 'message.fill',
     color: '#25D366',
-    buildUrl: (url, title) => `https://wa.me/?text=${encodeURIComponent(`${title} — ${url}`)}`,
+    // Opened through openWhatsApp (see handleOpenOption) so desktop lands on
+    // WhatsApp Web instead of the wa.me "Continue to Chat" page.
+    buildUrl: (url, title) => whatsappWebUrl({ text: `${title} — ${url}` }),
   },
   {
     key: 'facebook',
@@ -89,6 +92,10 @@ export function ShareModal({ visible, onClose, url, title }: ShareModalProps) {
   };
 
   const handleOpenOption = (option: ShareOption) => {
+    if (option.key === 'whatsapp') {
+      openWhatsApp({ text: `${title} — ${url}` });
+      return;
+    }
     const target = option.buildUrl(url, title);
     Linking.openURL(target).catch(() => {});
   };

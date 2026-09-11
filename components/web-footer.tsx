@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Image } from 'expo-image';
 import { isWeb } from '@/lib/platform';
+import { openWhatsApp } from '@/lib/whatsapp';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '@/i18n';
@@ -74,8 +75,20 @@ const FOOTER_LINK_PATHS = {
   ],
 };
 
-const SOCIAL_LINKS = [
-  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366', url: 'https://wa.me/250788307583' },
+type SocialLink = {
+  icon: any;
+  label: string;
+  color: string;
+  /** Plain link opened as-is. */
+  url?: string;
+  /** Custom opener, for links that need per-device handling (WhatsApp). */
+  open?: () => void;
+};
+
+const SOCIAL_LINKS: SocialLink[] = [
+  // WhatsApp goes through openWhatsApp so desktop lands on WhatsApp Web
+  // instead of the wa.me "Continue to Chat" page.
+  { icon: require('@/assets/social/whatsapp.png'), label: 'WhatsApp', color: '#25D366', open: () => openWhatsApp({ phone: '250788307583' }) },
   { icon: require('@/assets/social/instagram.png'), label: 'Instagram', color: '#E4405F', url: 'https://www.instagram.com/inzira.co?utm_source=qr' },
   { icon: require('@/assets/social/tiktok.png'), label: 'TikTok', color: '#111111', url: 'https://www.tiktok.com/@inzira.co?_r=1&_t=ZS-98IMhe0iOHt' },
 ];
@@ -279,7 +292,10 @@ export function WebFooter() {
               <TouchableOpacity
                 key={social.label}
                 style={[styles.socialBtn, { backgroundColor: colors.card }]}
-                onPress={() => { if (social.url) Linking.openURL(social.url); }}
+                onPress={() => {
+                  if (social.open) social.open();
+                  else if (social.url) Linking.openURL(social.url);
+                }}
               >
                 <Image source={social.icon} style={{ width: 30, height: 30 }} contentFit="contain" />
               </TouchableOpacity>
