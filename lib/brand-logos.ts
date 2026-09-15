@@ -17,6 +17,7 @@ const LOGOS: Record<string, ImageSourcePropType> = {
   bmw: require("@/assets/brands/bmw.png"),
   cadillac: require("@/assets/brands/cadillac.png"),
   chevrolet: require("@/assets/brands/chevrolet.png"),
+  dfsk: require("@/assets/brands/dfsk.png"),
   dodge: require("@/assets/brands/dodge.png"),
   fiat: require("@/assets/brands/fiat.png"),
   ford: require("@/assets/brands/ford.png"),
