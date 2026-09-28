@@ -294,6 +294,31 @@ export default function HomeScreen() {
   const isFavorited = (id: string) => favoriteIds.includes(id);
   const totalVehicleCount = useMemo(() => bodyTypes.reduce((sum, bt) => sum + (bt.count || 0), 0), [bodyTypes]);
 
+  // Animated count-up for the stat strip. Same size/layout — only the number
+  // ticks from 0 to the real total over ~1.2s whenever it loads/changes.
+  const [displayCount, setDisplayCount] = useState(0);
+  useEffect(() => {
+    if (!totalVehicleCount || totalVehicleCount <= 0) {
+      setDisplayCount(0);
+      return;
+    }
+    const duration = 1200;
+    const start = Date.now();
+    let raf: ReturnType<typeof setTimeout> | number = 0;
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic — fast start, gentle landing
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayCount(Math.round(eased * totalVehicleCount));
+      if (progress < 1) {
+        raf = setTimeout(tick, 16) as unknown as number;
+      }
+    };
+    tick();
+    return () => clearTimeout(raf as unknown as ReturnType<typeof setTimeout>);
+  }, [totalVehicleCount]);
+
   const syncDetectedLocation = useCallback(
     async (nextLocation: string) => {
       // Prevent multiple syncs
@@ -1340,7 +1365,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Vehicle Count — bold gradient stat strip */}
+        {/* Vehicle Count — gradient stat strip with count-up + tire-stack art.
+            Same footprint: copy left, decorative tires right (clipped). */}
         {totalVehicleCount > 0 && (
           <View
             style={[
@@ -1371,24 +1397,46 @@ export default function HomeScreen() {
                 color="rgba(255,255,255,0.10)"
                 style={styles.vehicleCountGhostIcon}
               />
-              <ThemedText style={styles.vehicleCountPrefix}>
-                {t("home.vehiclesAvailablePrefix")}
-              </ThemedText>
-              <View style={styles.vehicleCountNumberRow}>
-                <ThemedText style={styles.vehicleCountBigNumber}>
-                  {totalVehicleCount.toLocaleString()}
-                </ThemedText>
-                <ThemedText style={styles.vehicleCountPlus}>+</ThemedText>
+              {/* tire-stack decor, right side */}
+              <View pointerEvents="none" style={styles.vehicleCountTires}>
+                <View style={styles.vcTireLarge}>
+                  <View style={styles.vcTireHubLarge} />
+                  <View style={styles.vcTireSpokeA} />
+                  <View style={styles.vcTireSpokeB} />
+                </View>
+                <View style={styles.vcTireMedium}>
+                  <View style={styles.vcTireHubSmall} />
+                </View>
+                <View style={styles.vcTireSmall}>
+                  <View style={styles.vcTireHubTiny} />
+                </View>
+                {/* road dashes */}
+                <View style={styles.vcRoad}>
+                  <View style={styles.vcRoadDash} />
+                  <View style={styles.vcRoadDash} />
+                  <View style={styles.vcRoadDash} />
+                </View>
               </View>
-              <ThemedText style={styles.vehicleCountLabel}>
-                {t("home.vehiclesAvailableSuffix")}
-              </ThemedText>
+              <View style={styles.vehicleCountCopy}>
+                <ThemedText style={styles.vehicleCountPrefix}>
+                  {t("home.vehiclesAvailablePrefix")}
+                </ThemedText>
+                <View style={styles.vehicleCountNumberRow}>
+                  <ThemedText style={styles.vehicleCountBigNumber}>
+                    {displayCount.toLocaleString()}
+                  </ThemedText>
+                  <ThemedText style={styles.vehicleCountPlus}>+</ThemedText>
+                </View>
+                <ThemedText style={styles.vehicleCountLabel}>
+                  {t("home.vehiclesAvailableSuffix")}
+                </ThemedText>
+              </View>
             </LinearGradient>
           </View>
         )}
 
-        {/* Promotional Banner */}
-
+        {/* Custom order — premium concierge card. Same footprint, gradient +
+            glass icon + white CTA pill. Routes to /contact (quote request). */}
         <TouchableOpacity
           style={[
             styles.promoBanner,
@@ -1401,39 +1449,66 @@ export default function HomeScreen() {
                     ? styles.webPromoBannerLg
                     : styles.webPromoBannerMd),
             {
-              backgroundColor: isDark ? "rgba(59, 130, 246, 0.12)" : "#F3F5F8",
-              borderColor: `${colors.primary}45`,
+              padding: 0,
+              overflow: 'hidden',
+              borderColor: 'transparent',
+              borderWidth: 0,
             },
           ]}
           onPress={() => router.push("/contact" as any)}
-          activeOpacity={0.9}
+          activeOpacity={0.92}
         >
           <LinearGradient
-            colors={isDark ? ["#3B82F6", "#2563EB"] : ["#1E3A5F", "#0A2540"]}
+            colors={isDark ? ["#0B1E3B", "#1D4ED8"] : ["#0A2540", "#12406E", "#1D4ED8"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={[styles.promoIconContainer, !isDesktopWeb && styles.promoIconContainerMobile]}
+            style={styles.promoGradient}
           >
-            <IconSymbol name="sparkles" size={isDesktopWeb ? 24 : 20} color="#fff" />
+            {/* ghost decor circles */}
+            <View pointerEvents="none" style={styles.promoGhostA} />
+            <View pointerEvents="none" style={styles.promoGhostB} />
+            {/* <View style={styles.promoGlassIcon}>
+              <IconSymbol name="car.fill" size={isDesktopWeb ? 26 : 22} color="#fff" />
+              <View style={styles.promoSparkDot}>
+                <IconSymbol name="sparkles" size={12} color="#0A2540" />
+              </View>
+            </View> */}
+            <View style={styles.promoContent}>
+              <View style={styles.promoBadgeRow}>
+                <View style={styles.promoBadge}>
+                  <ThemedText style={styles.promoBadgeText}>
+                    {t("home.customOrderBadge", { defaultValue: "CONCIERGE • CUSTOM ORDER" })}
+                  </ThemedText>
+                </View>
+                {!isDesktopWeb ? null : (
+                  <View style={styles.promoEtaBadge}>
+                    <ThemedText style={styles.promoEtaText}>
+                      {t("home.customOrderEta", { defaultValue: "24H RESPONSE" })}
+                    </ThemedText>
+                  </View>
+                )}
+              </View>
+              <ThemedText
+                type="defaultSemiBold"
+                style={[styles.promoTitle, { color: '#FFFFFF' }]}
+                numberOfLines={1}
+              >
+                {t("home.customOrderTitle")}
+              </ThemedText>
+              <ThemedText
+                style={[styles.promoSubtitle, { color: 'rgba(255,255,255,0.82)' }]}
+                numberOfLines={2}
+              >
+                {t("home.customOrderSubtitle")}
+              </ThemedText>
+            </View>
+            <View style={[styles.promoCta, !isDesktopWeb && styles.promoCtaMobile]}>
+              <ThemedText style={styles.promoCtaText}>
+                {t("home.customOrderCta", { defaultValue: "Request" })}
+              </ThemedText>
+              <IconSymbol name="arrow.right" size={isDesktopWeb ? 16 : 14} color="#0A2540" />
+            </View>
           </LinearGradient>
-          <View style={styles.promoContent}>
-            <ThemedText
-              type="defaultSemiBold"
-              style={[styles.promoTitle, { color: colors.text }]}
-              numberOfLines={1}
-            >
-              {t("home.customOrderTitle")}
-            </ThemedText>
-            <ThemedText
-              style={[styles.promoSubtitle, { color: colors.icon }]}
-              numberOfLines={2}
-            >
-              {t("home.customOrderSubtitle")}
-            </ThemedText>
-          </View>
-          <View style={[styles.promoArrow, !isDesktopWeb && styles.promoArrowMobile, { backgroundColor: colors.primary }]}>
-            <IconSymbol name="arrow.right" size={isDesktopWeb ? 18 : 15} color="#fff" />
-          </View>
         </TouchableOpacity>
 
         {/* Latest */}
@@ -2162,6 +2237,119 @@ const styles = StyleSheet.create({
     gap: 10,
     ...Elevation.card,
   },
+  // Custom-order concierge card internals (same outer footprint)
+  promoGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    position: 'relative',
+    overflow: 'hidden',
+    width: '100%',
+  },
+  promoGhostA: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    right: -50,
+    top: -70,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  promoGhostB: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    left: -30,
+    bottom: -60,
+    backgroundColor: 'rgba(56,189,248,0.14)',
+  },
+  promoGlassIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    position: 'relative',
+  },
+  promoSparkDot: {
+    position: 'absolute',
+    right: -6,
+    top: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FBBF24',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  promoBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  promoBadge: {
+    backgroundColor: 'rgba(251,191,36,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  promoBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    color: '#FDE68A',
+  },
+  promoEtaBadge: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  promoEtaText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#fff',
+  },
+  promoCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    flexShrink: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  promoCtaMobile: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  promoCtaText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0A2540',
+  },
   webPromoBannerMd: {
     marginHorizontal: 40,
     marginTop: 32,
@@ -2864,6 +3052,110 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     overflow: 'hidden',
     position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  vehicleCountCopy: {
+    flex: 1,
+    minWidth: 0,
+    zIndex: 1,
+  },
+  // Tire-stack art pinned right, clipped by wrap overflow. Static (no loop)
+  // so the strip stays cheap while scrolling.
+  vehicleCountTires: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    width: 120,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    zIndex: 0,
+  },
+  vcTireLarge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 11,
+    borderColor: 'rgba(255,255,255,0.20)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  vcTireHubLarge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  vcTireSpokeA: {
+    position: 'absolute',
+    width: 58,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    transform: [{ rotate: '45deg' }],
+  },
+  vcTireSpokeB: {
+    position: 'absolute',
+    width: 58,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    transform: [{ rotate: '-45deg' }],
+  },
+  vcTireMedium: {
+    position: 'absolute',
+    right: 66,
+    bottom: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 7,
+    borderColor: 'rgba(56,189,248,0.45)',
+    backgroundColor: 'rgba(56,189,248,0.10)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vcTireSmall: {
+    position: 'absolute',
+    right: 12,
+    top: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 6,
+    borderColor: 'rgba(251,191,36,0.5)',
+    backgroundColor: 'rgba(251,191,36,0.10)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  vcTireHubSmall: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  vcTireHubTiny: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  vcRoad: {
+    position: 'absolute',
+    right: 0,
+    bottom: 10,
+    flexDirection: 'row',
+    gap: 5,
+    opacity: 0.5,
+  },
+  vcRoadDash: {
+    width: 18,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.35)',
   },
   vehicleCountGhostIcon: {
     position: 'absolute',

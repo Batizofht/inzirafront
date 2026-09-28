@@ -1,4 +1,4 @@
-import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, TextInput, ScrollView, Pressable, ActivityIndicator, Animated, Easing } from 'react-native';
 import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import { createPortal } from "react-dom";
 import { useResolvedTheme } from "@/hooks/use-resolved-theme";
@@ -41,6 +41,196 @@ const MILEAGE_OPTIONS = [
   "100,000 - 150,000 km",
   "150,000+ km",
 ];
+
+// Decorative animated gears + bouncing tires behind the left hero copy.
+// Absolute-positioned, pointer-events none, low opacity — layout, alignment
+// and right-side car image are untouched. Text renders above it (zIndex 1).
+function HeroLeftDecor() {
+  const gearSpin = useRef(new Animated.Value(0)).current;
+  const gearSpinSlow = useRef(new Animated.Value(0)).current;
+  const tireBounceA = useRef(new Animated.Value(0)).current;
+  const tireBounceB = useRef(new Animated.Value(0)).current;
+  const tireBounceC = useRef(new Animated.Value(0)).current;
+  const tireBounceD = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const spin = Animated.loop(
+      Animated.timing(gearSpin, {
+        toValue: 1,
+        duration: 9000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const spinSlow = Animated.loop(
+      Animated.timing(gearSpinSlow, {
+        toValue: 1,
+        duration: 14000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    const bounceA = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tireBounceA, {
+          toValue: -12,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tireBounceA, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const bounceB = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tireBounceB, {
+          toValue: -8,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tireBounceB, {
+          toValue: 0,
+          duration: 1100,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const bounceC = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tireBounceC, {
+          toValue: -10,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tireBounceC, {
+          toValue: 0,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const bounceD = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tireBounceD, {
+          toValue: -14,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tireBounceD, {
+          toValue: 0,
+          duration: 800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    spin.start();
+    spinSlow.start();
+    bounceA.start();
+    bounceB.start();
+    bounceC.start();
+    bounceD.start();
+    return () => {
+      spin.stop();
+      spinSlow.stop();
+      bounceA.stop();
+      bounceB.stop();
+      bounceC.stop();
+      bounceD.stop();
+    };
+  }, [gearSpin, gearSpinSlow, tireBounceA, tireBounceB, tireBounceC, tireBounceD]);
+
+  const rotate = gearSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const rotateReverse = gearSpinSlow.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['360deg', '0deg'],
+  });
+
+  const Tire = ({ size, bounce }: { size: number; bounce: Animated.Value }) => (
+    <Animated.View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: Math.max(7, size * 0.14),
+        borderColor: 'rgba(255,255,255,0.22)',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        transform: [{ translateY: bounce }],
+      }}
+    >
+      <View
+        style={{
+          width: size * 0.34,
+          height: size * 0.34,
+          borderRadius: size * 0.17,
+          backgroundColor: 'rgba(255,255,255,0.25)',
+          borderWidth: 2,
+          borderColor: 'rgba(255,255,255,0.35)',
+        }}
+      />
+      {/* spokes */}
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.8,
+          height: 2,
+          backgroundColor: 'rgba(255,255,255,0.18)',
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.8,
+          height: 2,
+          backgroundColor: 'rgba(255,255,255,0.18)',
+          transform: [{ rotate: '-45deg' }],
+        }}
+      />
+    </Animated.View>
+  );
+
+  return (
+    <View pointerEvents="none" style={styles.heroDecor}>
+      {/* large gear top-right, behind headline */}
+      <Animated.View style={[styles.decorGearLarge, { transform: [{ rotate }] }]}>
+        <IconSymbol name="gearshape.fill" size={150} color="rgba(255,255,255,0.10)" />
+      </Animated.View>
+      {/* small gear bottom-left, counter-rotating */}
+      <Animated.View style={[styles.decorGearSmall, { transform: [{ rotate: rotateReverse }] }]}>
+        <IconSymbol name="gearshape.fill" size={84} color="rgba(255,255,255,0.12)" />
+      </Animated.View>
+      {/* bouncing tires (bounce lives inside Tire) */}
+      <View style={styles.decorTireA}>
+        <Tire size={72} bounce={tireBounceA} />
+      </View>
+      <View style={styles.decorTireB}>
+        <Tire size={48} bounce={tireBounceB} />
+      </View>
+      <View style={styles.decorTireC}>
+        <Tire size={58} bounce={tireBounceC} />
+      </View>
+      <View style={styles.decorTireD}>
+        <Tire size={38} bounce={tireBounceD} />
+      </View>
+    </View>
+  );
+}
 
 export function HeroSection({ categories }: HeroSectionProps) {
   const { t } = useTranslation();
@@ -344,11 +534,14 @@ export function HeroSection({ categories }: HeroSectionProps) {
             { backgroundColor: isDark ? '#1E3A5F' : colors.primary, paddingHorizontal: heroPadding },
           ]}
         >
-          <Heading level={1} style={styles.heroTitle}>
-            {t('hero.welcomeTitle')}
-          </Heading>
-          <View style={styles.heroTag}>
-            <ThemedText style={styles.heroTagText}>{t('hero.tagline')}</ThemedText>
+          <HeroLeftDecor />
+          <View style={styles.heroCopy}>
+            <Heading level={1} style={styles.heroTitle}>
+              {t('hero.welcomeTitle')}
+            </Heading>
+            <View style={styles.heroTag}>
+              <ThemedText style={styles.heroTagText}>{t('hero.tagline')}</ThemedText>
+            </View>
           </View>
 
         </View>
@@ -931,7 +1124,52 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 40,
     zIndex: 2,
+    overflow: "hidden",
     clipPath: "polygon(0 0, 100% 0, 97% 100%, 0 100%)",
+  } as any,
+  // Decor layer sits behind copy; copy keeps its exact alignment.
+  heroDecor: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  } as any,
+  heroCopy: {
+    zIndex: 1,
+  },
+  decorGearLarge: {
+    position: "absolute",
+    top: -34,
+    right: 18,
+    opacity: 1,
+  } as any,
+  decorGearSmall: {
+    position: "absolute",
+    bottom: -18,
+    left: 26,
+    opacity: 1,
+  } as any,
+  decorTireA: {
+    position: "absolute",
+    top: 36,
+    left: "38%",
+    opacity: 1,
+  } as any,
+  decorTireB: {
+    position: "absolute",
+    bottom: 30,
+    right: "30%",
+    opacity: 1,
+  } as any,
+  decorTireC: {
+    position: "absolute",
+    top: 24,
+    left: "12%",
+    opacity: 0.9,
+  } as any,
+  decorTireD: {
+    position: "absolute",
+    bottom: 44,
+    right: "12%",
+    opacity: 0.9,
   } as any,
   heroTag: {
     backgroundColor: "rgba(255,255,255,0.2)",
