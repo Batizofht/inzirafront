@@ -768,7 +768,7 @@ export default function VehicleDetailsScreen() {
             {/* Spec grid — both layouts */}
             <View style={[styles.specGrid, isDesktopWeb && styles.webSpecGrid, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <SpecItem label={t('vehicleDetails.specYear')} value={vehicle.year} colors={colors} isDesktopWeb={isDesktopWeb} />
-              <SpecItem label={t('vehicleDetails.specMileage')} value={vehicle.mileage} colors={colors} isDesktopWeb={isDesktopWeb} />
+              <SpecItem label={t('vehicleDetails.specMileage')} value={vehicle.mileage} indicator='mileage' colors={colors} isDesktopWeb={isDesktopWeb} />
               <View style={[styles.specItem, isDesktopWeb && styles.webSpecItem, { borderColor: colors.border, backgroundColor: colors.background }]}>
                 <ThemedText style={[styles.specLabel, { color: colors.icon }]}>{t('vehicleDetails.specFuel')}</ThemedText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1127,6 +1127,7 @@ export default function VehicleDetailsScreen() {
 function SpecItem({
   label,
   value,
+  indicator,
   colors,
   isDesktopWeb,
   renderColorBadge = false,
@@ -1153,7 +1154,7 @@ function SpecItem({
           <ThemedText style={[styles.colorBadgeText, { color: colorText }]} numberOfLines={1}>{value}</ThemedText>
         </View>
       ) : (
-        <ThemedText style={[styles.specValue, { color: colors.text }]} numberOfLines={2}>{value}</ThemedText>
+        <ThemedText style={[styles.specValue, { color: colors.text }]} numberOfLines={2}>{value} {indicator === 'mileage' ? 'km' : ''}</ThemedText>
       )}
     </View>
   );

@@ -378,6 +378,7 @@ export function WebHeader() {
                 </TouchableOpacity>
               </View>
 
+              {/* Mobile list elements */}
               <ScrollView style={styles.menuContent}>
                 {/* Expandable Buying Section */}
                 <View style={styles.menuSection}>
@@ -1768,7 +1769,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   menuContent: {
-    padding: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 16,
   },
   menuSection: {
     gap: 4,

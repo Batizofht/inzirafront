@@ -1028,14 +1028,13 @@ export default function HomeScreen() {
         {/* Hero Section with Mega Search - Web Only */}
         {isDesktopWeb && <HeroSection categories={categories} />}
 
-        {/* Insurance banner — the gif is the tappable ad. On web the box is much
-            wider than the gif's own aspect ratio, so it now keeps its full,
-            undistorted look on the left (sized to its own aspect ratio) and
-            the leftover width holds two quick-action buttons. Mobile is
-            untouched — still just the full-bleed tappable image. */}
+        {/* Insurance banner — desktop (>=768 web) uses banner.png with side
+            actions; phones <=515 use bannerm.png; wider mobiles 516-767 use
+            bannerm2.png full-bleed (taller so `cover` doesn't crop CTA). */}
         <View
           style={[
             styles.insuranceBanner,
+            !isDesktopWeb && width > 515 && styles.insuranceBannerMobileWide,
             isDesktopWeb &&
               (is2Xl
                 ? styles.webInsuranceBanner2Xl
@@ -1056,18 +1055,17 @@ export default function HomeScreen() {
             }}
             activeOpacity={0.9}
           >
-            {isDesktopWeb ? <>  <Image
-              source={require("../../assets/banner.png")}
-              style={isDesktopWeb ? styles.insuranceLeftImage : StyleSheet.absoluteFill}
-              contentFit="cover"
-            /></> : <>
-              <Image
-              source={require("../../assets/bannerm.png")}
+            <Image
+              source={
+                isDesktopWeb
+                  ? require("../../assets/banner.png")
+                  : width > 515
+                    ? require("../../assets/bannerm2.png")
+                    : require("../../assets/bannerm.png")
+              }
               style={isDesktopWeb ? styles.insuranceLeftImage : StyleSheet.absoluteFill}
               contentFit="cover"
             />
-            </>}
-       
           </TouchableOpacity>
 
           {isDesktopWeb && (
@@ -2927,6 +2925,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'flex-end',
+  },
+  // Wider mobiles (516-767, small tablets): same bannerm.png but taller so
+  // `cover` doesn't crop the text/CTA. Phones <=515 keep height 150.
+  insuranceBannerMobileWide: {
+    height: 190,
   },
   webInsuranceBanner: {
     marginHorizontal: 40,
