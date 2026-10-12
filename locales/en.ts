@@ -601,6 +601,7 @@ export default {
       privacySec: 'Privacy & Security',
       helpSupport: 'Help & Support',
       logout: 'Log Out',
+      deleteAccountFailed: 'Failed to delete account',
       editProfile: 'Edit Profile',
       allMyListings: 'All My Listings',
       messages: 'Messages',

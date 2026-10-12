@@ -29,7 +29,7 @@ import {
 import { fetchCategories, type Category } from "@/lib/api-categories";
 import { getAuthUser } from "@/lib/userPreference";
 import type { Vehicle } from "@/types/vehicle";
-import { isWeb } from "@/lib/platform";
+import { isNative, isWeb } from "@/lib/platform";
 import { WebFooter } from "@/components/web-footer";
 import { resolveImageUrl } from "@/lib/image-url";
 import { getUsageStatusColor } from '@/lib/usage-status';
@@ -1398,6 +1398,7 @@ export default function ExploreScreen() {
                 <TouchableOpacity
                   style={[
                     styles.filterIconBtn,
+                    isNative && { bottom: 2 },
                     {
                       borderColor: colors.border,
                       backgroundColor: colors.background,

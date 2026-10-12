@@ -601,6 +601,7 @@ export default {
       privacySec: 'Confidentialité & Sécurité',
       helpSupport: 'Aide & Support',
       logout: 'Déconnexion',
+      deleteAccountFailed: 'Échec de la suppression du compte',
       editProfile: 'Modifier le Profil',
       allMyListings: 'Toutes Mes Annonces',
       messages: 'Messages',

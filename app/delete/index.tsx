@@ -13,7 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
-import { getAuthUser } from '@/lib/userPreference';
+import { getAuthUser, clearLocalAuthSession } from '@/lib/userPreference';
+import { deleteAccount } from '@/lib/api-profile';
 import { useAuth } from '@/context/AuthContext';
 
 type Step = 'info' | 'reason' | 'confirm' | 'done';
@@ -68,9 +69,8 @@ export default function DeleteAccountScreen() {
     if (confirmText.trim().toUpperCase() !== 'DELETE') return;
     try {
       setIsLoading(true);
-      // TODO: replace with your actual delete-account API call
-      // await apiRequest('/account/delete', { method: 'DELETE', auth: true, body: { reason: selectedReason, note: otherReason } });
-      await new Promise((r) => setTimeout(r, 1800)); // simulate network
+      await deleteAccount();
+      await clearLocalAuthSession();
       setStep('done');
     } catch (err) {
       Alert.alert(t('legal.delete.deleteErrorTitle'), t('legal.delete.deleteErrorMsg'));

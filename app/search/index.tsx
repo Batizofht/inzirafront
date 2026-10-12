@@ -155,7 +155,7 @@ export default function SearchScreen() {
   return (
     <View style={[styles.safeArea, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       <SearchSEO query={query} />
-      <View style={[styles.header, { marginTop: Platform.OS === 'android' ? 20 : 0, backgroundColor: colors.background, borderBottomColor: colors.border, borderBottomWidth: 0 }, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal, borderBottomWidth: 1 }]}>
+      <View style={[styles.header, { marginTop: Platform.OS === 'android' ? 20 : 10, backgroundColor: colors.background, borderBottomColor: colors.border, borderBottomWidth: 0 }, isDesktopWeb && { paddingHorizontal: webPaddingHorizontal, borderBottomWidth: 1 }]}>
         <View style={[styles.headerInner, isDesktopWeb && searchMaxWidth && { maxWidth: searchMaxWidth, alignSelf: 'center', width: '100%' }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <IconSymbol name="chevron.left" size={22} color={colors.text} />

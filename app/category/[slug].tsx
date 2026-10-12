@@ -16,7 +16,7 @@ import { fetchVehiclesByCategory, fetchBrandsWithImages, fetchBodyTypes } from '
 import { fetchFavorites, addFavorite, removeFavorite } from '@/lib/api-favorites';
 import { getAuthUser } from '@/lib/userPreference';
 import type { Vehicle } from '@/types/vehicle';
-import { isWeb } from '@/lib/platform';
+import { isNative, isWeb } from '@/lib/platform';
 import { WebFooter } from '@/components/web-footer';
 import { resolveImageUrl } from '@/lib/image-url';
 import { getUsageStatusColor } from '@/lib/usage-status';
@@ -753,7 +753,7 @@ export default function CategoryScreen() {
                 />
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.filterIconBtn, { borderColor: colors.border, backgroundColor: colors.background }]}
+                style={[styles.filterIconBtn, isNative && { bottom: 1 }, { borderColor: colors.border, backgroundColor: colors.background }]}
                 onPress={() => setShowFilterSheet(true)}>
                 <ThemedText style={[styles.filterTriggerText, { color: colors.primary }]}>{t('category.filters')}</ThemedText>
                 <IconSymbol name="chevron.down" size={20} color={colors.primary} />

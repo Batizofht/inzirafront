@@ -90,6 +90,7 @@ export default {
       privacySec: 'Umutekano & Ibanga',
       helpSupport: 'Ubufasha',
       logout: 'Sohoka',
+      deleteAccountFailed: 'Gusiba konti ntabwo byakunze',
     },
     auth: {
       createAccount: 'Fungura Konti',

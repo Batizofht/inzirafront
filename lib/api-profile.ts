@@ -47,3 +47,11 @@ export async function uploadProfilePhoto(imageUri: string): Promise<UploadProfil
     body: formData,
   });
 }
+
+/**
+ * Permanently deletes the authenticated user's account and all associated data
+ * on the backend (vehicles, conversations, notifications, etc.).
+ */
+export async function deleteAccount(): Promise<{ status: number; message?: string }> {
+  return apiRequest('/profile/me', { method: 'DELETE', auth: true });
+}

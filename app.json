@@ -2,17 +2,20 @@
   "expo": {
     "name": "inzira",
     "slug": "inzira",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/THELOG.png",
     "scheme": "inzira",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We use your location to show your current city and country."
-      }
+        "NSLocationWhenInUseUsageDescription": "We use your location to show your current city and country.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.inzira.inzira"
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +32,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.inzira.inzira",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 8,
+      "versionCode": 9,
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
@@ -50,6 +53,20 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/THELOG.png",
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow inzira to access your photos so you can set a profile picture.",
+          "cameraPermission": "Allow inzira to use your camera to take a profile picture."
         }
       ]
     ],

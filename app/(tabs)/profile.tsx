@@ -43,11 +43,12 @@ import {
   getSellerVerificationStatus,
   updateStoredAuthUser,
   switchAccountRole,
+  clearLocalAuthSession,
   type AuthUser,
 } from "@/lib/userPreference";
 
 import { fetchMyVerificationStatus } from "@/lib/api-verifications";
-import { uploadProfilePhoto } from "@/lib/api-profile";
+import { uploadProfilePhoto, deleteAccount } from "@/lib/api-profile";
 
 import {
   fetchMyVehicles,
@@ -802,6 +803,46 @@ export default function ProfileScreen() {
     await logout();
 
     router.replace("/auth/login");
+  };
+
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const performDeleteAccount = async () => {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount();
+      await clearLocalAuthSession();
+      router.replace("/auth/login");
+    } catch (err: any) {
+      setToast({
+        title: t('profile.error'),
+        body: err?.message || t('profile.deleteAccountFailed'),
+        icon: 'exclamationmark.circle.fill',
+      });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `${t('settings.deleteAccount')}\n\n${t('settings.deleteAccountDesc')}`,
+      );
+      if (confirmed) {
+        performDeleteAccount();
+      }
+    } else {
+      Alert.alert(
+        t('settings.deleteAccount'),
+        t('settings.deleteAccountDesc'),
+        [
+          { text: t('profile.cancel'), style: "cancel" },
+          { text: t('settings.delete'), style: "destructive", onPress: performDeleteAccount },
+        ],
+      );
+    }
   };
 
   const loadContactRequests = async () => {
@@ -2802,6 +2843,30 @@ export default function ProfileScreen() {
                       {t('profile.logout')}
                     </ThemedText>
                   </TouchableOpacity>
+
+                  {/* Delete My Account button inside Preferences tab */}
+                  <TouchableOpacity
+                    style={[
+                      styles.logoutButton,
+                      isDesktopWeb && styles.webLogoutButton,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        marginTop: 0,
+                      },
+                    ]}
+                    onPress={handleDeleteAccount}
+                    disabled={isDeletingAccount}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.logoutText,
+                        { color: isDark ? "#FCA5A5" : "#DC2626" },
+                      ]}
+                    >
+                      {isDeletingAccount ? t('settings.deleting') : t('settings.deleteAccount')}
+                    </ThemedText>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -3938,6 +4003,30 @@ export default function ProfileScreen() {
                     ]}
                   >
                     {t('profile.logout')}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                {/* Delete My Account button inside Preferences tab */}
+                <TouchableOpacity
+                  style={[
+                    styles.logoutButton,
+                    isDesktopWeb && styles.webLogoutButton,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.border,
+                      marginTop: 0,
+                    },
+                  ]}
+                  onPress={handleDeleteAccount}
+                  disabled={isDeletingAccount}
+                >
+                  <ThemedText
+                    style={[
+                      styles.logoutText,
+                      { color: isDark ? "#FCA5A5" : "#DC2626" },
+                    ]}
+                  >
+                    {isDeletingAccount ? t('settings.deleting') : t('settings.deleteAccount')}
                   </ThemedText>
                 </TouchableOpacity>
               </View>

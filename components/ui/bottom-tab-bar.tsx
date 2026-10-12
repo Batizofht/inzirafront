@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
@@ -13,8 +14,8 @@ import { useResolvedTheme } from '@/hooks/use-resolved-theme';
  * variant when inactive so the bar reads like a real native app, not the
  * default tab template. The center "Sell" route is rendered as a raised pill.
  */
-const TAB_ICONS: Record<string, { active: string; inactive: string; center?: boolean }> = {
-  index: { active: 'house.fill', inactive: 'house.fill' },
+const TAB_ICONS: Record<string, { active: string; inactive: string; center?: boolean; glyph?: string }> = {
+  index: { active: 'house.fill', inactive: 'house.fill', glyph: 'home' },
   explore: { active: 'magnifyingglass', inactive: 'magnifyingglass' },
   sell: { active: 'plus.circle.fill', inactive: 'plus.circle.fill', center: true },
   favorites: { active: 'heart.fill', inactive: 'heart.fill' },
@@ -94,7 +95,12 @@ export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             accessibilityLabel={String(label)}
           >
             <View style={styles.iconWrap}>
-              <IconSymbol name={focused ? cfg.active : cfg.inactive} size={24} color={tint} />
+              {cfg.glyph ? (
+                // Explicit Material glyph so iOS matches the Android home icon exactly.
+                <MaterialIcons name={cfg.glyph as any} size={24} color={tint} />
+              ) : (
+                <IconSymbol name={focused ? cfg.active : cfg.inactive} size={24} color={tint} />
+              )}
             </View>
             <Text numberOfLines={1} style={[styles.label, { color: tint, fontWeight: focused ? '700' : '500' }]}>
               {String(label)}

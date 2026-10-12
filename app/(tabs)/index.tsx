@@ -1074,7 +1074,7 @@ export default function HomeScreen() {
             style={isDesktopWeb ? styles.insuranceLeftImageWrap : styles.insuranceBgImage}
             onPress={() => {
               openWhatsApp({
-                phone: "250788307583",
+                phone: "250789956641",
                 text: t("home.insuranceWhatsappMessage"),
               });
             }}
@@ -2230,12 +2230,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginHorizontal: 20,
     marginTop: 28,
-    paddingHorizontal: 14,
+    paddingHorizontal: 0,
     paddingVertical: 16,
     borderRadius: Radius.xl,
     borderWidth: 1,
     gap: 10,
-    ...Elevation.card,
   },
   // Custom-order concierge card internals (same outer footprint)
   promoGradient: {
@@ -2244,6 +2243,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 14,
+        borderRadius: Radius.xl,
     position: 'relative',
     overflow: 'hidden',
     width: '100%',

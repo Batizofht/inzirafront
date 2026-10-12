@@ -115,7 +115,7 @@ export default function InsuranceScreen() {
             <View style={styles.contactDetails}>
               <View style={styles.contactRow}>
                 <IconSymbol name="phone.fill" size={18} color={colors.primary} />
-                <ThemedText style={[styles.contactText, { color: colors.text }]}>+250 788 307 583</ThemedText>
+                <ThemedText style={[styles.contactText, { color: colors.text }]}>+250 789 956 641</ThemedText>
               </View>
               <View style={styles.contactRow}>
                 <IconSymbol name="envelope.fill" size={18} color={colors.primary} />

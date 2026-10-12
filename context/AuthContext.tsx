@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         auth: true,
         body: { deviceToken: tokenData.data },
       });
-    } catch (_) {
-      // best-effort
+    } catch (error) {
+  console.error('[Push Notifications] Registration failed:', error);
     }
   }, []);
 
