@@ -14,6 +14,7 @@ import { isWeb } from '@/lib/platform';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchConversations, type Conversation } from '@/lib/api-messages';
 import { getAuthUser, getUserType, type UserType } from '@/lib/userPreference';
+import { useBlockedUserIds } from '@/lib/api-moderation';
 
 export default function MessagesScreen() {
   const theme = useResolvedTheme();
@@ -40,7 +41,12 @@ export default function MessagesScreen() {
   const desktopInnerWidth: ViewStyle | undefined = isDesktopWeb
     ? { width: '100%', alignSelf: 'center' as const, maxWidth: messagesMaxWidth }
     : undefined;
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [allConversations, setConversations] = useState<Conversation[]>([]);
+  // Chats with blocked users disappear from the inbox the moment they are blocked.
+  const blockedIds = useBlockedUserIds();
+  const conversations = allConversations.filter(
+    (c) => !blockedIds.has(c.buyerId) && !blockedIds.has(c.sellerId),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [userType, setUserType] = useState<UserType>(null);
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, Pressable, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useWindowDimensions } from '@/hooks/use-window-dimensions';
 import type { ViewStyle } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -14,6 +14,8 @@ import {
   type Conversation,
 } from '@/lib/api-messages';
 import { getUserType, type UserType } from '@/lib/userPreference';
+import { ReportBlockSheet } from '@/components/report-block-sheet';
+import { useBlockedUserIds } from '@/lib/api-moderation';
 
 import { isWeb } from '@/lib/platform';
 import { useTranslation } from 'react-i18next';
@@ -65,7 +67,11 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userType, setUserType] = useState<UserType>(null);
-  
+  // Report / block sheet (App Store guideline 1.2). `message` set = flag that
+  // one message; otherwise the menu to report or block the chat partner.
+  const [safetyTarget, setSafetyTarget] = useState<null | { message?: Message }>(null);
+  const blockedIds = useBlockedUserIds();
+
 
   useEffect(() => {
     loadConversation();
@@ -142,7 +148,11 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderRole === userType;
     return (
-      <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
+      <Pressable
+        style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}
+        onLongPress={!isMe && !item.id.startsWith('temp-') ? () => setSafetyTarget({ message: item }) : undefined}
+        delayLongPress={350}
+      >
         <View style={[
           styles.messageBubble,
           isMe ? styles.myBubble : styles.theirBubble,
@@ -155,7 +165,7 @@ export default function ChatScreen() {
             {formatTime(item.createdAt)}
           </ThemedText>
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -183,6 +193,8 @@ export default function ChatScreen() {
   const chatPartner = userType === 'buyer' 
     ? { name: conversation.sellerName, phone: conversation.sellerPhone, email: conversation.sellerEmail, type: t('messages.seller') }
     : { name: conversation.buyerName, phone: conversation.buyerPhone, email: conversation.buyerEmail, type: t('messages.buyer') };
+  const chatPartnerId = userType === 'buyer' ? conversation.sellerId : conversation.buyerId;
+  const isPartnerBlocked = !!chatPartnerId && blockedIds.has(chatPartnerId);
 
   const chatBg = isDark ? '#0f1729' : '#e8eef5';
 
@@ -220,6 +232,14 @@ export default function ChatScreen() {
             </View>
           </View>
 
+          <TouchableOpacity
+            style={[styles.vehicleBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)', marginRight: 8 }]}
+            onPress={() => setSafetyTarget({})}
+            accessibilityLabel={t('moderation.safetyOptions')}
+          >
+            <IconSymbol name="ellipsis" size={20} color={colors.text} />
+          </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.vehicleBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)' }]}
             onPress={() => router.push(`/vehicle/${conversation.vehicleId}`)}
@@ -250,6 +270,13 @@ export default function ChatScreen() {
 
       {/* Input */}
       <View style={[styles.inputContainer, webStickyComposer, desktopOuterPadding, { borderTopColor: colors.border, backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
+        {isPartnerBlocked ? (
+          <View style={[styles.inputInner, desktopInnerWidth]}>
+            <ThemedText style={{ flex: 1, textAlign: 'center', color: colors.icon, fontSize: 13, paddingVertical: 8 }}>
+              {t('moderation.blockedChatNotice')}
+            </ThemedText>
+          </View>
+        ) : (
         <View style={[styles.inputInner, desktopInnerWidth]}>
           <TextInput
             style={[styles.input, { backgroundColor: isDark ? '#1e293b' : '#f1f3f5', color: colors.text, borderColor: colors.border }]}
@@ -270,7 +297,25 @@ export default function ChatScreen() {
             <IconSymbol name="arrow.up" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
+        )}
       </View>
+
+      <ReportBlockSheet
+        visible={safetyTarget !== null}
+        onClose={() => setSafetyTarget(null)}
+        user={chatPartnerId ? { id: chatPartnerId, name: chatPartner.name } : null}
+        content={safetyTarget?.message ? { type: 'message', id: safetyTarget.message.id } : undefined}
+        initialStep={safetyTarget?.message ? 'report' : 'menu'}
+        context={{ conversationId: conversation.id, vehicleId: conversation.vehicleId }}
+        onBlocked={() => {
+          // Blocked conversations disappear from the inbox; leave this one.
+          setTimeout(() => {
+            setSafetyTarget(null);
+            if (router.canGoBack()) router.back();
+            else router.replace('/messages' as any);
+          }, 1800);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

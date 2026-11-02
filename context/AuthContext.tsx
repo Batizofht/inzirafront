@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { apiRequest } from '@/lib/api-client';
+import { clearBlockedUsersCache, syncBlockedUsers } from '@/lib/api-moderation';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
   const pushRegisteredRef = useRef(false);
+  const blockedSyncedRef = useRef(false);
 
   const registerPushToken = useCallback(async () => {
     if (pushRegisteredRef.current) return;
@@ -70,6 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isMountedRef.current) {
           setUser(authUser);
           registerPushToken();
+          if (!blockedSyncedRef.current) {
+            blockedSyncedRef.current = true;
+            syncBlockedUsers();
+          }
         }
       } else {
         if (isMountedRef.current) {
@@ -115,6 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await performLogout();
+    clearBlockedUsersCache();
+    blockedSyncedRef.current = false;
     setUser(null);
   };
 

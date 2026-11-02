@@ -12,6 +12,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router, useLocalSearchParams } from 'expo-router';
 import { registerUser } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
+import { TermsAgreement } from '@/components/terms-agreement';
 
 export default function RegisterScreen() {
   const { t } = useTranslation();
@@ -41,6 +42,8 @@ export default function RegisterScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [accountType, setAccountType] = useState<'individual' | 'dealer' | 'company'>('individual');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsError, setShowTermsError] = useState(false);
   const [focusedField, setFocusedField] = useState<'fullName' | 'email' | 'password' | 'confirmPassword' | null>(null);
 
   const isSeller = role === 'seller';
@@ -51,6 +54,10 @@ export default function RegisterScreen() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return t('auth.register.errEmailInvalid');
     if (password.length < 6) return t('auth.register.errPasswordLength');
     if (password !== confirmPassword) return t('auth.register.errPasswordMismatch');
+    if (!acceptedTerms) {
+      setShowTermsError(true);
+      return t('moderation.terms.required');
+    }
     return null;
   };
 
@@ -85,6 +92,7 @@ export default function RegisterScreen() {
         accountType,
         sellerType: isSeller ? (accountType === 'company' ? 'company' : accountType === 'dealer' ? 'individual' : undefined) : undefined,
         isBroker: accountType === 'dealer',
+        acceptedTerms: true,
       });
       // Go to OTP verification
       router.push(
@@ -285,8 +293,17 @@ export default function RegisterScreen() {
           </View>
         </View>
 
+        <TermsAgreement
+          checked={acceptedTerms}
+          onToggle={() => {
+            setAcceptedTerms((v) => !v);
+            setShowTermsError(false);
+          }}
+          showError={showTermsError}
+        />
+
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: isLoading ? colors.border : colors.primary }]}
+          style={[styles.button, { backgroundColor: isLoading || !acceptedTerms ? colors.border : colors.primary }]}
           onPress={handleRegister}
           disabled={isLoading}
           activeOpacity={0.8}

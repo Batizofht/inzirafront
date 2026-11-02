@@ -1,5 +1,13 @@
 import { apiRequest } from "./api-client";
 import type { Vehicle } from "@/types/vehicle";
+import { filterBlockedVehicles } from "./api-moderation";
+
+/** Hides listings from sellers the current user has blocked, in every feed. */
+async function withoutBlockedSellers<T extends { data: { vehicles: any[] } }>(request: Promise<T>): Promise<T> {
+  const res = await request;
+  if (Array.isArray(res?.data?.vehicles)) res.data.vehicles = filterBlockedVehicles(res.data.vehicles);
+  return res;
+}
 
 export type VehicleListResponse = {
   status: number;
@@ -96,7 +104,7 @@ export async function fetchVehicles(filters?: {
   if (filters?.maxMileage != null) params.append("maxMileage", String(filters.maxMileage));
 
   const query = params.toString();
-  return apiRequest(`/vehicles${query ? `?${query}` : ""}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse>(`/vehicles${query ? `?${query}` : ""}`));
 }
 
 export async function fetchVehiclesByCategory(
@@ -137,7 +145,7 @@ export async function fetchVehiclesByCategory(
   if (filters?.maxMileage != null) params.append("maxMileage", String(filters.maxMileage));
 
   const query = params.toString();
-  return apiRequest(`/vehicles/category/${slug}${query ? `?${query}` : ""}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse>(`/vehicles/category/${slug}${query ? `?${query}` : ""}`));
 }
 
 export async function fetchFeaturedVehicles(
@@ -145,7 +153,7 @@ export async function fetchFeaturedVehicles(
 ): Promise<VehicleListResponse> {
   const params = new URLSearchParams();
   params.append("limit", String(limit));
-  return apiRequest(`/vehicles/featured?${params.toString()}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse>(`/vehicles/featured?${params.toString()}`));
 }
 
 export async function fetchRecentVehicles(
@@ -157,11 +165,11 @@ export async function fetchRecentVehicles(
   if (excludeIds && excludeIds.length > 0) {
     params.append("excludeIds", excludeIds.join(","));
   }
-  return apiRequest(`/vehicles/recent?${params.toString()}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse>(`/vehicles/recent?${params.toString()}`));
 }
 
 export async function fetchDailyPicks(): Promise<VehicleListResponse & { data: { ids: string[] } }> {
-  return apiRequest(`/vehicles/daily-picks`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse & { data: { ids: string[] } }>(`/vehicles/daily-picks`));
 }
 
 export async function fetchVehicleById(
@@ -633,7 +641,7 @@ export async function searchVehicles(filters?: {
   if (filters?.sortBy) params.append("sortBy", filters.sortBy);
 
   const query = params.toString();
-  return apiRequest(`/vehicles/search${query ? `?${query}` : ""}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse & { data: { count: number } }>(`/vehicles/search${query ? `?${query}` : ""}`));
 }
 
 // Live search for autocomplete - fast and lightweight
@@ -706,5 +714,5 @@ export async function fetchSuggestedFeaturedVehicles(
   const params = new URLSearchParams();
   params.append("limit", String(limit));
   if (excludeId) params.append("excludeId", excludeId);
-  return apiRequest(`/vehicles/suggested-featured?${params.toString()}`);
+  return withoutBlockedSellers(apiRequest<VehicleListResponse>(`/vehicles/suggested-featured?${params.toString()}`));
 }

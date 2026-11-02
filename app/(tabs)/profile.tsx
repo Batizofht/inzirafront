@@ -43,7 +43,6 @@ import {
   getSellerVerificationStatus,
   updateStoredAuthUser,
   switchAccountRole,
-  clearLocalAuthSession,
   type AuthUser,
 } from "@/lib/userPreference";
 
@@ -812,8 +811,16 @@ export default function ProfileScreen() {
     setIsDeletingAccount(true);
     try {
       await deleteAccount();
-      await clearLocalAuthSession();
+      // Clears the stored session and the in-memory auth state.
+      await logout();
       router.replace("/auth/login");
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.alert(`${t('profile.accountDeletedTitle')}
+
+${t('profile.accountDeletedBody')}`);
+      } else {
+        Alert.alert(t('profile.accountDeletedTitle'), t('profile.accountDeletedBody'));
+      }
     } catch (err: any) {
       setToast({
         title: t('profile.error'),
@@ -3079,6 +3086,30 @@ export default function ProfileScreen() {
                   {t('profile.logout')}
                 </ThemedText>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowHeaderSheet(false);
+                  router.push("/settings/privacy" as any);
+                }}
+              >
+                <ThemedText style={styles.sheetItemText}>{t('moderation.blockedUsers')}</ThemedText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.sheetItem, { borderColor: colors.border }]}
+                onPress={() => {
+                  setShowHeaderSheet(false);
+                  // Let the sheet finish closing so the confirmation is not swallowed on iOS.
+                  setTimeout(handleDeleteAccount, 400);
+                }}
+                disabled={isDeletingAccount}
+              >
+                <ThemedText style={[styles.sheetItemText, { color: isDark ? "#FCA5A5" : "#DC2626" }]}>
+                  {isDeletingAccount ? t('settings.deleting') : t('settings.deleteAccount')}
+                </ThemedText>
+              </TouchableOpacity>
             </Pressable>
           </Pressable>
         </Modal>
@@ -4156,6 +4187,30 @@ export default function ProfileScreen() {
             >
               <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>
                 {t('profile.logout')}
+              </ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sheetItem, { borderColor: colors.border }]}
+              onPress={() => {
+                setShowHeaderSheet(false);
+                router.push("/settings/privacy" as any);
+              }}
+            >
+              <ThemedText style={styles.sheetItemText}>{t('moderation.blockedUsers')}</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.sheetItem, { borderColor: colors.border }]}
+              onPress={() => {
+                setShowHeaderSheet(false);
+                // Let the sheet finish closing so the confirmation is not swallowed on iOS.
+                setTimeout(handleDeleteAccount, 400);
+              }}
+              disabled={isDeletingAccount}
+            >
+              <ThemedText style={[styles.sheetItemText, { color: errorColor }]}>
+                {isDeletingAccount ? t('settings.deleting') : t('settings.deleteAccount')}
               </ThemedText>
             </TouchableOpacity>
           </Pressable>

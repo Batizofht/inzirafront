@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMyPrivacySettings, updateMyPrivacySettings } from '@/lib/api-privacy';
 import { apiRequest } from '@/lib/api-client';
 import { clearLocalAuthSession } from '@/lib/userPreference';
+import { clearBlockedUsersCache, fetchBlockedUsers, unblockUser, type BlockedUser } from '@/lib/api-moderation';
 
 export default function PrivacyScreen() {
   const theme = useResolvedTheme();
@@ -45,6 +46,25 @@ export default function PrivacyScreen() {
   const [pwdError, setPwdError] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[] | null>(null);
+  const [unblockingId, setUnblockingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBlockedUsers().then(setBlockedUsers).catch(() => setBlockedUsers([]));
+  }, []);
+
+  const handleUnblock = async (userId: string) => {
+    setUnblockingId(userId);
+    try {
+      await unblockUser(userId);
+      setBlockedUsers((prev) => (prev || []).filter((b) => b.blockedId !== userId));
+    } catch {
+      // Keep the row so the user can retry.
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -185,7 +205,44 @@ export default function PrivacyScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.deleteButton} onPress={() => setShowDeleteModal(true)}>
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>{t('moderation.blockedUsers')}</ThemedText>
+          <ThemedText style={[styles.subLabel, { color: colors.icon, marginBottom: 12 }]}>{t('moderation.blockedUsersDesc')}</ThemedText>
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {blockedUsers === null ? (
+              <View style={styles.row}>
+                <View style={{ height: 14, width: '50%', borderRadius: 6, backgroundColor: skeletonBase }} />
+              </View>
+            ) : blockedUsers.length === 0 ? (
+              <View style={styles.row}>
+                <ThemedText style={[styles.subLabel, { color: colors.icon }]}>{t('moderation.noBlockedUsers')}</ThemedText>
+              </View>
+            ) : (
+              blockedUsers.map((b, idx) => (
+                <View
+                  key={b.id}
+                  style={[
+                    styles.row,
+                    idx < blockedUsers.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+                  ]}
+                >
+                  <ThemedText style={[styles.label, { flex: 1, marginBottom: 0 }]} numberOfLines={1}>
+                    {b.blockedName || t('moderation.thisUser')}
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, { borderColor: colors.border, opacity: unblockingId === b.blockedId ? 0.6 : 1 }]}
+                    onPress={() => handleUnblock(b.blockedId)}
+                    disabled={unblockingId === b.blockedId}
+                  >
+                    <ThemedText style={{ fontWeight: '600', fontSize: 13 }}>{t('moderation.unblock')}</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={() => { setDeleteError(null); setShowDeleteModal(true); }}>
           <ThemedText style={styles.deleteButtonText}>{t('settings.deleteAccount')}</ThemedText>
         </TouchableOpacity>
       </ScrollView>
@@ -195,6 +252,7 @@ export default function PrivacyScreen() {
           <Pressable style={[styles.modalContainer, { backgroundColor: colors.background }]} onPress={() => {}}>
             <ThemedText type="defaultSemiBold" style={[styles.modalTitle, { color: colors.text }]}>{t('settings.confirmDeletion')}</ThemedText>
             <ThemedText style={{ color: colors.icon, marginBottom: 12 }}>{t('settings.deleteAccountDesc')}</ThemedText>
+            {deleteError && <ThemedText style={[styles.errorText, { color: '#DC2626' }]}>{deleteError}</ThemedText>}
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowDeleteModal(false)} disabled={deleting}>
                 <ThemedText style={{ fontWeight: '600' }}>{t('settings.cancel')}</ThemedText>
@@ -204,9 +262,11 @@ export default function PrivacyScreen() {
                 try {
                   await apiRequest('/profile/me', { method: 'DELETE', auth: true });
                   await clearLocalAuthSession();
+                  clearBlockedUsersCache();
+                  setShowDeleteModal(false);
                   router.replace('/auth/login');
-                } catch (e) {
-                  // Optionally show feedback
+                } catch (e: any) {
+                  setDeleteError(e?.message || t('profile.deleteAccountFailed'));
                 } finally {
                   setDeleting(false);
                 }

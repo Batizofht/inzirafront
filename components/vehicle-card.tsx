@@ -12,6 +12,7 @@ import { useResolvedTheme } from '@/hooks/use-resolved-theme';
 import { resolveImageUrl } from '@/lib/image-url';
 import { displayPrice } from '@/lib/currencyConverter';
 import { getUsageStatusColor } from '@/lib/usage-status';
+import { useBlockedUserIds } from '@/lib/api-moderation';
 import type { Vehicle } from '@/types/vehicle';
 
 type Variant = 'grid' | 'compact';
@@ -37,7 +38,18 @@ const formatMileage = (mileage?: string) => {
   return Number.isFinite(n) && n > 0 ? `${n.toLocaleString()} km` : null;
 };
 
-export function VehicleCard({
+/**
+ * Listings from a seller the user has blocked vanish from every feed the moment
+ * the block happens, without waiting for the screen to refetch.
+ */
+export function VehicleCard(props: VehicleCardProps) {
+  const blockedIds = useBlockedUserIds();
+  const sellerId = props.vehicle.sellerId || props.vehicle.seller?.id;
+  if (sellerId && blockedIds.has(sellerId)) return null;
+  return <VehicleCardContent {...props} />;
+}
+
+function VehicleCardContent({
   vehicle,
   isFavorited,
   onPress,

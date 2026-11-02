@@ -17,6 +17,7 @@ import { ZoomableImage } from '@/components/zoomable-image';
 import { Toast } from '@/components/Toast';
 import { GuestPurchaseModal } from '@/components/GuestPurchaseModal';
 import { ShareModal } from '@/components/share-modal';
+import { ReportBlockSheet } from '@/components/report-block-sheet';
 import { fetchVehicleById } from '@/lib/api-vehicles';
 import { fetchFavorites, addFavorite, removeFavorite } from '@/lib/api-favorites';
 import { createContactRequest, fetchMyContactRequests } from '@/lib/api-contact-requests';
@@ -137,6 +138,9 @@ export default function VehicleDetailsScreen() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [isFavorited, setIsFavorited] = useState(false);
   const [isFavLoading, setIsFavLoading] = useState(false);
+  // Report / block sheet (App Store guideline 1.2): flag this listing, or
+  // report / block its seller.
+  const [safetySheet, setSafetySheet] = useState<null | 'listing' | 'seller'>(null);
   // Seeded pages already have something to paint, so don't flash a spinner
   // over content that is present in the HTML.
   const [isLoading, setIsLoading] = useState(!seedVehicle);
@@ -899,14 +903,19 @@ export default function VehicleDetailsScreen() {
                   <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>• {t('vehicleDetails.safetyTipVerifyDocuments')}</ThemedText>
                   <ThemedText style={{ color: colors.icon, fontSize: 12, marginTop: 2 }}>• {t('vehicleDetails.safetyTipAvoidSharingOtp')}</ThemedText>
                   <TouchableOpacity
-                    style={[styles.secondaryButton, { borderColor: '#DC2626', marginTop: 10 }]}
-                    onPress={() =>
-                      router.push(
-                        `/report?targetType=vehicle&targetId=${encodeURIComponent(vehicle.id || id)}&reason=${encodeURIComponent('Scam or Spam')}&description=${encodeURIComponent(`Potential scam reported for listing ${vehicle.title}`)}` as any
-                      )
-                    }>
-                    <ThemedText style={{ color: '#DC2626', fontWeight: '600', textDecorationLine: 'underline' }}>{t('vehicleDetails.reportProblem')}</ThemedText>
+                    style={[styles.secondaryButton, { borderColor: '#DC2626', marginTop: 10, flexDirection: 'row', gap: 8 }]}
+                    onPress={() => setSafetySheet('listing')}>
+                    <IconSymbol name="flag.fill" size={16} color="#DC2626" />
+                    <ThemedText style={{ color: '#DC2626', fontWeight: '600' }}>{t('moderation.reportListing')}</ThemedText>
                   </TouchableOpacity>
+                  {!!(vehicle.sellerId || vehicle.seller?.id) && (
+                    <TouchableOpacity
+                      style={[styles.secondaryButton, { borderColor: '#DC2626', marginTop: 10, flexDirection: 'row', gap: 8 }]}
+                      onPress={() => setSafetySheet('seller')}>
+                      <IconSymbol name="nosign" size={16} color="#DC2626" />
+                      <ThemedText style={{ color: '#DC2626', fontWeight: '600' }}>{t('moderation.reportOrBlockSeller')}</ThemedText>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
@@ -1106,6 +1115,27 @@ export default function VehicleDetailsScreen() {
         onClose={() => setShowShareModal(false)}
         url={`https://inzira.co/vehicle/${vehicle.id || id}`}
         title={vehicle.title}
+      />
+
+      <ReportBlockSheet
+        visible={safetySheet !== null}
+        onClose={() => setSafetySheet(null)}
+        user={
+          vehicle.sellerId || vehicle.seller?.id
+            ? { id: (vehicle.sellerId || vehicle.seller?.id) as string, name: vehicle.sellerName || vehicle.seller?.fullName }
+            : null
+        }
+        content={safetySheet === 'listing' ? { type: 'vehicle', id: vehicle.id || id } : undefined}
+        initialStep={safetySheet === 'listing' ? 'report' : 'menu'}
+        context={{ vehicleId: vehicle.id || id }}
+        onBlocked={() => {
+          // The listing belongs to someone the user just blocked: leave it.
+          setTimeout(() => {
+            setSafetySheet(null);
+            if (router.canGoBack()) router.back();
+            else router.replace('/(tabs)' as any);
+          }, 1800);
+        }}
       />
 
       {!!toast && (

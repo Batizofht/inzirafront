@@ -11,6 +11,8 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { router } from 'expo-router';
 import { loginWithEmail } from '@/lib/userPreference';
 import { isWeb } from '@/lib/platform';
+import { TermsAgreement } from '@/components/terms-agreement';
+import { syncBlockedUsers } from '@/lib/api-moderation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function LoginFormScreen() {
   const { t } = useTranslation();
@@ -36,6 +38,8 @@ export default function LoginFormScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsError, setShowTermsError] = useState(false);
 
   const handleLogin = async () => {
     setError('');
@@ -43,11 +47,17 @@ export default function LoginFormScreen() {
       setError(t('auth.loginForm.errEnterCredentials'));
       return;
     }
+    if (!acceptedTerms) {
+      setShowTermsError(true);
+      setError(t('moderation.terms.required'));
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const user = await loginWithEmail(email.trim(), password);
+      const user = await loginWithEmail(email.trim(), password, true);
       await refreshUser();
+      syncBlockedUsers();
       // Redirect based on role
       if (user.role === 'seller') {
         router.replace('/(tabs)/profile' as any);
@@ -187,8 +197,17 @@ export default function LoginFormScreen() {
           </ThemedText>
         </TouchableOpacity>
 
+        <TermsAgreement
+          checked={acceptedTerms}
+          onToggle={() => {
+            setAcceptedTerms((v) => !v);
+            setShowTermsError(false);
+          }}
+          showError={showTermsError}
+        />
+
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: isLoading ? colors.border : colors.primary }]}
+          style={[styles.button, { backgroundColor: isLoading || !acceptedTerms ? colors.border : colors.primary }]}
           onPress={handleLogin}
           disabled={isLoading}
           activeOpacity={0.8}

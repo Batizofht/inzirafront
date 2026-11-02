@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We use your location to show your current city and country.",
         "ITSAppUsesNonExemptEncryption": false

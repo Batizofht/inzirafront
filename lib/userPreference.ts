@@ -94,6 +94,7 @@ export async function registerUser(payload: {
   sellerType?: 'individual' | 'company';
   isBroker?: boolean;
   accountType?: 'individual' | 'dealer' | 'company';
+  acceptedTerms?: boolean;
 }): Promise<{ userId: string; email: string; role: string }> {
   const response = await apiRequest<{ status: number; data: { userId: string; email: string; role: string } }>('/auth/register', {
     method: 'POST',
@@ -121,10 +122,10 @@ export async function resendOtp(userId: string): Promise<void> {
 }
 
 // Login with email + password
-export async function loginWithEmail(email: string, password: string): Promise<AuthUser> {
+export async function loginWithEmail(email: string, password: string, acceptedTerms?: boolean): Promise<AuthUser> {
   const response = await apiRequest<{ status: number; data: { token: string; user: AuthUser } }>('/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { email, password, acceptedTerms },
   });
   await setAuthSession(response.data.token, response.data.user);
   return response.data.user;

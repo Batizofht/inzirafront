@@ -103,6 +103,11 @@ const UNICODE_MAPPING: Record<string, string> = {
   'dark-mode': '\uE51C',
   'work': '\uE8F9',
   'opacity': '\uEF71',
+  'flag': '\uE153',
+  'block': '\uE14B',
+  'more-horiz': '\uE5D3',
+  'check-box': '\uE834',
+  'check-box-outline-blank': '\uE835',
 };
 
 /**
@@ -211,6 +216,11 @@ const MAPPING = {
   'fuelpump.fill': 'local-gas-station',
   'briefcase.fill': 'work',
   'drop.fill': 'opacity',
+  'flag.fill': 'flag',
+  'nosign': 'block',
+  'ellipsis': 'more-horiz',
+  'checkmark.square.fill': 'check-box',
+  'square': 'check-box-outline-blank',
   // Direct Material Icons fallbacks (when backend sends Material names directly)
   'electric_car': 'electric-car',
   'electric-car': 'electric-car',
